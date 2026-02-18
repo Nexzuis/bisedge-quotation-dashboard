@@ -130,6 +130,22 @@ export const useAuthStore = create<AuthState>()(
               // Non-critical
             }
 
+            // Auto-repair: clear old sync failures and re-enqueue all local data
+            // so previously-blocked entities get synced with the now-valid session
+            try {
+              const { getDb } = await import('../db/DatabaseAdapter');
+              const adapter = getDb() as any;
+              if (typeof adapter.repairStuckSyncs === 'function') {
+                adapter.repairStuckSyncs().then((count: number) => {
+                  console.log(`🔧 Post-login sync repair: ${count} entities re-queued`);
+                }).catch((err: any) => {
+                  console.warn('Post-login sync repair failed:', err);
+                });
+              }
+            } catch {
+              // Non-critical
+            }
+
             return true;
           }
         }

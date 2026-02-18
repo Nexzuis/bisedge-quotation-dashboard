@@ -126,6 +126,21 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
       try {
         const saved = await this.localAdapter.loadQuote(quote.id);
         if (saved) {
+          // Ensure referenced company is enqueued first (FK dependency)
+          if (saved.companyId) {
+            try {
+              const company = await this.localAdapter.getCompany(saved.companyId);
+              if (company) {
+                await syncQueue.enqueue({
+                  type: 'update',
+                  entity: 'company',
+                  entityId: company.id,
+                  data: await this.prepareCompanyForSupabase(company as StoredCompany),
+                });
+              }
+            } catch { /* company sync is best-effort here */ }
+          }
+
           await syncQueue.enqueue({
             type: isNew ? 'create' : 'update',
             entity: 'quote',
@@ -814,7 +829,7 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
 
     let enqueued = 0;
 
-    // Re-enqueue companies
+    // Re-enqueue companies (priority 0 — must sync first)
     const companies = await this.localAdapter.listCompanies();
     for (const company of companies) {
       await syncQueue.enqueue({
@@ -825,7 +840,7 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
       });
       enqueued++;
 
-      // Re-enqueue contacts for this company
+      // Re-enqueue contacts for this company (priority 1)
       const contacts = await this.localAdapter.getContactsByCompany(company.id);
       for (const contact of contacts) {
         await syncQueue.enqueue({
@@ -835,6 +850,25 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
           data: this.prepareContactForSupabase(contact),
         });
         enqueued++;
+      }
+    }
+
+    // Re-enqueue all local quotes (priority 3 — processed after companies)
+    const allQuotes = await db.quotes.toArray();
+    for (const storedQuote of allQuotes) {
+      try {
+        const quote = await this.localAdapter.loadQuote(storedQuote.id);
+        if (quote) {
+          await syncQueue.enqueue({
+            type: 'update',
+            entity: 'quote',
+            entityId: quote.id,
+            data: await this.prepareQuoteForSupabase(quote),
+          });
+          enqueued++;
+        }
+      } catch {
+        // Skip quotes that can't be loaded
       }
     }
 

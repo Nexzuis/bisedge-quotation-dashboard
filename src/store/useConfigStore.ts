@@ -22,29 +22,32 @@ export function getConfigDefaults(): {
   leaseTerm: number;
   telematicsCost: number;
   residualTruckPct: number;
+  discountPct: number;
 } {
   const { defaultValues, isLoaded } = useConfigStore.getState();
   if (!isLoaded) {
     return {
-      factoryROE: 19.20,
-      customerROE: 20.60,
+      factoryROE: 19.73,
+      customerROE: 19.73,
       interestRate: 9.5,
       cpiRate: 5.5,
       operatingHours: 180,
       leaseTerm: 60,
       telematicsCost: 250,
       residualTruckPct: 15,
+      discountPct: 66,
     };
   }
   return {
-    factoryROE: parseFloat(defaultValues.defaultFactoryROE || defaultValues.defaultROE || '19.20'),
-    customerROE: parseFloat(defaultValues.defaultROE || '20.60'),
+    factoryROE: parseFloat(defaultValues.defaultFactoryROE || defaultValues.defaultROE || '19.73'),
+    customerROE: parseFloat(defaultValues.defaultROE || '19.73'),
     interestRate: parseFloat(defaultValues.defaultInterestRate || '9.5'),
     cpiRate: parseFloat(defaultValues.defaultCPIRate || '5.5'),
     operatingHours: parseInt(defaultValues.defaultOperatingHours || '180', 10),
     leaseTerm: parseInt(defaultValues.defaultLeaseTerm || '60', 10),
     telematicsCost: parseFloat(defaultValues.defaultTelematicsCost || '250'),
     residualTruckPct: parseFloat(defaultValues.defaultResidualTruckPct || '15'),
+    discountPct: parseFloat(defaultValues.defaultDiscountPct || '66'),
   };
 }
 

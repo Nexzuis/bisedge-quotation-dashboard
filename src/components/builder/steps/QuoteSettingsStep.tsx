@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { Info, AlertTriangle } from 'lucide-react';
 import { useQuoteStore } from '../../../store/useQuoteStore';
+import { getConfigDefaults } from '../../../store/useConfigStore';
 import { useBuilder } from '../BuilderContext';
 import { StepHeader } from '../shared/StepHeader';
 import { Input } from '../../ui/Input';
@@ -33,6 +34,18 @@ export function QuoteSettingsStep() {
 
   const roeWarning = customerROE > 0 && factoryROE > 0 && customerROE < factoryROE;
 
+  const defaults = getConfigDefaults();
+
+  const confirmChange = useCallback((fieldName: string, newValue: number, defaultValue: number, applyFn: (v: number) => void) => {
+    if (newValue !== defaultValue) {
+      const confirmed = window.confirm(
+        `Are you sure you want to change ${fieldName} from the default (${defaultValue}) to ${newValue}?`
+      );
+      if (!confirmed) return;
+    }
+    applyFn(newValue);
+  }, []);
+
   // Always allow proceed from settings (values have defaults)
   useEffect(() => {
     setCanProceed(true);
@@ -57,20 +70,30 @@ export function QuoteSettingsStep() {
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
-              label="Factory ROE (EUR → ZAR)"
+              label={`Factory ROE (EUR → ZAR) [default: ${defaults.factoryROE}]`}
               type="number"
               step="0.01"
               min="0"
               value={factoryROE || ''}
               onChange={(e) => setFactoryROE(parseFloat(e.target.value) || 0)}
+              onBlur={() => {
+                if (factoryROE !== defaults.factoryROE) {
+                  confirmChange('Factory ROE', factoryROE, defaults.factoryROE, setFactoryROE);
+                }
+              }}
             />
             <Input
-              label="Customer ROE (EUR → ZAR)"
+              label={`Customer ROE (EUR → ZAR) [default: ${defaults.customerROE}]`}
               type="number"
               step="0.01"
               min="0"
               value={customerROE || ''}
               onChange={(e) => setCustomerROE(parseFloat(e.target.value) || 0)}
+              onBlur={() => {
+                if (customerROE !== defaults.customerROE) {
+                  confirmChange('Customer ROE', customerROE, defaults.customerROE, setCustomerROE);
+                }
+              }}
               error={roeWarning ? 'Customer ROE should not be lower than Factory ROE' : undefined}
             />
           </div>
@@ -87,22 +110,32 @@ export function QuoteSettingsStep() {
           <h3 className="text-sm font-semibold text-surface-300 mb-3">Pricing Parameters</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
-              label="Discount %"
+              label={`Discount % [default: ${defaults.discountPct}%]`}
               type="number"
               step="0.5"
               min="0"
               max="100"
               value={discountPct || ''}
               onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
+              onBlur={() => {
+                if (discountPct !== defaults.discountPct) {
+                  confirmChange('Discount %', discountPct, defaults.discountPct, setDiscount);
+                }
+              }}
             />
             <Input
-              label="Annual Interest Rate %"
+              label={`Annual Interest Rate % [default: ${defaults.interestRate}%]`}
               type="number"
               step="0.25"
               min="0"
               max="100"
               value={annualInterestRate || ''}
               onChange={(e) => setInterestRate(parseFloat(e.target.value) || 0)}
+              onBlur={() => {
+                if (annualInterestRate !== defaults.interestRate) {
+                  confirmChange('Interest Rate', annualInterestRate, defaults.interestRate, setInterestRate);
+                }
+              }}
             />
           </div>
         </div>

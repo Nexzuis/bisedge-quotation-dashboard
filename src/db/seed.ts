@@ -186,12 +186,14 @@ export async function seedDatabaseIfEmpty(): Promise<void> {
       console.log('Seeding default settings...');
       await db.settings.bulkPut([
         { key: 'system_initialized', value: new Date().toISOString() },
-        { key: 'defaultROE', value: '20.60' },
+        { key: 'defaultROE', value: '19.73' },
+        { key: 'defaultFactoryROE', value: '19.73' },
         { key: 'defaultInterestRate', value: '9.5' },
         { key: 'defaultCPIRate', value: '5.5' },
         { key: 'defaultOperatingHours', value: '180' },
         { key: 'defaultLeaseTerm', value: '60' },
         { key: 'defaultTelematicsCost', value: '250' },
+        { key: 'defaultDiscountPct', value: '66' },
       ]);
     } else {
       console.log(`Settings already present (${settingsCount}), skipping...`);

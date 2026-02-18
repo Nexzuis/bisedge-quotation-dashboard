@@ -1,7 +1,9 @@
+import { useCallback } from 'react';
 import { Settings, DollarSign, Calendar } from 'lucide-react';
 import { Panel } from '../ui/Panel';
 import { CardHeader } from '../ui/Card';
 import { useQuoteStore } from '../../store/useQuoteStore';
+import { getConfigDefaults } from '../../store/useConfigStore';
 import type { LeaseTermMonths } from '../../types/quote';
 
 export function SettingsPanel() {
@@ -17,6 +19,21 @@ export function SettingsPanel() {
   const setInterestRate = useQuoteStore((state) => state.setInterestRate);
   const setDefaultLeaseTermMonths = useQuoteStore((state) => state.setDefaultLeaseTermMonths);
 
+  const defaults = getConfigDefaults();
+
+  const confirmChange = useCallback((fieldName: string, newValue: number, defaultValue: number, applyFn: (v: number) => void) => {
+    if (newValue !== defaultValue) {
+      const confirmed = window.confirm(
+        `Are you sure you want to change ${fieldName} from the default (${defaultValue}) to ${newValue}?`
+      );
+      if (!confirmed) {
+        applyFn(defaultValue);
+        return;
+      }
+    }
+    applyFn(newValue);
+  }, []);
+
   return (
     <Panel accent="none">
       <CardHeader icon={Settings} title="Quote Settings" />
@@ -30,16 +47,20 @@ export function SettingsPanel() {
           </h3>
 
           <div>
-            <label className="block text-sm text-surface-400 mb-1">Factory ROE</label>
+            <label className="block text-sm text-surface-400 mb-1">Factory ROE [default: {defaults.factoryROE}]</label>
             <input
               type="number"
               step="0.01"
               value={factoryROE}
               onChange={(e) => {
                 const val = parseFloat(e.target.value);
-                // FIXED: Only update when value is valid and positive
                 if (!isNaN(val) && val > 0) {
                   setFactoryROE(val);
+                }
+              }}
+              onBlur={() => {
+                if (factoryROE !== defaults.factoryROE) {
+                  confirmChange('Factory ROE', factoryROE, defaults.factoryROE, setFactoryROE);
                 }
               }}
               className="input w-full"
@@ -47,16 +68,20 @@ export function SettingsPanel() {
           </div>
 
           <div>
-            <label className="block text-sm text-surface-400 mb-1">Customer ROE</label>
+            <label className="block text-sm text-surface-400 mb-1">Customer ROE [default: {defaults.customerROE}]</label>
             <input
               type="number"
               step="0.01"
               value={customerROE}
               onChange={(e) => {
                 const val = parseFloat(e.target.value);
-                // FIXED: Only update when value is valid and positive
                 if (!isNaN(val) && val > 0) {
                   setCustomerROE(val);
+                }
+              }}
+              onBlur={() => {
+                if (customerROE !== defaults.customerROE) {
+                  confirmChange('Customer ROE', customerROE, defaults.customerROE, setCustomerROE);
                 }
               }}
               className="input w-full"
@@ -75,7 +100,7 @@ export function SettingsPanel() {
           <h3 className="text-sm font-semibold text-surface-200">Pricing</h3>
 
           <div>
-            <label className="block text-sm text-surface-400 mb-1">Discount %</label>
+            <label className="block text-sm text-surface-400 mb-1">Discount % [default: {defaults.discountPct}%]</label>
             <input
               type="number"
               step="0.1"
@@ -83,21 +108,30 @@ export function SettingsPanel() {
               max="100"
               value={discountPct}
               onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
+              onBlur={() => {
+                if (discountPct !== defaults.discountPct) {
+                  confirmChange('Discount %', discountPct, defaults.discountPct, setDiscount);
+                }
+              }}
               className="input w-full"
             />
           </div>
 
           <div>
-            <label className="block text-sm text-surface-400 mb-1">Annual Interest Rate %</label>
+            <label className="block text-sm text-surface-400 mb-1">Annual Interest Rate % [default: {defaults.interestRate}%]</label>
             <input
               type="number"
               step="0.1"
               value={annualInterestRate}
               onChange={(e) => {
                 const val = parseFloat(e.target.value);
-                // FIXED: Only update when value is valid and non-negative
                 if (!isNaN(val) && val >= 0) {
                   setInterestRate(val);
+                }
+              }}
+              onBlur={() => {
+                if (annualInterestRate !== defaults.interestRate) {
+                  confirmChange('Interest Rate', annualInterestRate, defaults.interestRate, setInterestRate);
                 }
               }}
               className="input w-full"

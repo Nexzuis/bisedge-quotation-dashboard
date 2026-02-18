@@ -1,0 +1,1166 @@
+/**
+ * Supabase Database Adapter
+ *
+ * Implements IDatabaseAdapter using Supabase as the backend.
+ * Handles cloud storage, real-time sync, and role-based access control.
+ */
+
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import type { QuoteState } from '../types/quote';
+import type {
+  SaveResult,
+  QuoteFilter,
+  PaginationOptions,
+  PaginatedResult,
+  StoredQuote,
+  StoredCustomer,
+  StoredTemplate,
+  StoredCompany,
+  StoredContact,
+  StoredActivity,
+  StoredNotification,
+  AuditLogEntry,
+} from './interfaces';
+import type { IDatabaseAdapter } from './DatabaseAdapter';
+import { sanitizePostgrestValue } from '../utils/sanitize';
+
+/**
+ * Cloud database adapter using Supabase
+ */
+export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
+  constructor() {
+    if (!isSupabaseConfigured()) {
+      throw new Error(
+        'Supabase is not properly configured. ' +
+        'Please check your VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local'
+      );
+    }
+  }
+
+  // ===== Quote Operations =====
+  async saveQuote(quote: QuoteState): Promise<SaveResult> {
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return {
+          success: false,
+          id: quote.id,
+          version: quote.version,
+          error: 'User not authenticated',
+        };
+      }
+
+      // Check for version conflicts (optimistic locking)
+      const { data: existing } = await supabase
+        .from('quotes')
+        .select('version')
+        .eq('id', quote.id)
+        .single();
+
+      if (existing && existing.version !== quote.version) {
+        return {
+          success: false,
+          id: quote.id,
+          version: existing.version,
+          error: 'Version conflict - quote was modified remotely',
+        };
+      }
+
+      // Prepare quote for database
+      const newVersion = quote.version + 1;
+      const dbQuote = {
+        ...quote,
+        version: newVersion,
+        updated_at: new Date().toISOString(),
+        // Ensure user ownership
+        created_by: quote.id ? existing?.created_by || user.id : user.id,
+        // Serialize arrays/objects to JSON
+        client_address: JSON.stringify(quote.clientAddress),
+        slots: JSON.stringify(quote.slots),
+        // Convert Date objects to ISO strings
+        quote_date: quote.quoteDate.toISOString(),
+        created_at: quote.createdAt.toISOString(),
+        submitted_at: quote.submittedAt?.toISOString() || null,
+        approved_at: quote.approvedAt?.toISOString() || null,
+      };
+
+      // Upsert quote
+      const { error } = await supabase
+        .from('quotes')
+        .upsert(dbQuote, {
+          onConflict: 'id',
+        });
+
+      if (error) {
+        console.error('Supabase error saving quote:', error);
+        return {
+          success: false,
+          id: quote.id,
+          version: quote.version,
+          error: error.message,
+        };
+      }
+
+      // Log audit entry
+      await this.logAudit({
+        userId: user.id,
+        action: existing ? 'update' : 'create',
+        entityType: 'quote',
+        entityId: quote.id,
+        changes: {},
+      });
+
+      return {
+        success: true,
+        id: quote.id,
+        version: newVersion,
+      };
+    } catch (error) {
+      console.error('Error saving quote to Supabase:', error);
+      return {
+        success: false,
+        id: quote.id,
+        version: quote.version,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  async loadQuote(id: string): Promise<QuoteState | null> {
+    try {
+      const { data, error } = await supabase
+        .from('quotes')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        console.error('Error loading quote:', error);
+        return null;
+      }
+
+      if (!data) return null;
+
+      // Convert from database format to QuoteState
+      return this.dbQuoteToQuoteState(data);
+    } catch (error) {
+      console.error('Error loading quote from Supabase:', error);
+      return null;
+    }
+  }
+
+  async listQuotes(
+    options: PaginationOptions,
+    filters?: QuoteFilter
+  ): Promise<PaginatedResult<StoredQuote>> {
+    try {
+      // Build query with role-based filtering (RLS policies handle this)
+      let query = supabase.from('quotes').select('*', { count: 'exact' });
+
+      // Apply filters
+      if (filters?.status) {
+        query = query.eq('status', filters.status);
+      }
+      if (filters?.customerName) {
+        query = query.ilike('client_name', `%${filters.customerName}%`);
+      }
+      if (filters?.dateFrom) {
+        query = query.gte('created_at', filters.dateFrom.toISOString());
+      }
+      if (filters?.dateTo) {
+        query = query.lte('created_at', filters.dateTo.toISOString());
+      }
+
+      // Apply sorting
+      const sortBy = options.sortBy || 'created_at';
+      const ascending = options.sortOrder === 'asc';
+      query = query.order(sortBy, { ascending });
+
+      // Apply pagination
+      const offset = (options.page - 1) * options.pageSize;
+      query = query.range(offset, offset + options.pageSize - 1);
+
+      const { data, count, error } = await query;
+
+      if (error) {
+        console.error('Error listing quotes:', error);
+        return {
+          items: [],
+          total: 0,
+          page: options.page,
+          pageSize: options.pageSize,
+          totalPages: 0,
+        };
+      }
+
+      return {
+        items: (data || []) as StoredQuote[],
+        total: count || 0,
+        page: options.page,
+        pageSize: options.pageSize,
+        totalPages: Math.ceil((count || 0) / options.pageSize),
+      };
+    } catch (error) {
+      console.error('Error listing quotes from Supabase:', error);
+      return {
+        items: [],
+        total: 0,
+        page: options.page,
+        pageSize: options.pageSize,
+        totalPages: 0,
+      };
+    }
+  }
+
+  async searchQuotes(query: string): Promise<StoredQuote[]> {
+    try {
+      const { data, error } = await supabase
+        .from('quotes')
+        .select('*')
+        .or(`quote_ref.ilike.%${sanitizePostgrestValue(query)}%,client_name.ilike.%${sanitizePostgrestValue(query)}%,contact_name.ilike.%${sanitizePostgrestValue(query)}%`)
+        .limit(20);
+
+      if (error) {
+        console.error('Error searching quotes:', error);
+        return [];
+      }
+
+      return (data || []) as StoredQuote[];
+    } catch (error) {
+      console.error('Error searching quotes from Supabase:', error);
+      return [];
+    }
+  }
+
+  async duplicateQuote(id: string): Promise<SaveResult> {
+    try {
+      const original = await this.loadQuote(id);
+      if (!original) {
+        return {
+          success: false,
+          id,
+          version: 0,
+          error: 'Quote not found',
+        };
+      }
+
+      const nextRef = await this.getNextQuoteRef();
+
+      const newQuote: QuoteState = {
+        ...original,
+        id: crypto.randomUUID(),
+        quoteRef: nextRef,
+        version: 1,
+        status: 'draft',
+        approvalStatus: 'draft',
+        submittedBy: '',
+        submittedAt: null,
+        approvedBy: '',
+        approvedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      return await this.saveQuote(newQuote);
+    } catch (error) {
+      console.error('Error duplicating quote:', error);
+      return {
+        success: false,
+        id,
+        version: 0,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  async createRevision(id: string): Promise<SaveResult> {
+    try {
+      const original = await this.loadQuote(id);
+      if (!original) {
+        return {
+          success: false,
+          id,
+          version: 0,
+          error: 'Quote not found',
+        };
+      }
+
+      const parts = original.quoteRef.split('.');
+      const baseRef = parts[0];
+      const revision = parts.length > 1 ? parseInt(parts[1]) : 0;
+      const newRevision = revision + 1;
+      const newRef = `${baseRef}.${newRevision}`;
+
+      const newQuote: QuoteState = {
+        ...original,
+        id: crypto.randomUUID(),
+        quoteRef: newRef,
+        version: 1,
+        status: 'draft',
+        approvalStatus: 'draft',
+        submittedBy: '',
+        submittedAt: null,
+        approvedBy: '',
+        approvedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      return await this.saveQuote(newQuote);
+    } catch (error) {
+      console.error('Error creating revision:', error);
+      return {
+        success: false,
+        id,
+        version: 0,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  async deleteQuote(id: string): Promise<void> {
+    try {
+      const { error } = await supabase.from('quotes').delete().eq('id', id);
+
+      if (error) {
+        console.error('Error deleting quote:', error);
+        throw new Error(error.message);
+      }
+    } catch (error) {
+      console.error('Error deleting quote from Supabase:', error);
+      throw error;
+    }
+  }
+
+  async getNextQuoteRef(): Promise<string> {
+    try {
+      // Get all quotes and find max base reference number
+      const { data, error } = await supabase
+        .from('quotes')
+        .select('quote_ref')
+        .order('quote_ref', { ascending: false })
+        .limit(100);
+
+      if (error) {
+        console.error('Error getting next quote ref:', error);
+        return '2140.0';
+      }
+
+      if (!data || data.length === 0) {
+        return '2140.0';
+      }
+
+      let maxRef = 2139;
+
+      data.forEach((quote: any) => {
+        const parts = quote.quote_ref.split('.');
+        const baseNum = parseInt(parts[0]);
+        if (!isNaN(baseNum) && baseNum > maxRef) {
+          maxRef = baseNum;
+        }
+      });
+
+      return `${maxRef + 1}.0`;
+    } catch (error) {
+      console.error('Error getting next quote ref from Supabase:', error);
+      return '2140.0';
+    }
+  }
+
+  async getMostRecentQuote(): Promise<QuoteState | null> {
+    try {
+      const { data, error } = await supabase
+        .from('quotes')
+        .select('*')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error || !data) return null;
+
+      return this.dbQuoteToQuoteState(data);
+    } catch (error) {
+      console.error('Error getting most recent quote:', error);
+      return null;
+    }
+  }
+
+  // ===== Customer Operations =====
+  async saveCustomer(customer: Omit<StoredCustomer, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const id = crypto.randomUUID();
+      const now = new Date().toISOString();
+
+      const { error } = await supabase.from('customers').insert({
+        id,
+        name: customer.name,
+        contact_person: customer.contactPerson,
+        contact_email: customer.email,
+        contact_phone: customer.phone,
+        address: customer.address ? JSON.stringify(customer.address) : null,
+        created_by: user.id,
+        created_at: now,
+        updated_at: now,
+      });
+
+      if (error) {
+        console.error('Error saving customer:', error);
+        throw new Error(error.message);
+      }
+
+      return id;
+    } catch (error) {
+      console.error('Error saving customer to Supabase:', error);
+      throw error;
+    }
+  }
+
+  async searchCustomers(query: string): Promise<StoredCustomer[]> {
+    try {
+      const { data, error } = await supabase
+        .from('customers')
+        .select('*')
+        .or(`name.ilike.%${sanitizePostgrestValue(query)}%,contact_person.ilike.%${sanitizePostgrestValue(query)}%,contact_email.ilike.%${sanitizePostgrestValue(query)}%`)
+        .limit(20);
+
+      if (error) {
+        console.error('Error searching customers:', error);
+        return [];
+      }
+
+      return (data || []) as StoredCustomer[];
+    } catch (error) {
+      console.error('Error searching customers from Supabase:', error);
+      return [];
+    }
+  }
+
+  async getCustomer(id: string): Promise<StoredCustomer | null> {
+    try {
+      const { data, error } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error || !data) return null;
+
+      return data as StoredCustomer;
+    } catch (error) {
+      console.error('Error getting customer:', error);
+      return null;
+    }
+  }
+
+  async listCustomers(): Promise<StoredCustomer[]> {
+    try {
+      const { data, error } = await supabase
+        .from('customers')
+        .select('*')
+        .order('name', { ascending: true });
+
+      if (error) {
+        console.error('Error listing customers:', error);
+        return [];
+      }
+
+      return (data || []) as StoredCustomer[];
+    } catch (error) {
+      console.error('Error listing customers from Supabase:', error);
+      return [];
+    }
+  }
+
+  // ===== User Operations =====
+  async getUser(id: string): Promise<any | null> {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error || !data) return null;
+
+      return data;
+    } catch (error) {
+      console.error('Error getting user:', error);
+      return null;
+    }
+  }
+
+  async listUsers(): Promise<any[]> {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('is_active', true)
+        .order('full_name', { ascending: true });
+
+      if (error) {
+        console.error('Error listing users:', error);
+        return [];
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Error listing users from Supabase:', error);
+      return [];
+    }
+  }
+
+  // ===== User Query Operations =====
+  async getUsersByRole(role: string): Promise<any[]> {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('role', role)
+        .eq('is_active', true);
+
+      if (error) {
+        console.error('Error getting users by role:', error);
+        return [];
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Error getting users by role from Supabase:', error);
+      return [];
+    }
+  }
+
+  // ===== Configuration Operations =====
+  async getCommissionTiers(): Promise<any[]> {
+    try {
+      const { data, error } = await supabase
+        .from('commission_tiers')
+        .select('*')
+        .order('min_margin', { ascending: true });
+
+      if (error) {
+        console.error('Error getting commission tiers:', error);
+        return [];
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Error getting commission tiers from Supabase:', error);
+      return [];
+    }
+  }
+
+  async getResidualCurves(): Promise<any[]> {
+    try {
+      const { data, error } = await supabase
+        .from('residual_curves')
+        .select('*');
+
+      if (error) {
+        console.error('Error getting residual curves:', error);
+        return [];
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Error getting residual curves from Supabase:', error);
+      return [];
+    }
+  }
+
+  // ===== Audit Operations =====
+  async logAudit(entry: Omit<AuditLogEntry, 'id' | 'timestamp'>): Promise<void> {
+    try {
+      await supabase.from('audit_log').insert({
+        user_id: entry.userId,
+        action: entry.action,
+        entity_type: entry.entityType,
+        entity_id: entry.entityId,
+        changes: entry.changes ? JSON.stringify(entry.changes) : null,
+      });
+    } catch (error) {
+      console.error('Error logging audit entry:', error);
+    }
+  }
+
+  async getAuditLog(entityType: string, entityId: string): Promise<AuditLogEntry[]> {
+    try {
+      const { data, error } = await supabase
+        .from('audit_log')
+        .select('*')
+        .eq('entity_type', entityType)
+        .eq('entity_id', entityId)
+        .order('timestamp', { ascending: false });
+
+      if (error) {
+        console.error('Error getting audit log:', error);
+        return [];
+      }
+
+      return (data || []) as AuditLogEntry[];
+    } catch (error) {
+      console.error('Error getting audit log from Supabase:', error);
+      return [];
+    }
+  }
+
+  // ===== Template Operations =====
+  async saveTemplate(template: Omit<StoredTemplate, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+    try {
+      const id = crypto.randomUUID();
+      const now = new Date().toISOString();
+
+      const { error } = await supabase.from('templates').insert({
+        id,
+        type: template.type,
+        name: template.name,
+        content: template.content,
+        is_default: template.isDefault,
+        created_at: now,
+        updated_at: now,
+      });
+
+      if (error) throw new Error(error.message);
+      return id;
+    } catch (error) {
+      console.error('Error saving template:', error);
+      throw error;
+    }
+  }
+
+  async getTemplatesByType(type: StoredTemplate['type']): Promise<StoredTemplate[]> {
+    try {
+      const { data, error } = await supabase
+        .from('templates')
+        .select('*')
+        .eq('type', type)
+        .order('name', { ascending: true });
+
+      if (error) {
+        console.error('Error getting templates:', error);
+        return [];
+      }
+
+      return (data || []).map(this.dbTemplateToStored);
+    } catch (error) {
+      console.error('Error getting templates from Supabase:', error);
+      return [];
+    }
+  }
+
+  async getDefaultTemplate(type: StoredTemplate['type']): Promise<StoredTemplate | null> {
+    try {
+      const { data, error } = await supabase
+        .from('templates')
+        .select('*')
+        .eq('type', type)
+        .eq('is_default', true)
+        .limit(1)
+        .single();
+
+      if (error || !data) return null;
+      return this.dbTemplateToStored(data);
+    } catch (error) {
+      console.error('Error getting default template:', error);
+      return null;
+    }
+  }
+
+  async deleteTemplate(id: string): Promise<void> {
+    try {
+      const { error } = await supabase.from('templates').delete().eq('id', id);
+      if (error) throw new Error(error.message);
+    } catch (error) {
+      console.error('Error deleting template:', error);
+      throw error;
+    }
+  }
+
+  // ===== Company Operations (CRM) =====
+  async saveCompany(company: Omit<StoredCompany, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+    try {
+      const id = crypto.randomUUID();
+      const now = new Date().toISOString();
+
+      const { error } = await supabase.from('companies').insert({
+        id,
+        name: company.name,
+        trading_name: company.tradingName || '',
+        registration_number: company.registrationNumber || '',
+        vat_number: company.vatNumber || '',
+        industry: company.industry || '',
+        website: company.website || '',
+        address: company.address || [],
+        city: company.city || '',
+        province: company.province || '',
+        postal_code: company.postalCode || '',
+        country: company.country || 'South Africa',
+        phone: company.phone || '',
+        email: company.email || '',
+        pipeline_stage: company.pipelineStage || 'lead',
+        assigned_to: company.assignedTo || null,
+        estimated_value: company.estimatedValue || 0,
+        credit_limit: company.creditLimit || 0,
+        payment_terms: company.paymentTerms || 30,
+        tags: company.tags || [],
+        notes: company.notes || '',
+        created_at: now,
+        updated_at: now,
+      });
+
+      if (error) throw new Error(error.message);
+      return id;
+    } catch (error) {
+      console.error('Error saving company:', error);
+      throw error;
+    }
+  }
+
+  async updateCompany(id: string, updates: Partial<StoredCompany>): Promise<void> {
+    try {
+      const dbUpdates: Record<string, any> = { updated_at: new Date().toISOString() };
+      if (updates.name !== undefined) dbUpdates.name = updates.name;
+      if (updates.tradingName !== undefined) dbUpdates.trading_name = updates.tradingName;
+      if (updates.registrationNumber !== undefined) dbUpdates.registration_number = updates.registrationNumber;
+      if (updates.vatNumber !== undefined) dbUpdates.vat_number = updates.vatNumber;
+      if (updates.industry !== undefined) dbUpdates.industry = updates.industry;
+      if (updates.website !== undefined) dbUpdates.website = updates.website;
+      if (updates.address !== undefined) dbUpdates.address = updates.address;
+      if (updates.city !== undefined) dbUpdates.city = updates.city;
+      if (updates.province !== undefined) dbUpdates.province = updates.province;
+      if (updates.postalCode !== undefined) dbUpdates.postal_code = updates.postalCode;
+      if (updates.country !== undefined) dbUpdates.country = updates.country;
+      if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
+      if (updates.email !== undefined) dbUpdates.email = updates.email;
+      if (updates.pipelineStage !== undefined) dbUpdates.pipeline_stage = updates.pipelineStage;
+      if (updates.assignedTo !== undefined) dbUpdates.assigned_to = updates.assignedTo || null;
+      if (updates.estimatedValue !== undefined) dbUpdates.estimated_value = updates.estimatedValue;
+      if (updates.creditLimit !== undefined) dbUpdates.credit_limit = updates.creditLimit;
+      if (updates.paymentTerms !== undefined) dbUpdates.payment_terms = updates.paymentTerms;
+      if (updates.tags !== undefined) dbUpdates.tags = updates.tags;
+      if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+
+      const { error } = await supabase.from('companies').update(dbUpdates).eq('id', id);
+      if (error) throw new Error(error.message);
+    } catch (error) {
+      console.error('Error updating company:', error);
+      throw error;
+    }
+  }
+
+  async getCompany(id: string): Promise<StoredCompany | null> {
+    try {
+      const { data, error } = await supabase
+        .from('companies')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error || !data) return null;
+      return this.dbCompanyToStored(data);
+    } catch (error) {
+      console.error('Error getting company:', error);
+      return null;
+    }
+  }
+
+  async listCompanies(): Promise<StoredCompany[]> {
+    try {
+      const { data, error } = await supabase
+        .from('companies')
+        .select('*')
+        .order('name', { ascending: true });
+
+      if (error) {
+        console.error('Error listing companies:', error);
+        return [];
+      }
+
+      return (data || []).map(this.dbCompanyToStored);
+    } catch (error) {
+      console.error('Error listing companies from Supabase:', error);
+      return [];
+    }
+  }
+
+  async searchCompanies(query: string): Promise<StoredCompany[]> {
+    try {
+      const { data, error } = await supabase
+        .from('companies')
+        .select('*')
+        .or(`name.ilike.%${sanitizePostgrestValue(query)}%,trading_name.ilike.%${sanitizePostgrestValue(query)}%,email.ilike.%${sanitizePostgrestValue(query)}%`)
+        .limit(20);
+
+      if (error) {
+        console.error('Error searching companies:', error);
+        return [];
+      }
+
+      return (data || []).map(this.dbCompanyToStored);
+    } catch (error) {
+      console.error('Error searching companies from Supabase:', error);
+      return [];
+    }
+  }
+
+  async deleteCompany(id: string): Promise<void> {
+    try {
+      const { error } = await supabase.from('companies').delete().eq('id', id);
+      if (error) throw new Error(error.message);
+    } catch (error) {
+      console.error('Error deleting company:', error);
+      throw error;
+    }
+  }
+
+  // ===== Contact Operations (CRM) =====
+  async saveContact(contact: Omit<StoredContact, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+    try {
+      const id = crypto.randomUUID();
+      const now = new Date().toISOString();
+
+      const { error } = await supabase.from('contacts').insert({
+        id,
+        company_id: contact.companyId,
+        first_name: contact.firstName,
+        last_name: contact.lastName || '',
+        title: contact.title || '',
+        email: contact.email || '',
+        phone: contact.phone || '',
+        is_primary: contact.isPrimary || false,
+        created_at: now,
+        updated_at: now,
+      });
+
+      if (error) throw new Error(error.message);
+      return id;
+    } catch (error) {
+      console.error('Error saving contact:', error);
+      throw error;
+    }
+  }
+
+  async updateContact(id: string, updates: Partial<StoredContact>): Promise<void> {
+    try {
+      const dbUpdates: Record<string, any> = { updated_at: new Date().toISOString() };
+      if (updates.firstName !== undefined) dbUpdates.first_name = updates.firstName;
+      if (updates.lastName !== undefined) dbUpdates.last_name = updates.lastName;
+      if (updates.title !== undefined) dbUpdates.title = updates.title;
+      if (updates.email !== undefined) dbUpdates.email = updates.email;
+      if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
+      if (updates.isPrimary !== undefined) dbUpdates.is_primary = updates.isPrimary;
+
+      const { error } = await supabase.from('contacts').update(dbUpdates).eq('id', id);
+      if (error) throw new Error(error.message);
+    } catch (error) {
+      console.error('Error updating contact:', error);
+      throw error;
+    }
+  }
+
+  async getContactsByCompany(companyId: string): Promise<StoredContact[]> {
+    try {
+      const { data, error } = await supabase
+        .from('contacts')
+        .select('*')
+        .eq('company_id', companyId)
+        .order('is_primary', { ascending: false });
+
+      if (error) {
+        console.error('Error getting contacts:', error);
+        return [];
+      }
+
+      return (data || []).map(this.dbContactToStored);
+    } catch (error) {
+      console.error('Error getting contacts from Supabase:', error);
+      return [];
+    }
+  }
+
+  async deleteContact(id: string): Promise<void> {
+    try {
+      const { error } = await supabase.from('contacts').delete().eq('id', id);
+      if (error) throw new Error(error.message);
+    } catch (error) {
+      console.error('Error deleting contact:', error);
+      throw error;
+    }
+  }
+
+  // ===== Activity Operations (CRM) =====
+  async saveActivity(activity: Omit<StoredActivity, 'id' | 'createdAt'>): Promise<string> {
+    try {
+      const id = crypto.randomUUID();
+      const now = new Date().toISOString();
+
+      const { error } = await supabase.from('activities').insert({
+        id,
+        company_id: activity.companyId,
+        contact_id: activity.contactId || null,
+        quote_id: activity.quoteId || null,
+        type: activity.type,
+        title: activity.title,
+        description: activity.description || '',
+        due_date: activity.dueDate || null,
+        created_by: activity.createdBy || null,
+        created_at: now,
+      });
+
+      if (error) throw new Error(error.message);
+      return id;
+    } catch (error) {
+      console.error('Error saving activity:', error);
+      throw error;
+    }
+  }
+
+  async getActivitiesByCompany(companyId: string, limit = 50): Promise<StoredActivity[]> {
+    try {
+      const { data, error } = await supabase
+        .from('activities')
+        .select('*')
+        .eq('company_id', companyId)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        console.error('Error getting activities:', error);
+        return [];
+      }
+
+      return (data || []).map(this.dbActivityToStored);
+    } catch (error) {
+      console.error('Error getting activities from Supabase:', error);
+      return [];
+    }
+  }
+
+  async getRecentActivities(limit: number): Promise<StoredActivity[]> {
+    try {
+      const { data, error } = await supabase
+        .from('activities')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        console.error('Error getting recent activities:', error);
+        return [];
+      }
+
+      return (data || []).map(this.dbActivityToStored);
+    } catch (error) {
+      console.error('Error getting recent activities from Supabase:', error);
+      return [];
+    }
+  }
+
+  async deleteActivity(id: string): Promise<void> {
+    try {
+      const { error } = await supabase.from('activities').delete().eq('id', id);
+      if (error) throw new Error(error.message);
+    } catch (error) {
+      console.error('Error deleting activity:', error);
+      throw error;
+    }
+  }
+
+  // ===== Notification Operations =====
+  async saveNotification(notification: Omit<StoredNotification, 'id' | 'createdAt'>): Promise<string> {
+    try {
+      const id = crypto.randomUUID();
+      const now = new Date().toISOString();
+
+      const { error } = await supabase.from('notifications').insert({
+        id,
+        user_id: notification.userId,
+        type: notification.type,
+        title: notification.title,
+        message: notification.message || '',
+        entity_type: notification.entityType || null,
+        entity_id: notification.entityId || null,
+        is_read: false,
+        created_at: now,
+      });
+
+      if (error) throw new Error(error.message);
+      return id;
+    } catch (error) {
+      console.error('Error saving notification:', error);
+      throw error;
+    }
+  }
+
+  async getNotifications(userId: string, limit = 50): Promise<StoredNotification[]> {
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        console.error('Error getting notifications:', error);
+        return [];
+      }
+
+      return (data || []).map(this.dbNotificationToStored);
+    } catch (error) {
+      console.error('Error getting notifications from Supabase:', error);
+      return [];
+    }
+  }
+
+  async markNotificationRead(id: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('id', id);
+
+      if (error) throw new Error(error.message);
+    } catch (error) {
+      console.error('Error marking notification read:', error);
+      throw error;
+    }
+  }
+
+  async markAllNotificationsRead(userId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('user_id', userId)
+        .eq('is_read', false);
+
+      if (error) throw new Error(error.message);
+    } catch (error) {
+      console.error('Error marking all notifications read:', error);
+      throw error;
+    }
+  }
+
+  // ===== Helper Methods =====
+  /**
+   * Convert database quote to QuoteState format
+   */
+  private dbQuoteToQuoteState(dbQuote: any): QuoteState {
+    return {
+      id: dbQuote.id,
+      quoteRef: dbQuote.quote_ref,
+      quoteDate: new Date(dbQuote.quote_date),
+      status: dbQuote.status,
+      clientName: dbQuote.client_name,
+      contactName: dbQuote.contact_name,
+      contactTitle: dbQuote.contact_title || '',
+      contactEmail: dbQuote.contact_email || '',
+      contactPhone: dbQuote.contact_phone || '',
+      clientAddress: JSON.parse(dbQuote.client_address || '[]'),
+      factoryROE: dbQuote.factory_roe,
+      customerROE: dbQuote.customer_roe,
+      discountPct: dbQuote.discount_pct,
+      annualInterestRate: dbQuote.annual_interest_rate,
+      defaultLeaseTermMonths: dbQuote.default_lease_term_months,
+      batteryChemistryLock: dbQuote.battery_chemistry_lock,
+      quoteType: dbQuote.quote_type,
+      slots: JSON.parse(dbQuote.slots || '[]'),
+      overrideIRR: dbQuote.override_irr || false,
+      currentAssigneeId: dbQuote.current_assignee_id || null,
+      currentAssigneeRole: dbQuote.current_assignee_role || null,
+      approvalChain: JSON.parse(dbQuote.approval_chain || '[]'),
+      createdAt: new Date(dbQuote.created_at),
+      updatedAt: new Date(dbQuote.updated_at),
+      version: dbQuote.version,
+    };
+  }
+
+  private dbTemplateToStored(row: any): StoredTemplate {
+    return {
+      id: row.id,
+      type: row.type,
+      name: row.name,
+      content: row.content,
+      isDefault: row.is_default,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  private dbCompanyToStored(row: any): StoredCompany {
+    return {
+      id: row.id,
+      name: row.name,
+      tradingName: row.trading_name || '',
+      registrationNumber: row.registration_number || '',
+      vatNumber: row.vat_number || '',
+      industry: row.industry || '',
+      website: row.website || '',
+      address: row.address || [],
+      city: row.city || '',
+      province: row.province || '',
+      postalCode: row.postal_code || '',
+      country: row.country || 'South Africa',
+      phone: row.phone || '',
+      email: row.email || '',
+      pipelineStage: row.pipeline_stage || 'lead',
+      assignedTo: row.assigned_to || '',
+      estimatedValue: Number(row.estimated_value) || 0,
+      creditLimit: Number(row.credit_limit) || 0,
+      paymentTerms: row.payment_terms || 30,
+      tags: row.tags || [],
+      notes: row.notes || '',
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  private dbContactToStored(row: any): StoredContact {
+    return {
+      id: row.id,
+      companyId: row.company_id,
+      firstName: row.first_name,
+      lastName: row.last_name || '',
+      title: row.title || '',
+      email: row.email || '',
+      phone: row.phone || '',
+      isPrimary: row.is_primary || false,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  private dbActivityToStored(row: any): StoredActivity {
+    return {
+      id: row.id,
+      companyId: row.company_id,
+      contactId: row.contact_id || '',
+      quoteId: row.quote_id || '',
+      type: row.type,
+      title: row.title,
+      description: row.description || '',
+      dueDate: row.due_date || '',
+      createdBy: row.created_by || '',
+      createdAt: row.created_at,
+    };
+  }
+
+  private dbNotificationToStored(row: any): StoredNotification {
+    return {
+      id: row.id,
+      userId: row.user_id,
+      type: row.type,
+      title: row.title,
+      message: row.message || '',
+      entityType: row.entity_type,
+      entityId: row.entity_id,
+      isRead: row.is_read,
+      createdAt: row.created_at,
+    };
+  }
+}

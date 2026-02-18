@@ -1,0 +1,19 @@
+{
+  "clearingCharges": {
+    "unitsPerContainer": 10,
+    "inlandFreightEUR": 2800,
+    "seaFreightEUR": 2800,
+    "portChargesZAR": 35000,
+    "transportZAR": 35000,
+    "destuffingZAR": 20000,
+    "dutiesPct": 0.03,
+    "warrantyPct": 0.02
+  },
+  "localCosts": {
+    "assemblyZAR": 2000,
+    "loadTestZAR": 1500,
+    "deliveryZAR": 5000,
+    "pdiZAR": 750,
+    "extrasZAR": 0
+  }
+}

@@ -1,0 +1,114 @@
+[
+  {
+    "id": "li-ion-24v-250ah",
+    "name": "Lithium-Ion 24V 250Ah",
+    "chemistry": "lithium-ion",
+    "voltage": 24,
+    "capacity": 250,
+    "eurCost": 6500,
+    "weight": 95,
+    "dimensions": {
+      "length": 55,
+      "width": 35,
+      "height": 45
+    },
+    "compatibleModels": ["5031"],
+    "warrantyYears": 7
+  },
+  {
+    "id": "li-ion-24v-375ah",
+    "name": "Lithium-Ion 24V 375Ah",
+    "chemistry": "lithium-ion",
+    "voltage": 24,
+    "capacity": 375,
+    "eurCost": 8200,
+    "weight": 140,
+    "dimensions": {
+      "length": 65,
+      "width": 40,
+      "height": 50
+    },
+    "compatibleModels": ["5025"],
+    "warrantyYears": 7
+  },
+  {
+    "id": "li-ion-24v-500ah",
+    "name": "Lithium-Ion 24V 500Ah",
+    "chemistry": "lithium-ion",
+    "voltage": 24,
+    "capacity": 500,
+    "eurCost": 9800,
+    "weight": 185,
+    "dimensions": {
+      "length": 70,
+      "width": 45,
+      "height": 55
+    },
+    "compatibleModels": ["5027"],
+    "warrantyYears": 7
+  },
+  {
+    "id": "li-ion-24v-620ah",
+    "name": "Lithium-Ion 24V 620Ah",
+    "chemistry": "lithium-ion",
+    "voltage": 24,
+    "capacity": 620,
+    "eurCost": 11900,
+    "weight": 230,
+    "dimensions": {
+      "length": 80,
+      "width": 50,
+      "height": 60
+    },
+    "compatibleModels": ["5021"],
+    "warrantyYears": 7
+  },
+  {
+    "id": "li-ion-24v-625ah",
+    "name": "Lithium-Ion 24V 625Ah",
+    "chemistry": "lithium-ion",
+    "voltage": 24,
+    "capacity": 625,
+    "eurCost": 12100,
+    "weight": 232,
+    "dimensions": {
+      "length": 80,
+      "width": 50,
+      "height": 60
+    },
+    "compatibleModels": ["5029"],
+    "warrantyYears": 7
+  },
+  {
+    "id": "li-ion-80v-500ah",
+    "name": "Lithium-Ion 80V 500Ah",
+    "chemistry": "lithium-ion",
+    "voltage": 80,
+    "capacity": 500,
+    "eurCost": 19800,
+    "weight": 450,
+    "dimensions": {
+      "length": 95,
+      "width": 55,
+      "height": 65
+    },
+    "compatibleModels": ["5023"],
+    "warrantyYears": 7
+  },
+  {
+    "id": "li-ion-80v-625ah",
+    "name": "Lithium-Ion 80V 625Ah",
+    "chemistry": "lithium-ion",
+    "voltage": 80,
+    "capacity": 625,
+    "eurCost": 22800,
+    "weight": 540,
+    "dimensions": {
+      "length": 105,
+      "width": 60,
+      "height": 70
+    },
+    "compatibleModels": ["5033"],
+    "warrantyYears": 7
+  }
+]

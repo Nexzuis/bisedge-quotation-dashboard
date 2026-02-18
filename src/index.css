@@ -1,0 +1,294 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400;1,9..40,500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global Styles */
+@layer base {
+  * {
+    @apply border-surface-700;
+  }
+
+  body {
+    @apply bg-gradient-to-br from-surface-950 via-surface-900 to-surface-950;
+    @apply text-surface-50 font-sans antialiased;
+    @apply min-h-screen;
+  }
+
+  /* Scrollbar Styling */
+  ::-webkit-scrollbar {
+    @apply w-2 h-2;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-surface-900/50;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-surface-600 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-surface-500;
+  }
+
+  /* Selection */
+  ::selection {
+    @apply bg-brand-500/20 text-brand-100;
+  }
+}
+
+/* Glass Effect Utilities */
+@layer components {
+  .glass {
+    @apply bg-surface-800/50 backdrop-blur-md;
+    @apply border border-surface-700/40;
+    @apply shadow-glass;
+  }
+
+  .glass-brand {
+    @apply bg-brand-900/15 backdrop-blur-md;
+    @apply border border-brand-500/20;
+    @apply shadow-glass;
+  }
+
+  .glass-feature {
+    @apply bg-feature-900/20 backdrop-blur-md;
+    @apply border border-feature-500/30;
+    @apply shadow-glass-feature;
+  }
+
+  .glass-hover {
+    @apply transition-all duration-300;
+    @apply hover:bg-surface-700/50 hover:border-surface-600/50;
+    @apply hover:shadow-lg hover:scale-[1.02];
+  }
+
+  /* Text Gradients */
+  .text-gradient-brand {
+    @apply bg-gradient-to-r from-brand-400 to-brand-600 bg-clip-text text-transparent;
+  }
+
+  .text-gradient-feature {
+    @apply bg-gradient-to-r from-feature-400 to-feature-600 bg-clip-text text-transparent;
+  }
+
+  /* Dot Grid Background Pattern */
+  .dot-grid {
+    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+
+  /* Card Styles */
+  .card {
+    @apply glass rounded-lg p-6;
+  }
+
+  .card-hover {
+    @apply card glass-hover cursor-pointer;
+  }
+
+  /* Input Styles */
+  .input {
+    @apply glass rounded-md px-4 py-2;
+    @apply text-surface-50 placeholder-surface-400;
+    @apply focus:outline-none focus:ring-2 focus:ring-brand-500/40;
+    @apply transition-all duration-200;
+  }
+
+  /* Button Base */
+  .btn {
+    @apply px-4 py-2 rounded-md font-medium;
+    @apply transition-all duration-200;
+    @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface-900;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply btn bg-brand-500 text-white;
+    @apply hover:bg-brand-600 focus:ring-brand-500;
+    @apply shadow-md hover:shadow-lg;
+  }
+
+  .btn-secondary {
+    @apply btn glass;
+    @apply hover:bg-surface-700/60 focus:ring-surface-500;
+  }
+
+  .btn-ghost {
+    @apply btn bg-transparent;
+    @apply hover:bg-surface-800/50 focus:ring-surface-500;
+  }
+
+  .btn-danger {
+    @apply btn bg-danger text-white;
+    @apply hover:bg-red-600 focus:ring-danger;
+    @apply shadow-md hover:shadow-lg;
+  }
+
+  .btn-feature {
+    @apply btn bg-feature-500 text-white;
+    @apply hover:bg-feature-600 focus:ring-feature-500;
+    @apply shadow-md hover:shadow-lg;
+  }
+
+  /* Badge Styles */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-success {
+    @apply badge bg-success/20 text-success border border-success/30;
+  }
+
+  .badge-warning {
+    @apply badge bg-warning/20 text-warning border border-warning/30;
+  }
+
+  .badge-danger {
+    @apply badge bg-danger/20 text-danger border border-danger/30;
+  }
+
+  .badge-info {
+    @apply badge bg-info/20 text-info border border-info/30;
+  }
+
+  .badge-brand {
+    @apply badge bg-brand-500/20 text-brand-400 border border-brand-500/30;
+  }
+
+  /* Table Styles */
+  .table {
+    @apply w-full text-sm;
+  }
+
+  .table thead {
+    @apply border-b border-surface-700;
+  }
+
+  .table th {
+    @apply px-4 py-3 text-left font-semibold text-surface-300 uppercase tracking-wider text-xs;
+  }
+
+  .table td {
+    @apply px-4 py-3 border-t border-surface-800;
+  }
+
+  .table-hover tbody tr {
+    @apply transition-colors duration-150;
+    @apply hover:bg-surface-800/30;
+  }
+
+  /* Panel Styles */
+  .panel {
+    @apply glass rounded-xl p-6;
+    @apply animate-fade-in;
+  }
+
+  .panel-header {
+    @apply flex items-center justify-between mb-4 pb-4 border-b border-surface-700/50;
+  }
+
+  .panel-title {
+    @apply text-lg font-semibold text-surface-50 flex items-center gap-2;
+  }
+
+  .panel-body {
+    @apply space-y-4;
+  }
+
+  .panel-footer {
+    @apply mt-6 pt-4 border-t border-surface-700/50;
+  }
+
+  /* Margin Indicators */
+  .margin-excellent {
+    @apply text-success font-semibold;
+  }
+
+  .margin-good {
+    @apply text-brand-400 font-medium;
+  }
+
+  .margin-acceptable {
+    @apply text-warning font-medium;
+  }
+
+  .margin-poor {
+    @apply text-danger font-semibold;
+  }
+
+  /* Loading Spinner */
+  .spinner {
+    @apply inline-block w-5 h-5 border-2 border-surface-600 border-t-brand-500 rounded-full;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* Corner Brackets Decoration */
+  .corner-brackets {
+    @apply relative;
+  }
+
+  .corner-brackets::before,
+  .corner-brackets::after {
+    @apply absolute w-4 h-4;
+    @apply border-brand-500/30;
+    content: '';
+  }
+
+  .corner-brackets::before {
+    @apply top-0 left-0 border-t-2 border-l-2;
+  }
+
+  .corner-brackets::after {
+    @apply bottom-0 right-0 border-b-2 border-r-2;
+  }
+
+  /* Utility Classes */
+  .divide-surface > * + * {
+    @apply border-t border-surface-700/50;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Animations */
+@layer utilities {
+  .animate-shimmer {
+    animation: shimmer 2s linear infinite;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.1) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+
+  .glow-brand-hover:hover {
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.15), 0 0 40px rgba(0, 212, 255, 0.08);
+  }
+
+  .glass-interactive {
+    @apply glass transition-all duration-300;
+    @apply hover:border-surface-600 hover:shadow-lg;
+  }
+}

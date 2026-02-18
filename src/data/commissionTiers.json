@@ -1,0 +1,26 @@
+[
+  {
+    "minMargin": 0,
+    "maxMargin": 15,
+    "commissionPct": 2,
+    "description": "Base commission tier"
+  },
+  {
+    "minMargin": 15,
+    "maxMargin": 25,
+    "commissionPct": 4,
+    "description": "Good margin tier"
+  },
+  {
+    "minMargin": 25,
+    "maxMargin": 35,
+    "commissionPct": 6,
+    "description": "Excellent margin tier"
+  },
+  {
+    "minMargin": 35,
+    "maxMargin": 100,
+    "commissionPct": 8,
+    "description": "Outstanding margin tier"
+  }
+]

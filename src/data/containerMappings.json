@@ -1,0 +1,443 @@
+[
+  {
+    "seriesCode": "386",
+    "category": "E Counterbalance",
+    "model": "All",
+    "qtyPerContainer": 6,
+    "containerType": "40' standard",
+    "containerCostEUR": 3300,
+    "notes": "* Quantities based on standard spec * For special specs truck builds, check with Jozua\r\n* Attachments ordered with units will reduce container quantity\r\n* Dismantled masts reduce container quantity"
+  },
+  {
+    "seriesCode": "387",
+    "category": "E Counterbalance",
+    "model": "All",
+    "qtyPerContainer": 4,
+    "containerType": "40' standard",
+    "containerCostEUR": 3300,
+    "notes": ""
+  },
+  {
+    "seriesCode": "1252",
+    "category": "E Counterbalance",
+    "model": "All",
+    "qtyPerContainer": 4,
+    "containerType": "40' standard",
+    "containerCostEUR": 3300,
+    "notes": ""
+  },
+  {
+    "seriesCode": "388",
+    "category": "E Counterbalance",
+    "model": "All",
+    "qtyPerContainer": 3,
+    "containerType": "40' standard",
+    "containerCostEUR": 3300,
+    "notes": ""
+  },
+  {
+    "seriesCode": "1279",
+    "category": "Large Electric",
+    "model": "All",
+    "qtyPerContainer": 1,
+    "containerType": "Ro-Ro",
+    "containerCostEUR": 3300,
+    "notes": ""
+  },
+  {
+    "seriesCode": "391",
+    "category": "IC Counterbalance",
+    "model": "All",
+    "qtyPerContainer": 6,
+    "containerType": "40' standard",
+    "containerCostEUR": 3300,
+    "notes": ""
+  },
+  {
+    "seriesCode": "392",
+    "category": "IC Counterbalance",
+    "model": "All",
+    "qtyPerContainer": 4,
+    "containerType": "40' standard",
+    "containerCostEUR": 3300,
+    "notes": ""
+  },
+  {
+    "seriesCode": "393",
+    "category": "IC Counterbalance",
+    "model": "All",
+    "qtyPerContainer": 4,
+    "containerType": "40' standard",
+    "containerCostEUR": 3300,
+    "notes": ""
+  },
+  {
+    "seriesCode": "1202",
+    "category": "IC Counterbalance",
+    "model": "All",
+    "qtyPerContainer": 4,
+    "containerType": "40' standard",
+    "containerCostEUR": 3300,
+    "notes": ""
+  },
+  {
+    "seriesCode": "1204",
+    "category": "IC Counterbalance",
+    "model": "All",
+    "qtyPerContainer": 3,
+    "containerType": "40' standard",
+    "containerCostEUR": 3300,
+    "notes": ""
+  },
+  {
+    "seriesCode": "396",
+    "category": "Large IC & Heavy Trucks",
+    "model": "All",
+    "qtyPerContainer": 1,
+    "containerType": "Ro-Ro",
+    "containerCostEUR": 3300,
+    "notes": ""
+  },
+  {
+    "seriesCode": "1408",
+    "category": "Large IC & Heavy Trucks",
+    "model": "All",
+    "qtyPerContainer": 1,
+    "containerType": "40' standard",
+    "containerCostEUR": 9000,
+    "notes": ""
+  },
+  {
+    "seriesCode": "1401",
+    "category": "Large IC & Heavy Trucks",
+    "model": "All",
+    "qtyPerContainer": 1,
+    "containerType": "40' standard",
+    "containerCostEUR": 3300,
+    "notes": ""
+  },
+  {
+    "seriesCode": "1411",
+    "category": "Large IC & Heavy Trucks",
+    "model": "All",
+    "qtyPerContainer": 1,
+    "containerType": "40' standard",
+    "containerCostEUR": 9000,
+    "notes": ""
+  },
+  {
+    "seriesCode": "1120",
+    "category": "Reach Trucks",
+    "model": "All",
+    "qtyPerContainer": 4,
+    "containerType": "40' standard",
+    "containerCostEUR": 3300,
+    "notes": ""
+  },
+  {
+    "seriesCode": "116",
+    "category": "Reach Trucks",
+    "model": "All",
+    "qtyPerContainer": 4,
+    "containerType": "40' standard",
+    "containerCostEUR": 3300,
+    "notes": ""
+  },
+  {
+    "seriesCode": "8923",
+    "category": "Reach Trucks",
+    "model": "All",
+    "qtyPerContainer": 3,
+    "containerType": "40' standard",
+    "containerCostEUR": 3300,
+    "notes": ""
+  },
+  {
+    "seriesCode": "5021",
+    "category": "VNA",
+    "model": "All",
+    "qtyPerContainer": 2,
+    "containerType": "40' standard",
+    "containerCostEUR": 5885,
+    "notes": ""
+  },
+  {
+    "seriesCode": "5213",
+    "category": "VNA",
+    "model": "All",
+    "qtyPerContainer": 1,
+    "containerType": "40' standard",
+    "containerCostEUR": 3300,
+    "notes": ""
+  },
+  {
+    "seriesCode": "5224",
+    "category": "VNA",
+    "model": "All",
+    "qtyPerContainer": 1,
+    "containerType": "40' standard",
+    "containerCostEUR": 3300,
+    "notes": ""
+  },
+  {
+    "seriesCode": "5231",
+    "category": "VNA",
+    "model": "All",
+    "qtyPerContainer": 1,
+    "containerType": "40' standard",
+    "containerCostEUR": 3300,
+    "notes": ""
+  },
+  {
+    "seriesCode": "133",
+    "category": "Stackers",
+    "model": "All",
+    "qtyPerContainer": 10,
+    "containerType": "40' standard",
+    "containerCostEUR": 5885,
+    "notes": ""
+  },
+  {
+    "seriesCode": "1160",
+    "category": "Stackers",
+    "model": "All",
+    "qtyPerContainer": 10,
+    "containerType": "40' standard",
+    "containerCostEUR": 5885,
+    "notes": ""
+  },
+  {
+    "seriesCode": "1163",
+    "category": "Stackers",
+    "model": "All",
+    "qtyPerContainer": 10,
+    "containerType": "40' standard",
+    "containerCostEUR": 5885,
+    "notes": ""
+  },
+  {
+    "seriesCode": "1164",
+    "category": "Stackers",
+    "model": "All",
+    "qtyPerContainer": 10,
+    "containerType": "40' standard",
+    "containerCostEUR": 5885,
+    "notes": ""
+  },
+  {
+    "seriesCode": "1171",
+    "category": "Stackers",
+    "model": "All",
+    "qtyPerContainer": 10,
+    "containerType": "40' standard",
+    "containerCostEUR": 5885,
+    "notes": ""
+  },
+  {
+    "seriesCode": "1172",
+    "category": "Stackers",
+    "model": "All",
+    "qtyPerContainer": 10,
+    "containerType": "40' standard",
+    "containerCostEUR": 5885,
+    "notes": ""
+  },
+  {
+    "seriesCode": "1173",
+    "category": "Stackers",
+    "model": "All",
+    "qtyPerContainer": 10,
+    "containerType": "40' standard",
+    "containerCostEUR": 5885,
+    "notes": ""
+  },
+  {
+    "seriesCode": "1174",
+    "category": "Stackers",
+    "model": "All",
+    "qtyPerContainer": 10,
+    "containerType": "40' standard",
+    "containerCostEUR": 5885,
+    "notes": ""
+  },
+  {
+    "seriesCode": "1115",
+    "category": "Order Picker",
+    "model": "All",
+    "qtyPerContainer": 8,
+    "containerType": "40' standard",
+    "containerCostEUR": 5885,
+    "notes": ""
+  },
+  {
+    "seriesCode": "4587",
+    "category": "Order Picker",
+    "model": "All",
+    "qtyPerContainer": 8,
+    "containerType": "40' standard",
+    "containerCostEUR": 5885,
+    "notes": ""
+  },
+  {
+    "seriesCode": "4589",
+    "category": "Order Picker",
+    "model": "All",
+    "qtyPerContainer": 8,
+    "containerType": "40' standard",
+    "containerCostEUR": 5885,
+    "notes": ""
+  },
+  {
+    "seriesCode": "4590",
+    "category": "Order Picker",
+    "model": "All",
+    "qtyPerContainer": 8,
+    "containerType": "40' standard",
+    "containerCostEUR": 5885,
+    "notes": ""
+  },
+  {
+    "seriesCode": "4594",
+    "category": "Order Picker",
+    "model": "All",
+    "qtyPerContainer": 4,
+    "containerType": "40' standard",
+    "containerCostEUR": 5885,
+    "notes": ""
+  },
+  {
+    "seriesCode": "8905",
+    "category": "Order Picker",
+    "model": "All",
+    "qtyPerContainer": 14,
+    "containerType": "40' standard",
+    "containerCostEUR": 9000,
+    "notes": ""
+  },
+  {
+    "seriesCode": "131",
+    "category": "Pallet Trucks",
+    "model": "All",
+    "qtyPerContainer": 10,
+    "containerType": "40' standard",
+    "containerCostEUR": 5885,
+    "notes": ""
+  },
+  {
+    "seriesCode": "1130",
+    "category": "Pallet Trucks",
+    "model": "All",
+    "qtyPerContainer": 10,
+    "containerType": "40' standard",
+    "containerCostEUR": 5885,
+    "notes": ""
+  },
+  {
+    "seriesCode": "1151",
+    "category": "Pallet Trucks",
+    "model": "All",
+    "qtyPerContainer": 10,
+    "containerType": "40' standard",
+    "containerCostEUR": 5885,
+    "notes": ""
+  },
+  {
+    "seriesCode": "1152",
+    "category": "Pallet Trucks",
+    "model": "All",
+    "qtyPerContainer": 10,
+    "containerType": "40' standard",
+    "containerCostEUR": 5885,
+    "notes": ""
+  },
+  {
+    "seriesCode": "1153",
+    "category": "Pallet Trucks",
+    "model": "All",
+    "qtyPerContainer": 10,
+    "containerType": "40' standard",
+    "containerCostEUR": 5885,
+    "notes": ""
+  },
+  {
+    "seriesCode": "1154",
+    "category": "Pallet Trucks",
+    "model": "All",
+    "qtyPerContainer": 10,
+    "containerType": "40' standard",
+    "containerCostEUR": 5885,
+    "notes": ""
+  },
+  {
+    "seriesCode": "1155",
+    "category": "Pallet Trucks",
+    "model": "All",
+    "qtyPerContainer": 10,
+    "containerType": "40' standard",
+    "containerCostEUR": 5885,
+    "notes": ""
+  },
+  {
+    "seriesCode": "5131",
+    "category": "Pallet Trucks",
+    "model": "All",
+    "qtyPerContainer": 8,
+    "containerType": "40' standard",
+    "containerCostEUR": 5885,
+    "notes": ""
+  },
+  {
+    "seriesCode": "1190",
+    "category": "Tow Motors",
+    "model": "All",
+    "qtyPerContainer": 10,
+    "containerType": "40' standard",
+    "containerCostEUR": 5885,
+    "notes": ""
+  },
+  {
+    "seriesCode": "1191",
+    "category": "Tow Motors",
+    "model": "All",
+    "qtyPerContainer": 8,
+    "containerType": "40' standard",
+    "containerCostEUR": 5885,
+    "notes": ""
+  },
+  {
+    "seriesCode": "1193",
+    "category": "Tow Motors",
+    "model": "All",
+    "qtyPerContainer": 10,
+    "containerType": "40' standard",
+    "containerCostEUR": 5885,
+    "notes": ""
+  },
+  {
+    "seriesCode": "4595",
+    "category": "Tow Motors",
+    "model": "All",
+    "qtyPerContainer": 10,
+    "containerType": "40' standard",
+    "containerCostEUR": 5885,
+    "notes": ""
+  },
+  {
+    "seriesCode": "5007",
+    "category": "Tow Motors",
+    "model": "All",
+    "qtyPerContainer": 3,
+    "containerType": "40' standard",
+    "containerCostEUR": 5885,
+    "notes": ""
+  },
+  {
+    "seriesCode": "8904",
+    "category": "Tow Motors",
+    "model": "All",
+    "qtyPerContainer": 24,
+    "containerType": "40' standard",
+    "containerCostEUR": 5885,
+    "notes": ""
+  }
+]

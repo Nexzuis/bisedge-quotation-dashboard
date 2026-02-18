@@ -1,0 +1,114 @@
+[
+  {
+    "id": "pb-24v-250ah",
+    "name": "Lead Acid 24V 250Ah",
+    "chemistry": "lead-acid",
+    "voltage": 24,
+    "capacity": 250,
+    "eurCost": 2800,
+    "weight": 245,
+    "dimensions": {
+      "length": 60,
+      "width": 40,
+      "height": 55
+    },
+    "compatibleModels": ["5031"],
+    "warrantyYears": 5
+  },
+  {
+    "id": "pb-24v-375ah",
+    "name": "Lead Acid 24V 375Ah",
+    "chemistry": "lead-acid",
+    "voltage": 24,
+    "capacity": 375,
+    "eurCost": 3500,
+    "weight": 365,
+    "dimensions": {
+      "length": 70,
+      "width": 45,
+      "height": 60
+    },
+    "compatibleModels": ["5025"],
+    "warrantyYears": 5
+  },
+  {
+    "id": "pb-24v-500ah",
+    "name": "Lead Acid 24V 500Ah",
+    "chemistry": "lead-acid",
+    "voltage": 24,
+    "capacity": 500,
+    "eurCost": 4200,
+    "weight": 485,
+    "dimensions": {
+      "length": 80,
+      "width": 50,
+      "height": 65
+    },
+    "compatibleModels": ["5027"],
+    "warrantyYears": 5
+  },
+  {
+    "id": "pb-24v-620ah",
+    "name": "Lead Acid 24V 620Ah",
+    "chemistry": "lead-acid",
+    "voltage": 24,
+    "capacity": 620,
+    "eurCost": 5100,
+    "weight": 600,
+    "dimensions": {
+      "length": 90,
+      "width": 55,
+      "height": 70
+    },
+    "compatibleModels": ["5021"],
+    "warrantyYears": 5
+  },
+  {
+    "id": "pb-24v-625ah",
+    "name": "Lead Acid 24V 625Ah",
+    "chemistry": "lead-acid",
+    "voltage": 24,
+    "capacity": 625,
+    "eurCost": 5200,
+    "weight": 605,
+    "dimensions": {
+      "length": 90,
+      "width": 55,
+      "height": 70
+    },
+    "compatibleModels": ["5029"],
+    "warrantyYears": 5
+  },
+  {
+    "id": "pb-80v-500ah",
+    "name": "Lead Acid 80V 500Ah",
+    "chemistry": "lead-acid",
+    "voltage": 80,
+    "capacity": 500,
+    "eurCost": 8500,
+    "weight": 1200,
+    "dimensions": {
+      "length": 110,
+      "width": 60,
+      "height": 75
+    },
+    "compatibleModels": ["5023"],
+    "warrantyYears": 5
+  },
+  {
+    "id": "pb-80v-625ah",
+    "name": "Lead Acid 80V 625Ah",
+    "chemistry": "lead-acid",
+    "voltage": 80,
+    "capacity": 625,
+    "eurCost": 9800,
+    "weight": 1450,
+    "dimensions": {
+      "length": 120,
+      "width": 65,
+      "height": 80
+    },
+    "compatibleModels": ["5033"],
+    "warrantyYears": 5
+  }
+]

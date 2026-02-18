@@ -1,0 +1,35 @@
+[
+  {
+    "id": "20ft",
+    "name": "20ft Standard",
+    "dimensions": {
+      "length": 589,
+      "width": 234,
+      "height": 238
+    },
+    "maxWeight": 28000,
+    "costZAR": 45000
+  },
+  {
+    "id": "40ft",
+    "name": "40ft Standard",
+    "dimensions": {
+      "length": 1203,
+      "width": 234,
+      "height": 238
+    },
+    "maxWeight": 26500,
+    "costZAR": 75000
+  },
+  {
+    "id": "40ft-hc",
+    "name": "40ft High Cube",
+    "dimensions": {
+      "length": 1203,
+      "width": 234,
+      "height": 269
+    },
+    "maxWeight": 26330,
+    "costZAR": 82000
+  }
+]

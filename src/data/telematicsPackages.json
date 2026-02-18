@@ -1,0 +1,107 @@
+[
+  {
+    "id": "tel-1",
+    "name": "Link Light IC & 24V",
+    "description": "Access Hours",
+    "tags": "0",
+    "costZAR": 5995
+  },
+  {
+    "id": "tel-2",
+    "name": "Link Light 48V",
+    "description": "",
+    "tags": "0",
+    "costZAR": 7395
+  },
+  {
+    "id": "tel-3",
+    "name": "Link Light 80V",
+    "description": "",
+    "tags": "0",
+    "costZAR": 7995
+  },
+  {
+    "id": "tel-4",
+    "name": "Link Plus IC & 24V",
+    "description": "",
+    "tags": "2",
+    "costZAR": 6293.5
+  },
+  {
+    "id": "tel-5",
+    "name": "Link Plus 48V",
+    "description": "",
+    "tags": "2",
+    "costZAR": 7693.5
+  },
+  {
+    "id": "tel-6",
+    "name": "Link Plus 80V",
+    "description": "",
+    "tags": "2",
+    "costZAR": 8293.5
+  },
+  {
+    "id": "tel-7",
+    "name": "Link Premium IC & 24V",
+    "description": "",
+    "tags": "2",
+    "costZAR": 11655
+  },
+  {
+    "id": "tel-8",
+    "name": "Link Premium 48V",
+    "description": "",
+    "tags": "2",
+    "costZAR": 12995
+  },
+  {
+    "id": "tel-9",
+    "name": "Link Premium 80V",
+    "description": "",
+    "tags": "2",
+    "costZAR": 13775
+  },
+  {
+    "id": "tel-10",
+    "name": "Tags",
+    "description": "",
+    "tags": "1",
+    "costZAR": 299
+  },
+  {
+    "id": "tel-11",
+    "name": "Power Fleet",
+    "description": "WiFi",
+    "tags": "RFID x 2",
+    "costZAR": 29995
+  },
+  {
+    "id": "tel-12",
+    "name": "RFID Card",
+    "description": "",
+    "tags": "1",
+    "costZAR": 195
+  },
+  {
+    "id": "tel-13",
+    "name": "GPS",
+    "description": "WiFi",
+    "tags": "",
+    "costZAR": 3888
+  },
+  {
+    "id": "tel-14",
+    "name": "GPRS Modem",
+    "description": "",
+    "tags": "",
+    "costZAR": 3000
+  },
+  {
+    "id": "tel-15",
+    "name": "Link Light IC & 24V",
+    "description": "",
+    "tags": "",
+    "costZAR": 5995
+  }
+]

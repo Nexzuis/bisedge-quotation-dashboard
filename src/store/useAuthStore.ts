@@ -157,6 +157,18 @@ export const useAuthStore = create<AuthState>()(
         const isValid = await bcrypt.compare(password, user.passwordHash);
         if (!isValid) return false;
 
+        // In hybrid mode, also sign into Supabase Auth so the session
+        // exists for sync queue operations (RLS requires authenticated session)
+        if (appMode === 'hybrid' || appMode === 'cloud') {
+          try {
+            const { supabase } = await import('../lib/supabase');
+            const email = user.email || emailOrUsername;
+            await supabase.auth.signInWithPassword({ email, password });
+          } catch {
+            console.warn('Local login succeeded but Supabase session not established — sync will be skipped');
+          }
+        }
+
         // Parse permission overrides from stored JSON string
         let permissionOverrides: PermissionOverrides = {};
         try {

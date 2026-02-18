@@ -77,20 +77,25 @@ export default function CustomerListPage() {
   }, [loadData]);
 
   const handleExport = () => {
-    const data = filtered.map((c) => ({
-      'Company Name': c.name,
-      'Industry': c.industry || '',
-      'Pipeline Stage': c.pipelineStage,
-      'Email': c.email || '',
-      'Phone': c.phone || '',
-      'Estimated Value': c.estimatedValue || 0,
-      'Created': c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '',
-    }));
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Companies');
-    XLSX.writeFile(wb, `companies-export-${new Date().toISOString().slice(0, 10)}.xlsx`);
-    toast.success('Companies exported successfully');
+    try {
+      const data = filtered.map((c) => ({
+        'Company Name': c.name,
+        'Industry': c.industry || '',
+        'Pipeline Stage': c.pipelineStage,
+        'Email': c.email || '',
+        'Phone': c.phone || '',
+        'Estimated Value': c.estimatedValue || 0,
+        'Created': c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '',
+      }));
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Companies');
+      XLSX.writeFile(wb, `companies-export-${new Date().toISOString().slice(0, 10)}.xlsx`);
+      toast.success('Companies exported successfully');
+    } catch (err) {
+      console.error('Export failed:', err);
+      toast.error('Failed to export companies');
+    }
   };
 
   // Filter by selected stages — empty stageFilters means "All"

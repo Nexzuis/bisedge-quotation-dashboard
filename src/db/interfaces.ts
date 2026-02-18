@@ -153,7 +153,7 @@ export interface AuditLogEntry {
   userId: string;
   userName?: string;
   action: 'create' | 'update' | 'delete' | 'approve' | 'reject' | 'submit' | 'login' | 'logout' | 'escalate' | 'return' | 'comment' | 'edit_review';
-  entityType: 'quote' | 'customer' | 'template' | 'user' | 'approvalTiers' | 'commissionTiers' | 'residualCurves' | 'settings' | 'forkliftModel' | 'batteryModel' | 'attachment';
+  entityType: 'quote' | 'customer' | 'template' | 'user' | 'approvalTiers' | 'commissionTiers' | 'residualCurves' | 'settings' | 'forkliftModel' | 'batteryModel' | 'attachment' | 'company' | 'contact';
   entityId: string;
   changes: Record<string, any>;
   oldValues?: any;

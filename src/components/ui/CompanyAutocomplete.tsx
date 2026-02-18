@@ -34,10 +34,11 @@ export function CompanyAutocomplete({
   const searchIdRef = useRef(0);
   const { searchCompanies } = useCompanies();
 
-  // Notify parent of dropdown open/close
-  useEffect(() => {
-    onOpenChange?.(isOpen);
-  }, [isOpen, onOpenChange]);
+  // Synchronously notify parent of dropdown open/close
+  const setIsOpenAndNotify = useCallback((open: boolean) => {
+    setIsOpen(open);
+    onOpenChange?.(open);
+  }, [onOpenChange]);
 
   // Position dropdown
   const updatePosition = useCallback(() => {
@@ -50,7 +51,7 @@ export function CompanyAutocomplete({
   useEffect(() => {
     if (value.length < 2) {
       setResults([]);
-      setIsOpen(false);
+      setIsOpenAndNotify(false);
       return;
     }
 
@@ -60,7 +61,7 @@ export function CompanyAutocomplete({
       // Ignore stale results
       if (id !== searchIdRef.current) return;
       setResults(data);
-      setIsOpen(data.length > 0);
+      setIsOpenAndNotify(data.length > 0);
       setHighlightIndex(-1);
       updatePosition();
     }, 300);
@@ -77,7 +78,7 @@ export function CompanyAutocomplete({
         inputRef.current && !inputRef.current.contains(target) &&
         dropdownRef.current && !dropdownRef.current.contains(target)
       ) {
-        setIsOpen(false);
+        setIsOpenAndNotify(false);
       }
     }
     document.addEventListener('mousedown', handleClick);
@@ -107,7 +108,7 @@ export function CompanyAutocomplete({
 
   const handleSelect = (company: StoredCompany) => {
     onSelect(company);
-    setIsOpen(false);
+    setIsOpenAndNotify(false);
     setResults([]);
   };
 
@@ -115,7 +116,7 @@ export function CompanyAutocomplete({
     if (!isOpen) return;
 
     if (e.key === 'Escape') {
-      setIsOpen(false);
+      setIsOpenAndNotify(false);
       return;
     }
     if (e.key === 'ArrowDown') {
@@ -148,7 +149,7 @@ export function CompanyAutocomplete({
           value={value}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
-          onFocus={() => { if (results.length > 0) { updatePosition(); setIsOpen(true); } }}
+          onFocus={() => { if (results.length > 0) { updatePosition(); setIsOpenAndNotify(true); } }}
           placeholder={placeholder}
           className={`input w-full text-sm ${linkedCompanyId ? 'pr-20' : ''}`}
         />

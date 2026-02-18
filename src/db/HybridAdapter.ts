@@ -31,6 +31,20 @@ import { SupabaseDatabaseAdapter } from './SupabaseAdapter';
 import { syncQueue } from '../sync/SyncQueue';
 import { resolveQuoteConflict } from '../sync/ConflictResolver';
 import { supabase } from '../lib/supabase';
+import { db } from './schema';
+
+function getCurrentAuditUser(): { userId: string; userName: string } | null {
+  try {
+    const authStorage = localStorage.getItem('auth-storage');
+    if (!authStorage) return null;
+    const parsed = JSON.parse(authStorage);
+    const user = parsed?.state?.user;
+    if (!user) return null;
+    return { userId: user.id, userName: user.fullName || user.username };
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Hybrid adapter - local cache + cloud sync
@@ -72,6 +86,21 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
       console.warn('⚠️ Quote local save failed:', localResult.error);
       return localResult;
     }
+
+    try {
+      const auditUser = getCurrentAuditUser();
+      if (auditUser) {
+        await db.auditLog.add({
+          timestamp: new Date().toISOString(),
+          userId: auditUser.userId,
+          userName: auditUser.userName,
+          action: isNew ? 'create' : 'update',
+          entityType: 'quote',
+          entityId: quote.id,
+          changes: { quoteRef: quote.quoteRef, status: quote.status, clientName: quote.clientName },
+        });
+      }
+    } catch { /* non-critical */ }
 
     // Step 2: Queue for cloud sync — re-fetch the saved quote so we send
     // the version-incremented data (same pattern as saveCompany)
@@ -203,6 +232,23 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
       }
     }
 
+    if (result.success) {
+      try {
+        const auditUser = getCurrentAuditUser();
+        if (auditUser) {
+          await db.auditLog.add({
+            timestamp: new Date().toISOString(),
+            userId: auditUser.userId,
+            userName: auditUser.userName,
+            action: 'create',
+            entityType: 'quote',
+            entityId: result.id,
+            changes: { duplicatedFrom: id },
+          });
+        }
+      } catch { /* non-critical */ }
+    }
+
     return result;
   }
 
@@ -234,6 +280,21 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
   async deleteQuote(id: string): Promise<void> {
     // Delete from local cache
     await this.localAdapter.deleteQuote(id);
+
+    try {
+      const auditUser = getCurrentAuditUser();
+      if (auditUser) {
+        await db.auditLog.add({
+          timestamp: new Date().toISOString(),
+          userId: auditUser.userId,
+          userName: auditUser.userName,
+          action: 'delete',
+          entityType: 'quote',
+          entityId: id,
+          changes: {},
+        });
+      }
+    } catch { /* non-critical */ }
 
     // Queue for cloud deletion
     if (navigator.onLine) {
@@ -403,6 +464,21 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
   async saveCompany(company: Omit<StoredCompany, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
     const id = await this.localAdapter.saveCompany(company);
 
+    try {
+      const auditUser = getCurrentAuditUser();
+      if (auditUser) {
+        await db.auditLog.add({
+          timestamp: new Date().toISOString(),
+          userId: auditUser.userId,
+          userName: auditUser.userName,
+          action: 'create',
+          entityType: 'company',
+          entityId: id,
+          changes: { name: company.name },
+        });
+      }
+    } catch { /* non-critical */ }
+
     if (navigator.onLine) {
       const full = await this.localAdapter.getCompany(id);
       await syncQueue.enqueue({
@@ -418,6 +494,21 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
 
   async updateCompany(id: string, updates: Partial<StoredCompany>): Promise<void> {
     await this.localAdapter.updateCompany(id, updates);
+
+    try {
+      const auditUser = getCurrentAuditUser();
+      if (auditUser) {
+        await db.auditLog.add({
+          timestamp: new Date().toISOString(),
+          userId: auditUser.userId,
+          userName: auditUser.userName,
+          action: 'update',
+          entityType: 'company',
+          entityId: id,
+          changes: {},
+        });
+      }
+    } catch { /* non-critical */ }
 
     if (navigator.onLine) {
       const full = await this.localAdapter.getCompany(id);
@@ -466,6 +557,21 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
   async deleteCompany(id: string): Promise<void> {
     await this.localAdapter.deleteCompany(id);
 
+    try {
+      const auditUser = getCurrentAuditUser();
+      if (auditUser) {
+        await db.auditLog.add({
+          timestamp: new Date().toISOString(),
+          userId: auditUser.userId,
+          userName: auditUser.userName,
+          action: 'delete',
+          entityType: 'company',
+          entityId: id,
+          changes: {},
+        });
+      }
+    } catch { /* non-critical */ }
+
     if (navigator.onLine) {
       await syncQueue.enqueue({
         type: 'delete',
@@ -480,6 +586,21 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
 
   async saveContact(contact: Omit<StoredContact, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
     const id = await this.localAdapter.saveContact(contact);
+
+    try {
+      const auditUser = getCurrentAuditUser();
+      if (auditUser) {
+        await db.auditLog.add({
+          timestamp: new Date().toISOString(),
+          userId: auditUser.userId,
+          userName: auditUser.userName,
+          action: 'create',
+          entityType: 'contact',
+          entityId: id,
+          changes: { name: contact.name },
+        });
+      }
+    } catch { /* non-critical */ }
 
     if (navigator.onLine) {
       const contacts = await this.localAdapter.getContactsByCompany(contact.companyId);
@@ -497,6 +618,21 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
 
   async updateContact(id: string, updates: Partial<StoredContact>): Promise<void> {
     await this.localAdapter.updateContact(id, updates);
+
+    try {
+      const auditUser = getCurrentAuditUser();
+      if (auditUser) {
+        await db.auditLog.add({
+          timestamp: new Date().toISOString(),
+          userId: auditUser.userId,
+          userName: auditUser.userName,
+          action: 'update',
+          entityType: 'contact',
+          entityId: id,
+          changes: {},
+        });
+      }
+    } catch { /* non-critical */ }
 
     if (navigator.onLine) {
       // Need to get the full contact; use companyId from updates if available
@@ -529,6 +665,21 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
 
   async deleteContact(id: string): Promise<void> {
     await this.localAdapter.deleteContact(id);
+
+    try {
+      const auditUser = getCurrentAuditUser();
+      if (auditUser) {
+        await db.auditLog.add({
+          timestamp: new Date().toISOString(),
+          userId: auditUser.userId,
+          userName: auditUser.userName,
+          action: 'delete',
+          entityType: 'contact',
+          entityId: id,
+          changes: {},
+        });
+      }
+    } catch { /* non-critical */ }
 
     if (navigator.onLine) {
       await syncQueue.enqueue({

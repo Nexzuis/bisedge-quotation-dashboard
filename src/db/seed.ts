@@ -224,6 +224,20 @@ export async function seedDatabaseIfEmpty(): Promise<void> {
       console.log(`  Seeded ${containerMappingsData.length} container mappings`);
     } else {
       console.log(`Container mappings already present (${containerMapCount}), skipping...`);
+      // Patch: ensure series 1275 exists (BUG-005)
+      const existing1275 = await db.containerMappings.get('1275');
+      if (!existing1275) {
+        console.log('  Patching missing container mapping for series 1275...');
+        await db.containerMappings.put({
+          seriesCode: '1275',
+          category: 'E Counterbalance',
+          model: 'All',
+          qtyPerContainer: 4,
+          containerType: "40' standard",
+          containerCostEUR: 3300,
+          notes: '',
+        } as any);
+      }
     }
 
     // Build summary

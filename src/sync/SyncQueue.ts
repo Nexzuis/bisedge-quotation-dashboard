@@ -50,8 +50,13 @@ export class SyncQueue {
   private isProcessing = false;
   private listeners: Set<(status: SyncStatus) => void> = new Set();
   private lastSyncedAt: Date | null = null;
+  private _processingPromise: Promise<void> = Promise.resolve();
+  private permanentlyFailed: Set<string>;
 
   constructor() {
+    // Load persistent blocklist of permanently-failed entities
+    this.permanentlyFailed = this.loadPermanentlyFailed();
+
     // Listen for online/offline events
     window.addEventListener('online', () => this.processQueue());
 
@@ -61,10 +66,21 @@ export class SyncQueue {
     }
   }
 
+  private entityKey(entity: string, entityId: string): string {
+    return `${entity}:${entityId}`;
+  }
+
   /**
    * Add an operation to the sync queue (deduplicates by entity+entityId)
    */
   async enqueue(operation: Omit<SyncOperation, 'id' | 'timestamp' | 'retries'>): Promise<void> {
+    // Skip if this entity has been permanently rejected
+    const key = this.entityKey(operation.entity, operation.entityId);
+    if (this.permanentlyFailed.has(key)) {
+      console.log('⏭️  Skipping enqueue — entity permanently failed:', key);
+      return;
+    }
+
     console.log('📝 Enqueuing sync operation:', operation.type, operation.entity, operation.entityId);
 
     try {
@@ -105,11 +121,20 @@ export class SyncQueue {
   }
 
   /**
-   * Process the sync queue (send to Supabase)
+   * Process the sync queue (serialized via Promise chain to prevent concurrent runs)
    */
   async processQueue(): Promise<void> {
+    this._processingPromise = this._processingPromise
+      .catch(() => {}) // swallow previous errors
+      .then(() => this._doProcessQueue());
+    return this._processingPromise;
+  }
+
+  /**
+   * Internal: actual queue processing logic
+   */
+  private async _doProcessQueue(): Promise<void> {
     if (this.isProcessing || !navigator.onLine) {
-      console.log('⏸️  Skipping sync - already processing or offline');
       return;
     }
 
@@ -167,6 +192,9 @@ export class SyncQueue {
         const isPermanent = PERMANENT_PG_CODES.has(pgCode);
 
         if (isPermanent) {
+          const failKey = this.entityKey(op.entity, op.entityId);
+          this.permanentlyFailed.add(failKey);
+          this.savePermanentlyFailed();
           console.error(`💀 Permanent error for ${op.type} ${op.entity} (PG ${pgCode}), removing:`, error.message);
           queue.splice(i, 1);
           i--;
@@ -365,6 +393,15 @@ export class SyncQueue {
   }
 
   /**
+   * Clear the permanent failure blocklist (allows re-sync of previously failed entities)
+   */
+  clearPermanentFailures(): void {
+    this.permanentlyFailed.clear();
+    this.savePermanentlyFailed();
+    console.log('🗑️  Permanent failure blocklist cleared');
+  }
+
+  /**
    * Get queue from localStorage (temporary - will move to IndexedDB)
    */
   private getLocalQueue(): SyncOperation[] {
@@ -386,6 +423,24 @@ export class SyncQueue {
     } catch (error) {
       console.error('Error saving sync queue:', error);
     }
+  }
+
+  private loadPermanentlyFailed(): Set<string> {
+    try {
+      const stored = localStorage.getItem('bisedge_sync_permanent_failures');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  }
+
+  private savePermanentlyFailed(): void {
+    try {
+      localStorage.setItem(
+        'bisedge_sync_permanent_failures',
+        JSON.stringify([...this.permanentlyFailed])
+      );
+    } catch { /* non-critical */ }
   }
 
   /**

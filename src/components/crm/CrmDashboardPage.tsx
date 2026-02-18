@@ -65,6 +65,32 @@ export default function CrmDashboardPage() {
     );
   }
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-surface-900 via-surface-800 to-surface-900">
+        <div className="max-w-7xl mx-auto p-4 space-y-4">
+          <div className="h-12 bg-surface-800/40 rounded-xl animate-pulse" />
+          <div className="flex gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-10 flex-1 bg-surface-800/40 rounded-lg animate-pulse" />
+            ))}
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="glass rounded-xl p-4 h-24 animate-pulse" />
+            ))}
+          </div>
+          <div className="glass rounded-xl p-6 h-16 animate-pulse" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <div key={i} className="glass rounded-xl p-5 h-64 animate-pulse" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-surface-900 via-surface-800 to-surface-900">
       <motion.div

@@ -41,8 +41,23 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
   const saveNow = useCallback(async () => {
     if (isSavingRef.current) return;
 
-    // Don't save if quote ref is default (new unsaved quote)
-    if (quoteRef === '0000.0') return;
+    // If quote still has default ref, auto-assign a real one before saving
+    if (quoteRef === '0000.0') {
+      try {
+        const nextRef = await repository.getNextQuoteRef();
+        const store = useQuoteStore.getState();
+        store.loadQuote({
+          ...store,
+          quoteRef: nextRef,
+          id: store.id || crypto.randomUUID(),
+          createdAt: store.createdAt || new Date(),
+          updatedAt: new Date(),
+        });
+      } catch (err) {
+        console.error('Failed to assign quote ref:', err);
+        return;
+      }
+    }
 
     isSavingRef.current = true;
     setStatus('saving');

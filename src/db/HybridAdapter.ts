@@ -122,25 +122,39 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
     options: PaginationOptions,
     filters?: QuoteFilter
   ): Promise<PaginatedResult<StoredQuote>> {
+    // Always start with local data so nothing "disappears"
+    const localResult = await this.localAdapter.listQuotes(options, filters);
+
     if (navigator.onLine) {
       try {
-        // Fetch from cloud (has role-based filtering)
         const cloudResult = await this.cloudAdapter.listQuotes(options, filters);
 
-        // Cache results in background (don't await)
+        // Cache cloud items locally in background
         this.cacheQuotes(cloudResult.items).catch((err) =>
           console.warn('Failed to cache quotes:', err)
         );
 
-        return cloudResult;
+        // Merge: cloud items take precedence (newer), local-only items are kept
+        const cloudIds = new Set(cloudResult.items.map(q => q.id));
+        const localOnly = localResult.items.filter(q => !cloudIds.has(q.id));
+        const merged = [...cloudResult.items, ...localOnly];
+        merged.sort((a, b) =>
+          new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime()
+        );
+
+        return {
+          items: merged.slice(0, options.pageSize || merged.length),
+          total: merged.length,
+          page: options.page || 1,
+          pageSize: options.pageSize || merged.length,
+          totalPages: Math.ceil(merged.length / (options.pageSize || merged.length)),
+        };
       } catch (error) {
-        console.warn('Cloud fetch failed, falling back to local cache:', error);
+        console.warn('Cloud fetch failed, using local cache:', error);
       }
     }
 
-    // Fallback to local cache if offline or cloud fails
-    console.log('📦 Listing quotes from local cache (offline or cloud unavailable)');
-    return this.localAdapter.listQuotes(options, filters);
+    return localResult;
   }
 
   /**
@@ -256,18 +270,25 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
   }
 
   async listCustomers(): Promise<StoredCustomer[]> {
+    // Always start with local data
+    const localCustomers = await this.localAdapter.listCustomers();
+
     if (navigator.onLine) {
       try {
         const cloudCustomers = await this.cloudAdapter.listCustomers();
         // Cache in background
         this.cacheCustomers(cloudCustomers);
-        return cloudCustomers;
+
+        // Merge: cloud takes precedence, keep local-only items
+        const cloudIds = new Set(cloudCustomers.map(c => c.id));
+        const localOnly = localCustomers.filter(c => !cloudIds.has(c.id));
+        return [...cloudCustomers, ...localOnly];
       } catch (error) {
         console.warn('Cloud fetch failed, using local cache:', error);
       }
     }
 
-    return this.localAdapter.listCustomers();
+    return localCustomers;
   }
 
   // ===== User Operations =====
@@ -364,11 +385,12 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
     const id = await this.localAdapter.saveCompany(company);
 
     if (navigator.onLine) {
+      const full = await this.localAdapter.getCompany(id);
       await syncQueue.enqueue({
         type: 'create',
         entity: 'company',
         entityId: id,
-        data: { ...company, id },
+        data: full ? this.prepareCompanyForSupabase(full) : this.prepareCompanyForSupabase({ ...company, id } as StoredCompany),
       });
     }
 
@@ -379,12 +401,15 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
     await this.localAdapter.updateCompany(id, updates);
 
     if (navigator.onLine) {
-      await syncQueue.enqueue({
-        type: 'update',
-        entity: 'company',
-        entityId: id,
-        data: { id, ...updates },
-      });
+      const full = await this.localAdapter.getCompany(id);
+      if (full) {
+        await syncQueue.enqueue({
+          type: 'update',
+          entity: 'company',
+          entityId: id,
+          data: this.prepareCompanyForSupabase(full),
+        });
+      }
     }
   }
 
@@ -393,18 +418,26 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
   }
 
   async listCompanies(): Promise<StoredCompany[]> {
+    // Always start with local data
+    const localCompanies = await this.localAdapter.listCompanies();
+
     if (navigator.onLine) {
       try {
         const cloudCompanies = await this.cloudAdapter.listCompanies();
         this.cacheCompanies(cloudCompanies).catch((err) =>
           console.warn('Failed to cache companies:', err)
         );
-        return cloudCompanies;
+
+        // Merge: cloud takes precedence, keep local-only items
+        const cloudIds = new Set(cloudCompanies.map(c => c.id));
+        const localOnly = localCompanies.filter(c => !cloudIds.has(c.id));
+        return [...cloudCompanies, ...localOnly];
       } catch (error) {
         console.warn('Cloud fetch failed, using local cache:', error);
       }
     }
-    return this.localAdapter.listCompanies();
+
+    return localCompanies;
   }
 
   async searchCompanies(query: string): Promise<StoredCompany[]> {
@@ -430,11 +463,13 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
     const id = await this.localAdapter.saveContact(contact);
 
     if (navigator.onLine) {
+      const contacts = await this.localAdapter.getContactsByCompany(contact.companyId);
+      const full = contacts.find(c => c.id === id);
       await syncQueue.enqueue({
         type: 'create',
         entity: 'contact',
         entityId: id,
-        data: { ...contact, id },
+        data: full ? this.prepareContactForSupabase(full) : this.prepareContactForSupabase({ ...contact, id } as StoredContact),
       });
     }
 
@@ -445,12 +480,27 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
     await this.localAdapter.updateContact(id, updates);
 
     if (navigator.onLine) {
-      await syncQueue.enqueue({
-        type: 'update',
-        entity: 'contact',
-        entityId: id,
-        data: { id, ...updates },
-      });
+      // Need to get the full contact; use companyId from updates if available
+      if (updates.companyId) {
+        const contacts = await this.localAdapter.getContactsByCompany(updates.companyId);
+        const full = contacts.find(c => c.id === id);
+        if (full) {
+          await syncQueue.enqueue({
+            type: 'update',
+            entity: 'contact',
+            entityId: id,
+            data: this.prepareContactForSupabase(full),
+          });
+        }
+      } else {
+        // Fallback: send the partial update with snake_case conversion
+        await syncQueue.enqueue({
+          type: 'update',
+          entity: 'contact',
+          entityId: id,
+          data: this.prepareContactForSupabase({ id, ...updates } as StoredContact),
+        });
+      }
     }
   }
 
@@ -477,11 +527,13 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
     const id = await this.localAdapter.saveActivity(activity);
 
     if (navigator.onLine) {
+      const activities = await this.localAdapter.getActivitiesByCompany(activity.companyId);
+      const full = activities.find(a => a.id === id);
       await syncQueue.enqueue({
         type: 'create',
         entity: 'activity',
         entityId: id,
-        data: { ...activity, id },
+        data: full ? this.prepareActivityForSupabase(full) : this.prepareActivityForSupabase({ ...activity, id } as StoredActivity),
       });
     }
 
@@ -515,11 +567,13 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
     const id = await this.localAdapter.saveNotification(notification);
 
     if (navigator.onLine) {
+      const notifications = await this.localAdapter.getNotifications(notification.userId);
+      const full = notifications.find(n => n.id === id);
       await syncQueue.enqueue({
         type: 'create',
         entity: 'notification',
         entityId: id,
-        data: { ...notification, id },
+        data: full ? this.prepareNotificationForSupabase(full) : this.prepareNotificationForSupabase({ ...notification, id } as StoredNotification),
       });
     }
 
@@ -538,7 +592,7 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
         type: 'update',
         entity: 'notification',
         entityId: id,
-        data: { id, is_read: true },
+        data: { id, is_read: true, updated_at: new Date().toISOString() },
       });
     }
   }
@@ -654,6 +708,9 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
       quote_ref: quote.quoteRef,
       version: quote.version,
       status: quote.status,
+      created_by: quote.createdBy || null,
+      assigned_to: quote.assignedTo || null,
+      company_id: quote.companyId || null,
       client_name: quote.clientName,
       contact_name: quote.contactName,
       contact_email: quote.contactEmail || null,
@@ -667,13 +724,103 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
       battery_chemistry_lock: quote.batteryChemistryLock,
       quote_type: quote.quoteType,
       slots: JSON.stringify(quote.slots),
+      approval_tier: quote.approvalTier ?? null,
+      approval_status: quote.approvalStatus || null,
+      approval_notes: quote.approvalNotes || null,
       override_irr: quote.overrideIRR,
-      current_assignee_id: quote.currentAssigneeId || null,
-      current_assignee_role: quote.currentAssigneeRole || null,
-      approval_chain: JSON.stringify(quote.approvalChain || []),
-      quote_date: quote.quoteDate.toISOString(),
-      created_at: quote.createdAt.toISOString(),
-      updated_at: quote.updatedAt.toISOString(),
+      submitted_by: quote.submittedBy || null,
+      submitted_at: quote.submittedAt instanceof Date ? quote.submittedAt.toISOString() : quote.submittedAt || null,
+      approved_by: quote.approvedBy || null,
+      approved_at: quote.approvedAt instanceof Date ? quote.approvedAt.toISOString() : quote.approvedAt || null,
+      locked_by: quote.lockedBy || null,
+      locked_at: quote.lockedAt instanceof Date ? quote.lockedAt.toISOString() : quote.lockedAt || null,
+      quote_date: quote.quoteDate instanceof Date ? quote.quoteDate.toISOString() : quote.quoteDate,
+      created_at: quote.createdAt instanceof Date ? quote.createdAt.toISOString() : quote.createdAt,
+      updated_at: quote.updatedAt instanceof Date ? quote.updatedAt.toISOString() : quote.updatedAt,
+    };
+  }
+
+  /**
+   * Prepare company for Supabase (camelCase → snake_case)
+   */
+  private prepareCompanyForSupabase(company: StoredCompany): any {
+    return {
+      id: company.id,
+      name: company.name,
+      trading_name: company.tradingName || null,
+      registration_number: company.registrationNumber || null,
+      vat_number: company.vatNumber || null,
+      industry: company.industry || null,
+      website: company.website || null,
+      address: company.address || null,
+      city: company.city || null,
+      province: company.province || null,
+      postal_code: company.postalCode || null,
+      country: company.country || null,
+      phone: company.phone || null,
+      email: company.email || null,
+      pipeline_stage: company.pipelineStage || null,
+      assigned_to: company.assignedTo || null,
+      estimated_value: company.estimatedValue ?? 0,
+      credit_limit: company.creditLimit ?? 0,
+      payment_terms: company.paymentTerms ?? 0,
+      tags: company.tags || [],
+      notes: company.notes || null,
+      created_at: company.createdAt,
+      updated_at: company.updatedAt,
+    };
+  }
+
+  /**
+   * Prepare contact for Supabase (camelCase → snake_case)
+   */
+  private prepareContactForSupabase(contact: StoredContact): any {
+    return {
+      id: contact.id,
+      company_id: contact.companyId,
+      first_name: contact.firstName,
+      last_name: contact.lastName,
+      title: contact.title || null,
+      email: contact.email || null,
+      phone: contact.phone || null,
+      is_primary: contact.isPrimary || false,
+      created_at: contact.createdAt,
+      updated_at: contact.updatedAt,
+    };
+  }
+
+  /**
+   * Prepare activity for Supabase (camelCase → snake_case)
+   */
+  private prepareActivityForSupabase(activity: StoredActivity): any {
+    return {
+      id: activity.id,
+      company_id: activity.companyId || null,
+      contact_id: activity.contactId || null,
+      quote_id: activity.quoteId || null,
+      type: activity.type,
+      title: activity.title,
+      description: activity.description || null,
+      due_date: activity.dueDate || null,
+      created_by: activity.createdBy || null,
+      created_at: activity.createdAt,
+    };
+  }
+
+  /**
+   * Prepare notification for Supabase (camelCase → snake_case)
+   */
+  private prepareNotificationForSupabase(notification: StoredNotification): any {
+    return {
+      id: notification.id,
+      user_id: notification.userId,
+      type: notification.type,
+      title: notification.title,
+      message: notification.message,
+      entity_type: notification.entityType || null,
+      entity_id: notification.entityId || null,
+      is_read: notification.isRead || false,
+      created_at: notification.createdAt,
     };
   }
 }

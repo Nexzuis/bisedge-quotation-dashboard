@@ -67,22 +67,45 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         };
       }
 
-      // Prepare quote for database
+      // Prepare quote for database — explicit snake_case payload (no camelCase spread)
       const newVersion = quote.version + 1;
-      const dbQuote = {
-        ...quote,
+      const dbQuote: Record<string, any> = {
+        id: quote.id,
+        quote_ref: quote.quoteRef,
         version: newVersion,
-        updated_at: new Date().toISOString(),
-        // Ensure user ownership
+        status: quote.status,
         created_by: quote.id ? existing?.created_by || user.id : user.id,
-        // Serialize arrays/objects to JSON
+        assigned_to: quote.assignedTo || null,
+        company_id: quote.companyId || null,
+        client_name: quote.clientName,
+        contact_name: quote.contactName,
+        contact_email: quote.contactEmail || null,
+        contact_phone: quote.contactPhone || null,
         client_address: JSON.stringify(quote.clientAddress),
+        factory_roe: quote.factoryROE,
+        customer_roe: quote.customerROE,
+        discount_pct: quote.discountPct,
+        annual_interest_rate: quote.annualInterestRate,
+        default_lease_term_months: quote.defaultLeaseTermMonths,
+        battery_chemistry_lock: quote.batteryChemistryLock,
+        quote_type: quote.quoteType,
         slots: JSON.stringify(quote.slots),
-        // Convert Date objects to ISO strings
-        quote_date: quote.quoteDate.toISOString(),
-        created_at: quote.createdAt.toISOString(),
-        submitted_at: quote.submittedAt?.toISOString() || null,
-        approved_at: quote.approvedAt?.toISOString() || null,
+        approval_tier: quote.approvalTier ?? null,
+        approval_status: quote.approvalStatus || null,
+        approval_notes: quote.approvalNotes || null,
+        override_irr: quote.overrideIRR,
+        submitted_by: quote.submittedBy || null,
+        submitted_at: quote.submittedAt instanceof Date ? quote.submittedAt.toISOString() : quote.submittedAt || null,
+        approved_by: quote.approvedBy || null,
+        approved_at: quote.approvedAt instanceof Date ? quote.approvedAt.toISOString() : quote.approvedAt || null,
+        locked_by: quote.lockedBy || null,
+        locked_at: quote.lockedAt instanceof Date ? quote.lockedAt.toISOString() : quote.lockedAt || null,
+        quote_date: quote.quoteDate instanceof Date ? quote.quoteDate.toISOString() : quote.quoteDate,
+        created_at: quote.createdAt instanceof Date ? quote.createdAt.toISOString() : quote.createdAt,
+        updated_at: new Date().toISOString(),
+        current_assignee_id: quote.currentAssigneeId || null,
+        current_assignee_role: quote.currentAssigneeRole || null,
+        approval_chain: JSON.stringify(quote.approvalChain || []),
       };
 
       // Upsert quote
@@ -172,8 +195,14 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         query = query.lte('created_at', filters.dateTo.toISOString());
       }
 
-      // Apply sorting
-      const sortBy = options.sortBy || 'created_at';
+      // Apply sorting — map camelCase sortBy to snake_case Postgres columns
+      const SORT_COLUMN_MAP: Record<string, string> = {
+        createdAt: 'created_at',
+        updatedAt: 'updated_at',
+        quoteRef: 'quote_ref',
+      };
+      const rawSortBy = options.sortBy || 'createdAt';
+      const sortBy = SORT_COLUMN_MAP[rawSortBy] || rawSortBy;
       const ascending = options.sortOrder === 'asc';
       query = query.order(sortBy, { ascending });
 

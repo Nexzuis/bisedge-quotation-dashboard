@@ -10,22 +10,28 @@ import { StepHeader } from '../shared/StepHeader';
 import { Button } from '../../ui/Button';
 import { toast } from '../../ui/Toast';
 import { useAuth } from '../../auth/AuthContext';
+import { useApprovalActions } from '../../../hooks/useApprovalActions';
+import { ApprovalActionModal } from '../../shared/ApprovalActionModal';
+import { getDb } from '../../../db/DatabaseAdapter';
+import { ROLE_DISPLAY_NAMES, type Role } from '../../../auth/permissions';
 
 export function ExportStep() {
   const quote = useQuoteStore((s) => s);
   const getQuoteTotals = useQuoteStore((s) => s.getQuoteTotals);
   const getSlotPricing = useQuoteStore((s) => s.getSlotPricing);
-  const submitForApproval = useQuoteStore((s) => s.submitForApproval);
 
   const { saveNow, status: saveStatus } = useAutoSave();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { setCanProceed } = useBuilder();
+  const { submit, isProcessing, targetRoles } = useApprovalActions();
 
   const [isExporting, setIsExporting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [exported, setExported] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [targetUsers, setTargetUsers] = useState<{ id: string; fullName: string; role: string }[]>([]);
 
   useEffect(() => {
     setCanProceed(true);
@@ -75,10 +81,37 @@ export function ExportStep() {
     }
   };
 
+  // Load target users when the approval modal opens
+  useEffect(() => {
+    if (!showApprovalModal) return;
+    const loadUsers = async () => {
+      const db = getDb();
+      const allUsers: { id: string; fullName: string; role: string }[] = [];
+      for (const role of targetRoles) {
+        const users = await db.getUsersByRole(role);
+        allUsers.push(...users.map((u: any) => ({ id: u.id, fullName: u.fullName || u.full_name, role: u.role })));
+      }
+      setTargetUsers(allUsers);
+    };
+    loadUsers();
+  }, [showApprovalModal, targetRoles]);
+
   const handleSubmitForApproval = () => {
-    if (user) {
-      submitForApproval(user.id || user.username);
+    setShowApprovalModal(true);
+  };
+
+  const handleApprovalConfirm = async (data: {
+    targetUserId?: string;
+    targetUserName?: string;
+    targetRole?: string;
+    notes: string;
+  }) => {
+    try {
+      await submit(data.targetUserId!, data.targetUserName!, data.targetRole!, data.notes);
       toast.success('Quote submitted for approval');
+      setShowApprovalModal(false);
+    } catch (error) {
+      toast.error('Failed to submit for approval');
     }
   };
 
@@ -150,10 +183,11 @@ export function ExportStep() {
             variant="secondary"
             icon={Send}
             onClick={handleSubmitForApproval}
-            disabled={quote.approvalStatus === 'pending-approval'}
+            disabled={quote.status !== 'draft' && quote.status !== 'changes-requested'}
+            loading={isProcessing}
             className="w-full"
           >
-            {quote.approvalStatus === 'pending-approval' ? 'Pending Approval' : 'Submit'}
+            {quote.status === 'pending-approval' ? 'Pending Approval' : 'Submit'}
           </Button>
         </div>
 
@@ -178,6 +212,19 @@ export function ExportStep() {
           </Button>
         </div>
       </div>
+
+      {/* Approval Action Modal */}
+      <ApprovalActionModal
+        isOpen={showApprovalModal}
+        onClose={() => setShowApprovalModal(false)}
+        action="submit"
+        title="Submit for Approval"
+        showTargetPicker={true}
+        targetRoles={targetRoles.map((r) => ({ value: r, label: ROLE_DISPLAY_NAMES[r] }))}
+        users={targetUsers}
+        onConfirm={handleApprovalConfirm}
+        isProcessing={isProcessing}
+      />
     </div>
   );
 }

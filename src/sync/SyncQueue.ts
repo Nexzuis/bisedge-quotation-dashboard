@@ -21,6 +21,20 @@ export interface SyncOperation {
   lastError?: string;
 }
 
+// Entity sync priority — parents must sync before children that reference them via FK
+const ENTITY_PRIORITY: Record<string, number> = {
+  company: 0,
+  contact: 1,
+  customer: 1,
+  activity: 2,
+  notification: 2,
+  quote: 3,
+  user: 0,
+};
+
+// Postgres error codes that are permanent — retrying won't fix them
+const PERMANENT_PG_CODES = new Set(['23503', '23505', '42703', '42P01']);
+
 export interface SyncStatus {
   pendingOperations: number;
   lastSyncedAt: Date | null;
@@ -48,24 +62,34 @@ export class SyncQueue {
   }
 
   /**
-   * Add an operation to the sync queue
+   * Add an operation to the sync queue (deduplicates by entity+entityId)
    */
   async enqueue(operation: Omit<SyncOperation, 'id' | 'timestamp' | 'retries'>): Promise<void> {
-    const syncOp: SyncOperation = {
-      ...operation,
-      id: crypto.randomUUID(),
-      timestamp: Date.now(),
-      retries: 0,
-    };
+    console.log('📝 Enqueuing sync operation:', operation.type, operation.entity, operation.entityId);
 
-    console.log('📝 Enqueuing sync operation:', syncOp.type, syncOp.entity, syncOp.entityId);
-
-    // Store in IndexedDB sync queue table (we'll add this to schema)
     try {
-      // For now, store in a simple array in localStorage
-      // TODO: Move to IndexedDB table in next iteration
       const queue = this.getLocalQueue();
-      queue.push(syncOp);
+
+      // Deduplicate: if same entity+entityId already queued, update it instead
+      const existingIdx = queue.findIndex(
+        (q) => q.entity === operation.entity && q.entityId === operation.entityId
+      );
+
+      if (existingIdx !== -1) {
+        queue[existingIdx].data = operation.data;
+        queue[existingIdx].type = operation.type;
+        queue[existingIdx].retries = 0;
+        queue[existingIdx].lastError = undefined;
+        console.log('🔄 Updated existing queue entry for', operation.entity, operation.entityId);
+      } else {
+        queue.push({
+          ...operation,
+          id: crypto.randomUUID(),
+          timestamp: Date.now(),
+          retries: 0,
+        });
+      }
+
       this.saveLocalQueue(queue);
 
       // Notify listeners
@@ -117,6 +141,13 @@ export class SyncQueue {
 
     console.log(`📤 Syncing ${queue.length} pending operations...`);
 
+    // Sort by entity priority — parents (companies) before children (quotes)
+    queue.sort((a, b) => {
+      const pa = ENTITY_PRIORITY[a.entity] ?? 99;
+      const pb = ENTITY_PRIORITY[b.entity] ?? 99;
+      return pa - pb;
+    });
+
     let processedCount = 0;
     let failedCount = 0;
 
@@ -131,24 +162,32 @@ export class SyncQueue {
         queue.splice(i, 1);
         i--; // Adjust index after removal
         processedCount++;
-      } catch (error) {
+      } catch (error: any) {
+        const pgCode = error?.code;
+        const isPermanent = PERMANENT_PG_CODES.has(pgCode);
+
+        if (isPermanent) {
+          console.error(`💀 Permanent error for ${op.type} ${op.entity} (PG ${pgCode}), removing:`, error.message);
+          queue.splice(i, 1);
+          i--;
+          failedCount++;
+          continue;
+        }
+
         console.error(`❌ Failed to sync ${op.type} ${op.entity}:`, error);
 
-        // Increment retry count
+        // Transient error — increment retry count
         op.retries++;
         op.lastError = error instanceof Error ? error.message : String(error);
 
-        // Exponential backoff before retry
-        const backoffMs = Math.min(1000 * Math.pow(2, op.retries), 30000);
-        await new Promise(resolve => setTimeout(resolve, backoffMs));
-
-        // If too many retries, mark as failed
+        // If too many retries, mark as failed and remove
         if (op.retries > 5) {
           console.error(`💀 Operation failed after ${op.retries} retries, removing from queue`);
           queue.splice(i, 1);
           i--;
           failedCount++;
         }
+        // No inline backoff — queue retries on next processQueue() call
       }
     }
 

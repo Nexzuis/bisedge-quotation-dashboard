@@ -220,7 +220,7 @@ const UserManagement = () => {
         const passwordHash = await bcrypt.hash(formData.password, salt);
 
         const newUser: StoredUser = {
-          id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          id: crypto.randomUUID(),
           username: formData.username,
           fullName: formData.fullName,
           email: formData.email,

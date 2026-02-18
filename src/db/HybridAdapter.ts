@@ -52,6 +52,16 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
    * 2. Queue for cloud sync (background)
    */
   async saveQuote(quote: QuoteState): Promise<SaveResult> {
+    // Ensure createdBy is set from auth session if missing
+    if (!quote.createdBy) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.id) {
+          quote = { ...quote, createdBy: session.user.id };
+        }
+      } catch { /* proceed with original quote */ }
+    }
+
     // Step 1: Save to local cache (instant)
     const localResult = await this.localAdapter.saveQuote(quote);
 

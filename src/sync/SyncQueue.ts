@@ -89,6 +89,18 @@ export class SyncQueue {
       return;
     }
 
+    // Verify authenticated session — RLS requires it
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.warn('⏸️  Skipping sync — no authenticated Supabase session');
+        return;
+      }
+    } catch {
+      console.warn('⏸️  Skipping sync — failed to check auth session');
+      return;
+    }
+
     this.isProcessing = true;
     this.notifyListeners();
 
@@ -186,16 +198,20 @@ export class SyncQueue {
 
     switch (op.type) {
       case 'create':
-      case 'update':
-        // Upsert (insert or update)
-        const { error: upsertError } = await supabase
+      case 'update': {
+        // Upsert with .select() to detect silent RLS rejections
+        const { data, error: upsertError } = await supabase
           .from(tableName)
-          .upsert(op.data, { onConflict: 'id' });
+          .upsert(op.data, { onConflict: 'id' })
+          .select();
 
         if (upsertError) throw upsertError;
+        if (!data || data.length === 0) {
+          throw new Error(`Sync rejected by RLS for ${tableName} (id: ${op.entityId})`);
+        }
         break;
-
-      case 'delete':
+      }
+      case 'delete': {
         const { error: deleteError } = await supabase
           .from(tableName)
           .delete()
@@ -203,6 +219,7 @@ export class SyncQueue {
 
         if (deleteError) throw deleteError;
         break;
+      }
     }
   }
 
@@ -214,15 +231,19 @@ export class SyncQueue {
 
     switch (op.type) {
       case 'create':
-      case 'update':
-        const { error: upsertError } = await supabase
+      case 'update': {
+        const { data, error: upsertError } = await supabase
           .from(tableName)
-          .upsert(op.data, { onConflict: 'id' });
+          .upsert(op.data, { onConflict: 'id' })
+          .select();
 
         if (upsertError) throw upsertError;
+        if (!data || data.length === 0) {
+          throw new Error(`Sync rejected by RLS for ${tableName} (id: ${op.entityId})`);
+        }
         break;
-
-      case 'delete':
+      }
+      case 'delete': {
         const { error: deleteError } = await supabase
           .from(tableName)
           .delete()
@@ -230,6 +251,7 @@ export class SyncQueue {
 
         if (deleteError) throw deleteError;
         break;
+      }
     }
   }
 
@@ -240,11 +262,15 @@ export class SyncQueue {
     switch (op.type) {
       case 'create':
       case 'update': {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from(tableName)
-          .upsert(op.data, { onConflict: 'id' });
+          .upsert(op.data, { onConflict: 'id' })
+          .select();
 
         if (error) throw error;
+        if (!data || data.length === 0) {
+          throw new Error(`Sync rejected by RLS for ${tableName} (id: ${op.entityId})`);
+        }
         break;
       }
       case 'delete': {

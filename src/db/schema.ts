@@ -56,6 +56,7 @@ export class BisedgeDatabase extends Dexie {
   settings!: Table<StoredSetting, string>;
 
   // Configuration tables
+  batteryModels!: Table<any, string>;
   approvalTiers!: Table<StoredApprovalTier, number>;
   commissionTiers!: Table<StoredCommissionTier, number>;
   residualCurves!: Table<StoredResidualCurve, string>;

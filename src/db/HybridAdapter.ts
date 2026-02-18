@@ -58,6 +58,24 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
     this.cloudAdapter = new SupabaseDatabaseAdapter();
   }
 
+  /**
+   * Resolve a local user ID to a valid Supabase UUID.
+   * Non-UUID values (e.g. 'default-admin' from local seed) are replaced
+   * with the current Supabase auth user's UUID to avoid FK violations.
+   */
+  private async resolveSupabaseUserId(localId: string | null | undefined): Promise<string | null> {
+    if (!localId) return null;
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(localId)) {
+      return localId;
+    }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      return session?.user?.id ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   // ===== Quote Operations =====
 
   /**
@@ -112,7 +130,7 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
             type: isNew ? 'create' : 'update',
             entity: 'quote',
             entityId: quote.id,
-            data: this.prepareQuoteForSupabase(saved),
+            data: await this.prepareQuoteForSupabase(saved),
           });
         } else {
           console.warn('⚠️ Quote saved locally but could not re-fetch for sync:', quote.id);
@@ -227,7 +245,7 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
           type: 'create',
           entity: 'quote',
           entityId: result.id,
-          data: this.prepareQuoteForSupabase(newQuote),
+          data: await this.prepareQuoteForSupabase(newQuote),
         });
       }
     }
@@ -266,7 +284,7 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
           type: 'create',
           entity: 'quote',
           entityId: result.id,
-          data: this.prepareQuoteForSupabase(newQuote),
+          data: await this.prepareQuoteForSupabase(newQuote),
         });
       }
     }
@@ -485,7 +503,7 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
         type: 'create',
         entity: 'company',
         entityId: id,
-        data: full ? this.prepareCompanyForSupabase(full) : this.prepareCompanyForSupabase({ ...company, id } as StoredCompany),
+        data: full ? await this.prepareCompanyForSupabase(full) : await this.prepareCompanyForSupabase({ ...company, id } as StoredCompany),
       });
     }
 
@@ -517,7 +535,7 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
           type: 'update',
           entity: 'company',
           entityId: id,
-          data: this.prepareCompanyForSupabase(full),
+          data: await this.prepareCompanyForSupabase(full),
         });
       }
     }
@@ -703,7 +721,7 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
         type: 'create',
         entity: 'activity',
         entityId: id,
-        data: full ? this.prepareActivityForSupabase(full) : this.prepareActivityForSupabase({ ...activity, id } as StoredActivity),
+        data: full ? await this.prepareActivityForSupabase(full) : await this.prepareActivityForSupabase({ ...activity, id } as StoredActivity),
       });
     }
 
@@ -743,7 +761,7 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
         type: 'create',
         entity: 'notification',
         entityId: id,
-        data: full ? this.prepareNotificationForSupabase(full) : this.prepareNotificationForSupabase({ ...notification, id } as StoredNotification),
+        data: full ? await this.prepareNotificationForSupabase(full) : await this.prepareNotificationForSupabase({ ...notification, id } as StoredNotification),
       });
     }
 
@@ -783,6 +801,48 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
     await syncQueue.forceSyncNow();
   }
 
+  // ===== Repair Operations =====
+
+  /**
+   * Re-enqueue all local companies (and their contacts) for sync.
+   * Call after clearing the permanent failure blocklist to recover
+   * from entities that were previously blocked by FK violations.
+   */
+  async repairStuckSyncs(): Promise<number> {
+    syncQueue.clearPermanentFailures();
+    syncQueue.clearQueue();
+
+    let enqueued = 0;
+
+    // Re-enqueue companies
+    const companies = await this.localAdapter.listCompanies();
+    for (const company of companies) {
+      await syncQueue.enqueue({
+        type: 'update',
+        entity: 'company',
+        entityId: company.id,
+        data: await this.prepareCompanyForSupabase(company as StoredCompany),
+      });
+      enqueued++;
+
+      // Re-enqueue contacts for this company
+      const contacts = await this.localAdapter.getContactsByCompany(company.id);
+      for (const contact of contacts) {
+        await syncQueue.enqueue({
+          type: 'update',
+          entity: 'contact',
+          entityId: contact.id,
+          data: this.prepareContactForSupabase(contact),
+        });
+        enqueued++;
+      }
+    }
+
+    // Trigger processing
+    await syncQueue.processQueue();
+    return enqueued;
+  }
+
   // ===== Helper Methods =====
 
   /**
@@ -815,7 +875,7 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
             type: 'update',
             entity: 'quote',
             entityId: resolution.resolved.id,
-            data: this.prepareQuoteForSupabase(resolution.resolved),
+            data: await this.prepareQuoteForSupabase(resolution.resolved),
           });
         }
       }
@@ -870,16 +930,16 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
   }
 
   /**
-   * Prepare quote for Supabase (convert formats)
+   * Prepare quote for Supabase (convert formats, resolve user IDs)
    */
-  private prepareQuoteForSupabase(quote: QuoteState): any {
+  private async prepareQuoteForSupabase(quote: QuoteState): Promise<any> {
     return {
       id: quote.id,
       quote_ref: quote.quoteRef,
       version: quote.version,
       status: quote.status,
-      created_by: quote.createdBy || null,
-      assigned_to: quote.assignedTo || null,
+      created_by: await this.resolveSupabaseUserId(quote.createdBy),
+      assigned_to: await this.resolveSupabaseUserId(quote.assignedTo),
       company_id: quote.companyId || null,
       client_name: quote.clientName,
       contact_name: quote.contactName,
@@ -898,11 +958,11 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
       approval_status: quote.approvalStatus || null,
       approval_notes: quote.approvalNotes || null,
       override_irr: quote.overrideIRR,
-      submitted_by: quote.submittedBy || null,
+      submitted_by: await this.resolveSupabaseUserId(quote.submittedBy),
       submitted_at: quote.submittedAt instanceof Date ? quote.submittedAt.toISOString() : quote.submittedAt || null,
-      approved_by: quote.approvedBy || null,
+      approved_by: await this.resolveSupabaseUserId(quote.approvedBy),
       approved_at: quote.approvedAt instanceof Date ? quote.approvedAt.toISOString() : quote.approvedAt || null,
-      locked_by: quote.lockedBy || null,
+      locked_by: await this.resolveSupabaseUserId(quote.lockedBy),
       locked_at: quote.lockedAt instanceof Date ? quote.lockedAt.toISOString() : quote.lockedAt || null,
       quote_date: quote.quoteDate instanceof Date ? quote.quoteDate.toISOString() : quote.quoteDate,
       created_at: quote.createdAt instanceof Date ? quote.createdAt.toISOString() : quote.createdAt,
@@ -911,9 +971,9 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
   }
 
   /**
-   * Prepare company for Supabase (camelCase → snake_case)
+   * Prepare company for Supabase (camelCase → snake_case, resolve user IDs)
    */
-  private prepareCompanyForSupabase(company: StoredCompany): any {
+  private async prepareCompanyForSupabase(company: StoredCompany): Promise<any> {
     return {
       id: company.id,
       name: company.name,
@@ -930,7 +990,7 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
       phone: company.phone || null,
       email: company.email || null,
       pipeline_stage: company.pipelineStage || null,
-      assigned_to: company.assignedTo || null,
+      assigned_to: await this.resolveSupabaseUserId(company.assignedTo),
       estimated_value: company.estimatedValue ?? 0,
       credit_limit: company.creditLimit ?? 0,
       payment_terms: company.paymentTerms ?? 0,
@@ -960,9 +1020,9 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
   }
 
   /**
-   * Prepare activity for Supabase (camelCase → snake_case)
+   * Prepare activity for Supabase (camelCase → snake_case, resolve user IDs)
    */
-  private prepareActivityForSupabase(activity: StoredActivity): any {
+  private async prepareActivityForSupabase(activity: StoredActivity): Promise<any> {
     return {
       id: activity.id,
       company_id: activity.companyId || null,
@@ -972,18 +1032,18 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
       title: activity.title,
       description: activity.description || null,
       due_date: activity.dueDate || null,
-      created_by: activity.createdBy || null,
+      created_by: await this.resolveSupabaseUserId(activity.createdBy),
       created_at: activity.createdAt,
     };
   }
 
   /**
-   * Prepare notification for Supabase (camelCase → snake_case)
+   * Prepare notification for Supabase (camelCase → snake_case, resolve user IDs)
    */
-  private prepareNotificationForSupabase(notification: StoredNotification): any {
+  private async prepareNotificationForSupabase(notification: StoredNotification): Promise<any> {
     return {
       id: notification.id,
-      user_id: notification.userId,
+      user_id: await this.resolveSupabaseUserId(notification.userId),
       type: notification.type,
       title: notification.title,
       message: notification.message,

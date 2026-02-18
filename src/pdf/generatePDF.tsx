@@ -1,6 +1,7 @@
 import { pdf } from '@react-pdf/renderer';
 import { QuoteDocument } from './QuoteDocument';
 import { generateQRCode, getLindeProductUrl } from './assets/qrCodeGenerator';
+import { getProductImage } from './assets/productImages';
 import { defaultTermsTemplate } from './templates/defaultTerms';
 import { formatDate, formatDateFilename } from '../engine/formatters';
 import type { QuoteState } from '../types/quote';
@@ -134,18 +135,22 @@ export async function generateQuotePDF(
       },
     };
 
-    // Pre-generate QR codes for unique models
+    // Pre-generate QR codes and product images for unique models
     const qrCodes = new Map<string, string>();
+    const productImages = new Map<string, string>();
     const uniqueModels = new Set(validUnits.map((u) => u.model.code));
 
     for (const modelCode of uniqueModels) {
       const url = getLindeProductUrl(modelCode);
       const qrCode = await generateQRCode(url);
       qrCodes.set(modelCode, qrCode);
+
+      const unit = validUnits.find((u) => u.model.code === modelCode)!;
+      productImages.set(modelCode, getProductImage(modelCode, unit.model.name));
     }
 
     // Generate PDF
-    const blob = await pdf(<QuoteDocument data={pdfData} qrCodes={qrCodes} />).toBlob();
+    const blob = await pdf(<QuoteDocument data={pdfData} qrCodes={qrCodes} productImages={productImages} />).toBlob();
 
     // Generate filename
     const dateStr = formatDateFilename(quoteState.quoteDate);

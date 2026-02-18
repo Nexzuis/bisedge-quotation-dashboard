@@ -17,6 +17,7 @@ import type { PdfQuoteData, PageNumbers } from './types';
 interface QuoteDocumentProps {
   data: PdfQuoteData;
   qrCodes: Map<string, string>;
+  productImages: Map<string, string>;
 }
 
 /**
@@ -84,7 +85,7 @@ function getUniqueModels(data: PdfQuoteData) {
 /**
  * Main Quote Document Component
  */
-export function QuoteDocument({ data, qrCodes }: QuoteDocumentProps) {
+export function QuoteDocument({ data, qrCodes, productImages }: QuoteDocumentProps) {
   const uniqueModels = getUniqueModels(data);
   const pageNumbers = calculatePageNumbers(data, uniqueModels.length);
 
@@ -128,6 +129,7 @@ export function QuoteDocument({ data, qrCodes }: QuoteDocumentProps) {
               <SpecImagePage
                 model={unit.model}
                 qrCode={qrCodes.get(unit.model.code)}
+                productImage={productImages.get(unit.model.code)}
                 quoteRef={data.quoteRef}
                 pageNumber={imagePage}
                 totalPages={pageNumbers.total}

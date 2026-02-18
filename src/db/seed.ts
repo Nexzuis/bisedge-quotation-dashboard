@@ -12,6 +12,10 @@ import priceListSeriesData from '../data/priceListSeries.json';
 import containerMappingsData from '../data/containerMappings.json';
 import telematicsPackagesData from '../data/telematicsPackages.json';
 
+// Battery data files
+import batteriesLiIon from '../data/batteries-li-ion.json';
+import batteriesPb from '../data/batteries-pb.json';
+
 /**
  * Check if the database has been fully seeded by verifying
  * that all critical tables contain data.
@@ -25,6 +29,7 @@ async function isDatabaseFullySeeded(): Promise<boolean> {
       priceListCount,
       telematicsCount,
       containerMapCount,
+      batteryCount,
     ] = await Promise.all([
       db.residualCurves.count(),
       db.users.count(),
@@ -32,6 +37,7 @@ async function isDatabaseFullySeeded(): Promise<boolean> {
       db.priceListSeries.count(),
       db.telematicsPackages.count(),
       db.containerMappings.count(),
+      db.batteryModels.count(),
     ]);
 
     return (
@@ -40,7 +46,8 @@ async function isDatabaseFullySeeded(): Promise<boolean> {
       settingsCount > 0 &&
       priceListCount > 0 &&
       telematicsCount > 0 &&
-      containerMapCount > 0
+      containerMapCount > 0 &&
+      batteryCount > 0
     );
   } catch {
     // If we cannot read counts, assume not seeded so we attempt
@@ -240,6 +247,17 @@ export async function seedDatabaseIfEmpty(): Promise<void> {
       }
     }
 
+    // Seed Battery Models
+    const batteryCount = await db.batteryModels.count();
+    if (batteryCount === 0) {
+      console.log('Seeding battery models...');
+      const allBatteries = [...batteriesLiIon, ...batteriesPb];
+      await db.batteryModels.bulkPut(allBatteries as any);
+      console.log(`  Seeded ${allBatteries.length} battery models`);
+    } else {
+      console.log(`Battery models already present (${batteryCount}), skipping...`);
+    }
+
     // Build summary
     console.log('Database seeding completed successfully!');
     console.log(`- Commission tiers: ${commissionTiersData.length}`);
@@ -271,6 +289,7 @@ export async function resetDatabase(): Promise<void> {
   await db.commissionTiers.clear();
   await db.residualCurves.clear();
   await db.configurationMatrices.clear();
+  await db.batteryModels.clear();
   await db.users.clear();
   await db.priceListSeries.clear();
   await db.telematicsPackages.clear();

@@ -1,56 +1,29 @@
 /**
- * Bisedge Logo (Text-based placeholder rendered as PNG)
- * Uses Canvas API to produce raster images compatible with @react-pdf/renderer
+ * Bisedge Logo (Static SVG-based placeholders as data URIs)
+ * No Canvas dependency — works reliably within @react-pdf/renderer
  */
 
-let bisedgePng: string | null = null;
-let lindePng: string | null = null;
-
-function renderLogoPng(
-  width: number,
-  height: number,
-  bgColor: string,
-  text: string,
-  fontSize: number
-): string {
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d')!;
-
-  // Background
-  ctx.fillStyle = bgColor;
-  ctx.fillRect(0, 0, width, height);
-
-  // Text
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font = `bold ${fontSize}px Helvetica, Arial, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(text, width / 2, height / 2);
-
-  return canvas.toDataURL('image/png');
+function svgToDataUri(svg: string): string {
+  return 'data:image/svg+xml;base64,' + btoa(svg);
 }
+
+const bisedgeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="60">
+  <rect width="200" height="60" fill="#003B5C"/>
+  <text x="100" y="34" font-family="Helvetica,Arial,sans-serif" font-size="24" font-weight="bold" fill="#FFFFFF" text-anchor="middle">BISEDGE</text>
+</svg>`;
+
+const lindeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40">
+  <rect width="120" height="40" fill="#E4002B"/>
+  <text x="60" y="26" font-family="Helvetica,Arial,sans-serif" font-size="18" font-weight="bold" fill="#FFFFFF" text-anchor="middle">LINDE</text>
+</svg>`;
 
 export const bisedgeLogo = {
   text: 'BISEDGE',
   subtitle: 'Linde Material Handling | Official Dealer',
-
-  get base64(): string {
-    if (!bisedgePng) {
-      bisedgePng = renderLogoPng(200, 60, '#003B5C', 'BISEDGE', 24);
-    }
-    return bisedgePng;
-  },
+  base64: svgToDataUri(bisedgeSvg),
 };
 
 export const lindeLogo = {
   text: 'LINDE',
-
-  get base64(): string {
-    if (!lindePng) {
-      lindePng = renderLogoPng(120, 40, '#E4002B', 'LINDE', 18);
-    }
-    return lindePng;
-  },
+  base64: svgToDataUri(lindeSvg),
 };

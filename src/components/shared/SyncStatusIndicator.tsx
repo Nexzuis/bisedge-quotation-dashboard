@@ -10,14 +10,37 @@
 
 import { useEffect, useState } from 'react';
 import { Cloud, CloudOff, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
-import { useSyncStatus } from '../sync/SyncQueue';
-import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import { useSyncStatus, syncQueue } from '../../sync/SyncQueue';
+import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { getDb } from '../../db/DatabaseAdapter';
 import { toast } from 'sonner';
 
 export function SyncStatusIndicator() {
   const { isOnline } = useOnlineStatus();
   const syncStatus = useSyncStatus();
   const [showDetails, setShowDetails] = useState(false);
+  const [isRepairing, setIsRepairing] = useState(false);
+
+  const handleRepairSync = async () => {
+    setIsRepairing(true);
+    try {
+      const adapter = getDb() as any;
+      if (typeof adapter.repairStuckSyncs === 'function') {
+        const count = await adapter.repairStuckSyncs();
+        toast.success(`Sync repaired: ${count} entities re-queued`);
+      } else {
+        // Fallback for non-hybrid adapters
+        syncQueue.clearPermanentFailures();
+        syncQueue.clearQueue();
+        toast.success('Sync queue and failure blocklist cleared');
+      }
+    } catch (err) {
+      toast.error('Failed to repair sync');
+      console.error('Repair sync failed:', err);
+    } finally {
+      setIsRepairing(false);
+    }
+  };
 
   // Show toast when going offline/online
   useEffect(() => {
@@ -77,16 +100,26 @@ export function SyncStatusIndicator() {
 
   if (syncStatus.pendingOperations > 0) {
     return (
-      <button
-        onClick={() => setShowDetails(!showDetails)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 hover:bg-orange-500/20 transition-colors"
-        title={`${syncStatus.pendingOperations} changes waiting to sync`}
-      >
-        <AlertCircle className="w-4 h-4 text-orange-500" />
-        <span className="text-sm text-orange-600 font-medium">
-          {syncStatus.pendingOperations} pending
-        </span>
-      </button>
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => setShowDetails(!showDetails)}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 hover:bg-orange-500/20 transition-colors"
+          title={`${syncStatus.pendingOperations} changes waiting to sync`}
+        >
+          <AlertCircle className="w-4 h-4 text-orange-500" />
+          <span className="text-sm text-orange-600 font-medium">
+            {syncStatus.pendingOperations} pending
+          </span>
+        </button>
+        <button
+          onClick={handleRepairSync}
+          disabled={isRepairing}
+          className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 hover:bg-orange-500/20 transition-colors text-sm text-orange-600"
+          title="Clear failed sync queue and re-enqueue all local data"
+        >
+          <RefreshCw className={`w-3 h-3 ${isRepairing ? 'animate-spin' : ''}`} />
+        </button>
+      </div>
     );
   }
 

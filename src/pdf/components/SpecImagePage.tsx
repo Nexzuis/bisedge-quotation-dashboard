@@ -2,7 +2,6 @@ import { Page, View, Text, Image } from '@react-pdf/renderer';
 import { pdfStyles } from '../styles/pdfStyles';
 import { COLORS } from '../styles/colors';
 import { PdfHeader, PdfFooter } from '.';
-import { getProductImage } from '../assets';
 
 interface SpecImagePageProps {
   model: {
@@ -11,6 +10,7 @@ interface SpecImagePageProps {
     category: string;
   };
   qrCode?: string;
+  productImage?: string;
   quoteRef: string;
   pageNumber: number;
   totalPages: number;
@@ -19,11 +19,11 @@ interface SpecImagePageProps {
 export function SpecImagePage({
   model,
   qrCode,
+  productImage,
   quoteRef,
   pageNumber,
   totalPages,
 }: SpecImagePageProps) {
-  const productImage = getProductImage(model.code, model.name);
 
   return (
     <Page size="A4" style={pdfStyles.page}>
@@ -49,18 +49,20 @@ export function SpecImagePage({
         </View>
 
         {/* Product Image */}
-        <View
-          style={{
-            marginBottom: 30,
-            padding: 20,
-            backgroundColor: COLORS.white,
-            borderWidth: 1,
-            borderColor: COLORS.borderGray,
-            borderRadius: 8,
-          }}
-        >
-          <Image src={productImage} style={{ width: 400, height: 300 }} />
-        </View>
+        {productImage && (
+          <View
+            style={{
+              marginBottom: 30,
+              padding: 20,
+              backgroundColor: COLORS.white,
+              borderWidth: 1,
+              borderColor: COLORS.borderGray,
+              borderRadius: 8,
+            }}
+          >
+            <Image src={productImage} style={{ width: 400, height: 300 }} />
+          </View>
+        )}
 
         {/* QR Code Section */}
         {qrCode && (

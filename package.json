@@ -7,7 +7,7 @@
     "dev": "node scripts/start-dev.js",
     "dev:simple": "vite --port 5173",
     "kill-port": "kill-port 5173",
-    "build": "tsc -b && vite build",
+    "build": "vite build",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit",

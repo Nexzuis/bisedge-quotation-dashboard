@@ -62,25 +62,34 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
       } catch { /* proceed with original quote */ }
     }
 
-    // Step 1: Save to local cache (instant)
+    // Determine if this is a new quote before local save increments version
+    const isNew = quote.version === 1;
+
+    // Step 1: Save to local cache (instant) — this increments version
     const localResult = await this.localAdapter.saveQuote(quote);
 
     if (!localResult.success) {
+      console.warn('⚠️ Quote local save failed:', localResult.error);
       return localResult;
     }
 
-    // Step 2: Queue for cloud sync
+    // Step 2: Queue for cloud sync — re-fetch the saved quote so we send
+    // the version-incremented data (same pattern as saveCompany)
     if (navigator.onLine) {
       try {
-        // Try to sync immediately if online
-        await syncQueue.enqueue({
-          type: quote.version === 1 ? 'create' : 'update',
-          entity: 'quote',
-          entityId: quote.id,
-          data: this.prepareQuoteForSupabase(quote),
-        });
+        const saved = await this.localAdapter.loadQuote(quote.id);
+        if (saved) {
+          await syncQueue.enqueue({
+            type: isNew ? 'create' : 'update',
+            entity: 'quote',
+            entityId: quote.id,
+            data: this.prepareQuoteForSupabase(saved),
+          });
+        } else {
+          console.warn('⚠️ Quote saved locally but could not re-fetch for sync:', quote.id);
+        }
       } catch (error) {
-        console.warn('Failed to queue sync, will retry later:', error);
+        console.warn('Failed to queue quote sync, will retry later:', error);
       }
     }
 

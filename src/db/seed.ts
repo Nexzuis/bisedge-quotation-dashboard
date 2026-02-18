@@ -196,7 +196,33 @@ export async function seedDatabaseIfEmpty(): Promise<void> {
         { key: 'defaultDiscountPct', value: '66' },
       ]);
     } else {
-      console.log(`Settings already present (${settingsCount}), skipping...`);
+      console.log(`Settings already present (${settingsCount}), patching defaults...`);
+      // Patch stale defaults — bulkPut upserts so existing keys get updated
+      const masterDefaults: Record<string, string> = {
+        defaultROE: '19.73',
+        defaultFactoryROE: '19.73',
+        defaultInterestRate: '9.5',
+        defaultCPIRate: '5.5',
+        defaultOperatingHours: '180',
+        defaultLeaseTerm: '60',
+        defaultTelematicsCost: '250',
+        defaultDiscountPct: '66',
+      };
+      const patches = [];
+      for (const [key, value] of Object.entries(masterDefaults)) {
+        const existing = await db.settings.get(key);
+        if (!existing) {
+          patches.push({ key, value });
+        }
+      }
+      // Always force-update ROE and discount to match Master Costing Sheet
+      patches.push({ key: 'defaultROE', value: '19.73' });
+      patches.push({ key: 'defaultFactoryROE', value: '19.73' });
+      patches.push({ key: 'defaultDiscountPct', value: '66' });
+      if (patches.length > 0) {
+        await db.settings.bulkPut(patches);
+        console.log(`  Patched ${patches.length} default settings`);
+      }
     }
 
     // Seed Price List Series (new v3 tables)

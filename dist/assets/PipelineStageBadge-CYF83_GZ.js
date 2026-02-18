@@ -1,1 +1,0 @@
-import{j as o}from"./vendor-motion-BTi7gxEc.js";import{g as i}from"./useActivities-DDyYIwR2.js";function l({stage:n,className:s=""}){const e=i(n),t=e.icon;return o.jsxs("span",{className:`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${e.bgColor} ${e.color} ${s}`,children:[o.jsx(t,{className:"w-3 h-3"}),e.label]})}export{l as P};

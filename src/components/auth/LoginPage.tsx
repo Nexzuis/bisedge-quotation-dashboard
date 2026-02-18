@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
+const isCloud = (import.meta.env.VITE_APP_MODE || 'local') !== 'local';
+
 const LoginPage = () => {
-  const [username, setUsername] = useState('');
+  const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,12 +18,12 @@ const LoginPage = () => {
     setError('');
     setLoading(true);
 
-    const success = await login(username, password);
+    const success = await login(emailOrUsername, password);
 
     if (success) {
       navigate('/');
     } else {
-      setError('Invalid username or password');
+      setError(isCloud ? 'Invalid email or password' : 'Invalid username or password');
     }
 
     setLoading(false);
@@ -45,14 +47,14 @@ const LoginPage = () => {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-surface-300 mb-2">
-              Username
+              {isCloud ? 'Email' : 'Username'}
             </label>
             <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              type={isCloud ? 'email' : 'text'}
+              value={emailOrUsername}
+              onChange={(e) => setEmailOrUsername(e.target.value)}
               className="input w-full py-3"
-              placeholder="Enter username"
+              placeholder={isCloud ? 'Enter email' : 'Enter username'}
               required
             />
           </div>

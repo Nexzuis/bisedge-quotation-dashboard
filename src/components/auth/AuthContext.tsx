@@ -12,7 +12,7 @@ interface AuthContextType {
     permissionOverrides: PermissionOverrides;
   } | null;
   isAuthenticated: boolean;
-  login: (username: string, password: string) => Promise<boolean>;
+  login: (emailOrUsername: string, password: string) => Promise<boolean>;
   logout: () => void;
 }
 

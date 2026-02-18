@@ -195,12 +195,12 @@ const UserManagement = () => {
               is_active: formData.isActive,
             }).eq('id', selectedUser.id!);
             if (updateError) {
-              console.warn('public.users update failed:', updateError.message);
-              toast.warning('User updated locally but cloud sync failed: ' + updateError.message);
+              console.error('public.users update failed:', updateError.message);
+              toast.error('User updated locally but cloud sync failed: ' + updateError.message);
             }
           } catch (syncError) {
-            console.warn('Cloud sync error during user update:', syncError);
-            toast.warning('User updated locally but cloud sync encountered an error');
+            console.error('Cloud sync error during user update:', syncError);
+            toast.error('User updated locally but cloud sync failed. Check console for details.');
           }
         }
 
@@ -275,7 +275,7 @@ const UserManagement = () => {
               } else {
                 toast.warning('User created locally but cloud sync failed: ' + authError.message);
               }
-            } else if (authData.user) {
+            } else if (authData.user && authData.user.identities && authData.user.identities.length > 0) {
               // Brand new user — insert into public.users with the Supabase auth ID
               const { error: insertError } = await supabase.from('users').insert({
                 id: authData.user.id,
@@ -285,17 +285,23 @@ const UserManagement = () => {
                 is_active: formData.isActive,
               });
               if (insertError) {
-                console.warn('public.users insert failed:', insertError.message);
+                console.error('public.users insert failed:', insertError.message);
+                toast.error('Cloud user record failed: ' + insertError.message);
               }
 
-              // Update local user ID to match Supabase auth ID for consistency
-              await db.users.delete(newUser.id!);
-              newUser.id = authData.user.id;
-              await db.users.add(newUser);
+              // Only update local ID to match Supabase auth ID if insert succeeded
+              if (!insertError) {
+                await db.users.delete(newUser.id!);
+                newUser.id = authData.user.id;
+                await db.users.add(newUser);
+              }
+            } else if (authData.user) {
+              // signUp returned a user but with no identities — email not actually created
+              toast.error('Cloud sync failed: email may already exist in Supabase Auth. Check Supabase dashboard.');
             }
           } catch (syncError) {
-            console.warn('Cloud sync error during user creation:', syncError);
-            toast.warning('User created locally but cloud sync encountered an error');
+            console.error('Cloud sync error during user creation:', syncError);
+            toast.error('User created locally but cloud sync failed. Check console for details.');
           }
         }
 
@@ -349,12 +355,12 @@ const UserManagement = () => {
             .update({ is_active: false })
             .eq('id', selectedUser.id!);
           if (softDeleteError) {
-            console.warn('public.users soft-delete failed:', softDeleteError.message);
-            toast.warning('User deleted locally but cloud sync failed: ' + softDeleteError.message);
+            console.error('public.users soft-delete failed:', softDeleteError.message);
+            toast.error('User deleted locally but cloud sync failed: ' + softDeleteError.message);
           }
         } catch (syncError) {
-          console.warn('Cloud sync error during user delete:', syncError);
-          toast.warning('User deleted locally but cloud sync encountered an error');
+          console.error('Cloud sync error during user delete:', syncError);
+          toast.error('User deleted locally but cloud sync failed. Check console for details.');
         }
       }
 
@@ -412,12 +418,14 @@ const UserManagement = () => {
         try {
           const { error: resetError } = await supabase.auth.resetPasswordForEmail(selectedUser.email);
           if (resetError) {
-            console.warn('Supabase password reset email failed:', resetError.message);
+            console.error('Supabase password reset email failed:', resetError.message);
+            toast.error('Password reset email failed: ' + resetError.message);
           } else {
             toast.info('Password reset email sent to ' + selectedUser.email);
           }
         } catch (syncError) {
-          console.warn('Cloud sync error during password reset:', syncError);
+          console.error('Cloud sync error during password reset:', syncError);
+          toast.error('Password reset cloud sync failed. Check console for details.');
         }
       }
 

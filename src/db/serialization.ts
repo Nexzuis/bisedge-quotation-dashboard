@@ -106,7 +106,7 @@ export function quoteToStored(state: QuoteState): StoredQuote {
     id: state.id,
     quoteRef: state.quoteRef,
     version: state.version,
-    quoteDate: state.quoteDate.toISOString(),
+    quoteDate: state.quoteDate ? state.quoteDate.toISOString() : new Date().toISOString(),
     status: state.status,
 
     // Customer Info
@@ -159,8 +159,8 @@ export function quoteToStored(state: QuoteState): StoredQuote {
     validityDays: state.validityDays,
 
     // Metadata
-    createdAt: state.createdAt.toISOString(),
-    updatedAt: state.updatedAt.toISOString(),
+    createdAt: state.createdAt ? state.createdAt.toISOString() : new Date().toISOString(),
+    updatedAt: state.updatedAt ? state.updatedAt.toISOString() : new Date().toISOString(),
   };
 }
 
@@ -172,7 +172,7 @@ export function storedToQuote(stored: StoredQuote): QuoteState {
     id: stored.id,
     quoteRef: stored.quoteRef,
     version: stored.version,
-    quoteDate: new Date(stored.quoteDate),
+    quoteDate: new Date(stored.quoteDate || Date.now()),
     status: stored.status,
 
     // Customer Info
@@ -247,7 +247,7 @@ export function storedToQuote(stored: StoredQuote): QuoteState {
     validityDays: stored.validityDays ?? 30,
 
     // Metadata
-    createdAt: new Date(stored.createdAt),
-    updatedAt: new Date(stored.updatedAt),
+    createdAt: new Date(stored.createdAt || Date.now()),
+    updatedAt: new Date(stored.updatedAt || Date.now()),
   };
 }

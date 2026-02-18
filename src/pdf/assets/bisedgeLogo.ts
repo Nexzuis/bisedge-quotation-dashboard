@@ -1,20 +1,56 @@
 /**
- * Bisedge Logo (Text-based placeholder)
- * Replace with actual logo base64 when available
+ * Bisedge Logo (Text-based placeholder rendered as PNG)
+ * Uses Canvas API to produce raster images compatible with @react-pdf/renderer
  */
 
+let bisedgePng: string | null = null;
+let lindePng: string | null = null;
+
+function renderLogoPng(
+  width: number,
+  height: number,
+  bgColor: string,
+  text: string,
+  fontSize: number
+): string {
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d')!;
+
+  // Background
+  ctx.fillStyle = bgColor;
+  ctx.fillRect(0, 0, width, height);
+
+  // Text
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = `bold ${fontSize}px Helvetica, Arial, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, width / 2, height / 2);
+
+  return canvas.toDataURL('image/png');
+}
+
 export const bisedgeLogo = {
-  // Text-based logo for now
   text: 'BISEDGE',
   subtitle: 'Linde Material Handling | Official Dealer',
 
-  // Placeholder base64 - a simple blue rectangle with text
-  // In production, replace with actual logo
-  base64: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjYwIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iNjAiIGZpbGw9IiMwMDNCNUMiLz48dGV4dCB4PSIxMDAiIHk9IjM1IiBmb250LXNpemU9IjI0IiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iI0ZGRkZGRiIgZm9udC1mYW1pbHk9IkhlbHZldGljYSI+QklTRURHRTwvdGV4dD48L3N2Zz4=',
+  get base64(): string {
+    if (!bisedgePng) {
+      bisedgePng = renderLogoPng(200, 60, '#003B5C', 'BISEDGE', 24);
+    }
+    return bisedgePng;
+  },
 };
 
 export const lindeLogo = {
   text: 'LINDE',
-  // Placeholder for Linde logo
-  base64: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjQwIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIxMjAiIGhlaWdodD0iNDAiIGZpbGw9IiNFNDAwMkIiLz48dGV4dCB4PSI2MCIgeT0iMjYiIGZvbnQtc2l6ZT0iMTgiIGZvbnQtd2VpZ2h0PSJib2xkIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjRkZGRkZGIiBmb250LWZhbWlseT0iSGVsdmV0aWNhIj5MSU5ERTwvdGV4dD48L3N2Zz4=',
+
+  get base64(): string {
+    if (!lindePng) {
+      lindePng = renderLogoPng(120, 40, '#E4002B', 'LINDE', 18);
+    }
+    return lindePng;
+  },
 };

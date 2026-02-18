@@ -26,6 +26,7 @@
     "@tanstack/react-virtual": "^3.13.18",
     "@types/react-router-dom": "^5.3.3",
     "bcryptjs": "^3.0.3",
+    "buffer": "^6.0.3",
     "dexie": "^4.3.0",
     "dexie-react-hooks": "^4.2.0",
     "framer-motion": "^12.34.0",

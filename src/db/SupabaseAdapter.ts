@@ -1083,7 +1083,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
     return {
       id: dbQuote.id,
       quoteRef: dbQuote.quote_ref,
-      quoteDate: new Date(dbQuote.quote_date),
+      quoteDate: new Date(dbQuote.quote_date || Date.now()),
       status: dbQuote.status,
       clientName: dbQuote.client_name,
       contactName: dbQuote.contact_name,
@@ -1099,12 +1099,37 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       batteryChemistryLock: dbQuote.battery_chemistry_lock,
       quoteType: dbQuote.quote_type,
       slots: JSON.parse(dbQuote.slots || '[]'),
+
+      // Approval Workflow
+      approvalTier: dbQuote.approval_tier || undefined,
+      approvalStatus: dbQuote.approval_status || undefined,
+      approvalNotes: dbQuote.approval_notes || undefined,
       overrideIRR: dbQuote.override_irr || false,
+      submittedBy: dbQuote.submitted_by || undefined,
+      submittedAt: dbQuote.submitted_at ? new Date(dbQuote.submitted_at) : null,
+      approvedBy: dbQuote.approved_by || undefined,
+      approvedAt: dbQuote.approved_at ? new Date(dbQuote.approved_at) : null,
+
+      // Chain-based approval
       currentAssigneeId: dbQuote.current_assignee_id || null,
       currentAssigneeRole: dbQuote.current_assignee_role || null,
       approvalChain: JSON.parse(dbQuote.approval_chain || '[]'),
-      createdAt: new Date(dbQuote.created_at),
-      updatedAt: new Date(dbQuote.updated_at),
+
+      // Multi-User Ownership & Locking
+      createdBy: dbQuote.created_by || '',
+      assignedTo: dbQuote.assigned_to || null,
+      lockedBy: dbQuote.locked_by || null,
+      lockedAt: dbQuote.locked_at ? new Date(dbQuote.locked_at) : null,
+
+      // CRM Integration
+      companyId: dbQuote.company_id || undefined,
+
+      // Validity
+      validityDays: dbQuote.validity_days ?? 30,
+
+      // Metadata
+      createdAt: new Date(dbQuote.created_at || Date.now()),
+      updatedAt: new Date(dbQuote.updated_at || Date.now()),
       version: dbQuote.version,
     };
   }

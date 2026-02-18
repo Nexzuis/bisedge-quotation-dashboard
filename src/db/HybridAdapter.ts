@@ -158,7 +158,7 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
         const localOnly = localResult.items.filter(q => !cloudIds.has(q.id));
         const merged = [...cloudResult.items, ...localOnly];
         merged.sort((a, b) =>
-          new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime()
+          new Date(b.updatedAt || b.createdAt || Date.now()).getTime() - new Date(a.updatedAt || a.createdAt || Date.now()).getTime()
         );
 
         return {

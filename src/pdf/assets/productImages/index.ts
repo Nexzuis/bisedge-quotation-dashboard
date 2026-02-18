@@ -1,41 +1,67 @@
 /**
  * Product Image Placeholders
- * Generate SVG placeholders for product images
+ * Renders PNG placeholders via Canvas API for @react-pdf/renderer compatibility
  */
 
 export function getProductImage(modelCode: string, modelName: string): string {
-  // Generate a simple SVG placeholder with model code and name
-  const svg = `
-    <svg width="400" height="300" xmlns="http://www.w3.org/2000/svg">
-      <rect width="400" height="300" fill="#F5F5F5"/>
-      <rect x="50" y="80" width="300" height="140" fill="#CCCCCC" rx="8"/>
-      <text x="200" y="145" font-size="20" font-weight="bold" text-anchor="middle" fill="#666666" font-family="Helvetica">
-        ${modelCode}
-      </text>
-      <text x="200" y="170" font-size="12" text-anchor="middle" fill="#999999" font-family="Helvetica">
-        ${modelName}
-      </text>
-    </svg>
-  `;
+  const canvas = document.createElement('canvas');
+  canvas.width = 400;
+  canvas.height = 300;
+  const ctx = canvas.getContext('2d')!;
 
-  return `data:image/svg+xml;base64,${btoa(svg)}`;
+  // Background
+  ctx.fillStyle = '#F5F5F5';
+  ctx.fillRect(0, 0, 400, 300);
+
+  // Inner box
+  ctx.fillStyle = '#CCCCCC';
+  ctx.beginPath();
+  ctx.roundRect(50, 80, 300, 140, 8);
+  ctx.fill();
+
+  // Model code
+  ctx.fillStyle = '#666666';
+  ctx.font = 'bold 20px Helvetica, Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(modelCode, 200, 140);
+
+  // Model name
+  ctx.fillStyle = '#999999';
+  ctx.font = '12px Helvetica, Arial, sans-serif';
+  ctx.fillText(modelName, 200, 170);
+
+  return canvas.toDataURL('image/png');
 }
 
 /**
- * Get forklift icon for category
+ * Get forklift icon for category (PNG via Canvas)
  */
 export function getForkliftIcon(_category: string): string {
-  // Simple forklift icon placeholder
-  const svg = `
-    <svg width="80" height="80" xmlns="http://www.w3.org/2000/svg">
-      <rect width="80" height="80" fill="transparent"/>
-      <rect x="20" y="30" width="40" height="35" fill="#003B5C" rx="2"/>
-      <rect x="15" y="55" width="10" height="20" fill="#003B5C"/>
-      <rect x="55" y="55" width="10" height="20" fill="#003B5C"/>
-      <circle cx="20" cy="72" r="5" fill="#666666"/>
-      <circle cx="60" cy="72" r="5" fill="#666666"/>
-    </svg>
-  `;
+  const canvas = document.createElement('canvas');
+  canvas.width = 80;
+  canvas.height = 80;
+  const ctx = canvas.getContext('2d')!;
 
-  return `data:image/svg+xml;base64,${btoa(svg)}`;
+  // Body
+  ctx.fillStyle = '#003B5C';
+  ctx.beginPath();
+  ctx.roundRect(20, 30, 40, 35, 2);
+  ctx.fill();
+
+  // Mast left
+  ctx.fillRect(15, 55, 10, 20);
+  // Mast right
+  ctx.fillRect(55, 55, 10, 20);
+
+  // Wheels
+  ctx.fillStyle = '#666666';
+  ctx.beginPath();
+  ctx.arc(20, 72, 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(60, 72, 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  return canvas.toDataURL('image/png');
 }

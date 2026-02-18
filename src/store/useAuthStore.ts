@@ -24,7 +24,6 @@ interface AuthState {
  * Returns the user record from public.users if successful, or null.
  */
 async function trySupabaseLogin(email: string, password: string) {
-  console.log('XYZZY_AUTH_MARKER_2026: trySupabaseLogin called with', email);
   try {
     const { supabase } = await import('../lib/supabase');
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({

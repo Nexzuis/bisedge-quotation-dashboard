@@ -27,11 +27,10 @@ const EditModal = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="edit-modal-title"
-      onKeyDown={(e) => e.key === 'Escape' && onClose()}
+      onKeyDown={(e) => e.stopPropagation()}
     >
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
         aria-hidden="true"
       />
 

@@ -585,9 +585,7 @@ export function CompanyMergeModal({
             role="dialog"
             aria-modal="true"
             aria-labelledby="company-merge-modal-title"
-            onClick={(e) => {
-              if (e.target === e.currentTarget && !merging) onClose();
-            }}
+            onClick={(e) => e.stopPropagation()}
           >
             <motion.div
               key="merge-modal-panel"

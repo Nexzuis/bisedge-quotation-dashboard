@@ -199,11 +199,9 @@ export function ApprovalActionModal({
     });
   };
 
-  // Handle keyboard shortcuts
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === 'Escape' && !isProcessing) {
-      onClose();
-    }
+  // Handle keyboard shortcuts (disabled — modal only closes via Cancel/action buttons)
+  const handleKeyDown = (_e: React.KeyboardEvent<HTMLDivElement>) => {
+    // intentionally empty
   };
 
   if (!isOpen) return null;
@@ -219,7 +217,6 @@ export function ApprovalActionModal({
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={!isProcessing ? onClose : undefined}
         aria-hidden="true"
       />
 

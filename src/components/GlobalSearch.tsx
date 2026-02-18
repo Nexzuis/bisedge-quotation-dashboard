@@ -121,7 +121,7 @@ export function GlobalSearch() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center pt-[20vh]"
-          onClick={(e) => e.target === e.currentTarget && setIsOpen(false)}
+          onClick={(e) => e.stopPropagation()}
           onKeyDown={(e) => e.key === 'Escape' && setIsOpen(false)}
           role="dialog"
           aria-modal="true"

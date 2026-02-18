@@ -33,7 +33,9 @@ const ENTITY_PRIORITY: Record<string, number> = {
 };
 
 // Postgres error codes that are permanent — retrying won't fix them
-const PERMANENT_PG_CODES = new Set(['23503', '23505', '42703', '42P01']);
+// NOTE: 23503 (FK violation) is NOT here — FK errors are usually ordering
+// problems (parent not synced yet) and resolve on retry after the parent syncs.
+const PERMANENT_PG_CODES = new Set(['23505', '42703', '42P01']);
 
 export interface SyncStatus {
   pendingOperations: number;
@@ -190,6 +192,7 @@ export class SyncQueue {
       } catch (error: any) {
         const pgCode = error?.code;
         const isPermanent = PERMANENT_PG_CODES.has(pgCode);
+        const isFkViolation = pgCode === '23503';
 
         if (isPermanent) {
           const failKey = this.entityKey(op.entity, op.entityId);
@@ -199,6 +202,22 @@ export class SyncQueue {
           queue.splice(i, 1);
           i--;
           failedCount++;
+          continue;
+        }
+
+        if (isFkViolation) {
+          // FK violation — parent probably hasn't synced yet. Keep in queue
+          // and retry on next processQueue() pass (after parent syncs).
+          op.retries++;
+          op.lastError = error instanceof Error ? error.message : String(error);
+          console.warn(`⏳ FK dependency missing for ${op.type} ${op.entity} (retry ${op.retries}/10):`, error.message);
+
+          if (op.retries > 10) {
+            console.error(`💀 FK violation persisted after ${op.retries} retries, removing from queue`);
+            queue.splice(i, 1);
+            i--;
+            failedCount++;
+          }
           continue;
         }
 

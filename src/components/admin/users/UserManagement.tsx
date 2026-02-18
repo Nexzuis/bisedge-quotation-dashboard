@@ -234,22 +234,18 @@ const UserManagement = () => {
         await db.users.add(newUser);
 
         // Sync to Supabase Auth + public.users in cloud/hybrid mode
-        console.log('[SYNC DEBUG] isCloudMode():', isCloudMode(), '| APP_MODE:', import.meta.env.VITE_APP_MODE);
         if (isCloudMode()) {
           try {
             // Use a non-persisting client so admin's own session is not disturbed
-            console.log('[SYNC DEBUG] Creating signUp client with URL:', import.meta.env.VITE_SUPABASE_URL);
             const signUpClient = createClient(
               import.meta.env.VITE_SUPABASE_URL,
               import.meta.env.VITE_SUPABASE_ANON_KEY,
               { auth: { persistSession: false } }
             );
-            console.log('[SYNC DEBUG] Calling signUp for:', formData.email);
             const { data: authData, error: authError } = await signUpClient.auth.signUp({
               email: formData.email,
               password: formData.password,
             });
-            console.log('[SYNC DEBUG] signUp result — error:', authError, '| user:', authData?.user?.id, '| identities:', authData?.user?.identities);
 
             if (authError) {
               console.warn('Supabase auth signUp failed:', authError.message);

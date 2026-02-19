@@ -80,6 +80,9 @@ export interface ShippingEntry {
   containerType: string;
   quantity: number;
   costZAR: ZAR;
+  source: 'manual' | 'suggested';
+  seriesCodes?: string[];
+  suggestedAt?: string;
 }
 
 // Unit Slot Configuration

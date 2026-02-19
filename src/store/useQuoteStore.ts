@@ -142,6 +142,7 @@ function createDefaultShippingEntry(): ShippingEntry {
     containerType: "40' standard",
     quantity: 1,
     costZAR: 0,
+    source: 'manual',
   };
 }
 
@@ -196,6 +197,7 @@ interface QuoteStore extends QuoteState {
   addShippingEntry: () => void;
   updateShippingEntry: (id: string, updates: Partial<ShippingEntry>) => void;
   removeShippingEntry: (id: string) => void;
+  setShippingEntries: (entries: ShippingEntry[]) => void;
 
   // Actions - Configuration (legacy compat)
   setConfiguration: (
@@ -539,6 +541,12 @@ export const useQuoteStore = create<QuoteStore>()(
       set((state) => {
         if (state.shippingEntries.length <= 1) return;
         state.shippingEntries = state.shippingEntries.filter((line) => line.id !== id);
+        state.updatedAt = new Date();
+      }),
+
+    setShippingEntries: (entries) =>
+      set((state) => {
+        state.shippingEntries = entries.length > 0 ? entries : [createDefaultShippingEntry()];
         state.updatedAt = new Date();
       }),
 

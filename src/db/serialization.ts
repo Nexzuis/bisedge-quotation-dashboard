@@ -106,6 +106,7 @@ function createDefaultShippingEntries(): ShippingEntry[] {
       containerType: "40' standard",
       quantity: 1,
       costZAR: 0,
+      source: 'manual',
     },
   ];
 }
@@ -236,6 +237,9 @@ export function storedToQuote(stored: StoredQuote): QuoteState {
           containerType: typeof entry.containerType === 'string' && entry.containerType ? entry.containerType : "40' standard",
           quantity: Number.isFinite(entry.quantity) && entry.quantity > 0 ? Math.floor(entry.quantity) : 1,
           costZAR: Number.isFinite(entry.costZAR) && entry.costZAR >= 0 ? entry.costZAR : 0,
+          source: entry.source === 'suggested' ? 'suggested' : 'manual',
+          ...(entry.seriesCodes ? { seriesCodes: entry.seriesCodes } : {}),
+          ...(entry.suggestedAt ? { suggestedAt: entry.suggestedAt } : {}),
         })) as ShippingEntry[];
       } catch (error) {
         console.error('Failed to parse shippingEntries JSON:', error);

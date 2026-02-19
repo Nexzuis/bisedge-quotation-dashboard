@@ -279,7 +279,39 @@ export function useTelematicsPackages(): TelematicsPackage[] {
 }
 
 /**
- * Hook to get container mapping for a series.
+ * Pure prefix-matcher: find the container mapping row that matches a given series code.
+ * Exported for direct use in engine functions and testing.
+ */
+export function matchSeriesCode(
+  seriesCode: string,
+  mappings: { series_code: string; [key: string]: any }[]
+): typeof mappings[number] | null {
+  if (!seriesCode || mappings.length === 0) return null;
+  return (
+    mappings.find(
+      (m) =>
+        m.series_code === seriesCode ||
+        seriesCode.startsWith(m.series_code) ||
+        m.series_code === seriesCode.replace(/0+\d?$/, '')
+    ) ?? null
+  );
+}
+
+/** Map a raw Supabase container_mappings row to camelCase ContainerMapping */
+function rowToContainerMapping(row: any): ContainerMapping {
+  return {
+    seriesCode: row.series_code,
+    category: row.category,
+    model: row.model,
+    qtyPerContainer: row.qty_per_container,
+    containerType: row.container_type,
+    containerCostEUR: row.container_cost_eur,
+    notes: row.notes ?? '',
+  };
+}
+
+/**
+ * Hook to get container mapping for a single series (existing API preserved).
  */
 export function useContainerMapping(seriesCode: string): ContainerMapping | null {
   const [mapping, setMapping] = useState<ContainerMapping | null>(null);
@@ -308,28 +340,13 @@ export function useContainerMapping(seriesCode: string): ContainerMapping | null
           return;
         }
 
-        // Series codes in the container mappings are short (e.g. "1275")
-        // while priceListSeries uses full codes (e.g. "12750000000")
-        // Try both exact match and prefix match
-        const match = data.find(
-          (m) =>
-            m.series_code === seriesCode ||
-            seriesCode.startsWith(m.series_code) ||
-            m.series_code === seriesCode.replace(/0+\d?$/, '')
-        );
-
+        const match = matchSeriesCode(seriesCode, data);
         if (!match) {
           setMapping(null);
           return;
         }
 
-        setMapping({
-          ...match,
-          seriesCode: match.series_code,
-          qtyPerContainer: match.qty_per_container,
-          containerType: match.container_type,
-          containerCostEUR: match.container_cost_eur,
-        } as ContainerMapping);
+        setMapping(rowToContainerMapping(match));
       }
     }
 
@@ -341,6 +358,54 @@ export function useContainerMapping(seriesCode: string): ContainerMapping | null
   }, [seriesCode]);
 
   return mapping;
+}
+
+/**
+ * Hook to get container mappings for multiple series codes in a single fetch.
+ * Returns one ContainerMapping per input series code (in order), or null for unmatched codes.
+ */
+export function useContainerMappings(seriesCodes: string[]): (ContainerMapping | null)[] {
+  const [mappings, setMappings] = useState<(ContainerMapping | null)[]>([]);
+
+  // Stable key for the dependency — sorted and deduped
+  const key = JSON.stringify([...new Set(seriesCodes)].sort());
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (seriesCodes.length === 0) {
+      setMappings([]);
+      return;
+    }
+
+    async function fetchMappings() {
+      const { data, error } = await supabase
+        .from('container_mappings')
+        .select('*');
+
+      if (error) {
+        console.error('useContainerMappings: error fetching container_mappings', error);
+        return;
+      }
+
+      if (!cancelled && data) {
+        const result = seriesCodes.map((code) => {
+          const match = matchSeriesCode(code, data);
+          return match ? rowToContainerMapping(match) : null;
+        });
+        setMappings(result);
+      }
+    }
+
+    fetchMappings();
+
+    return () => {
+      cancelled = true;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  return mappings;
 }
 
 // --- Helper functions (non-hooks, for use in store/engine) ---

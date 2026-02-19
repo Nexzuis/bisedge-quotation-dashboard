@@ -88,6 +88,7 @@ function createTestQuoteState(): QuoteState {
         containerType: "40' standard",
         quantity: 2,
         costZAR: 85000,
+        source: 'manual',
       },
     ],
 

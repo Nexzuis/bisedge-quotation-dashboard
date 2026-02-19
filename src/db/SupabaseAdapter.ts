@@ -25,6 +25,56 @@ import type { IDatabaseAdapter } from './DatabaseAdapter';
 import { sanitizePostgrestValue } from '../utils/sanitize';
 
 /**
+ * Map a raw Supabase quotes row (snake_case) to StoredQuote (camelCase).
+ * Used by list/search methods that return summary rows.
+ */
+function dbRowToStoredQuote(row: any): StoredQuote {
+  return {
+    id: row.id,
+    quoteRef: row.quote_ref ?? '',
+    version: row.version ?? 1,
+    quoteDate: row.quote_date ?? row.created_at ?? '',
+    status: row.status ?? 'draft',
+    clientName: row.client_name ?? '',
+    contactName: row.contact_name ?? '',
+    contactTitle: row.contact_title ?? '',
+    contactEmail: row.contact_email ?? '',
+    contactPhone: row.contact_phone ?? '',
+    clientAddress: typeof row.client_address === 'string'
+      ? JSON.parse(row.client_address || '[]')
+      : (row.client_address ?? []),
+    factoryROE: row.factory_roe ?? 0,
+    customerROE: row.customer_roe ?? 0,
+    discountPct: row.discount_pct ?? 0,
+    annualInterestRate: row.annual_interest_rate ?? 0,
+    defaultLeaseTermMonths: row.default_lease_term_months ?? 60,
+    batteryChemistryLock: row.battery_chemistry_lock ?? null,
+    quoteType: row.quote_type ?? 'rental',
+    slots: row.slots ?? '[]',
+    shippingEntries: row.shipping_entries,
+    approvalTier: row.approval_tier ?? 1,
+    approvalStatus: row.approval_status ?? 'draft',
+    approvalNotes: row.approval_notes ?? '',
+    overrideIRR: row.override_irr ?? false,
+    submittedBy: row.submitted_by ?? '',
+    submittedAt: row.submitted_at ?? null,
+    approvedBy: row.approved_by ?? '',
+    approvedAt: row.approved_at ?? null,
+    currentAssigneeId: row.current_assignee_id ?? null,
+    currentAssigneeRole: row.current_assignee_role ?? null,
+    approvalChain: row.approval_chain ?? '[]',
+    createdBy: row.created_by ?? '',
+    assignedTo: row.assigned_to ?? null,
+    lockedBy: row.locked_by ?? null,
+    lockedAt: row.locked_at ?? null,
+    companyId: row.company_id,
+    validityDays: row.validity_days,
+    createdAt: row.created_at ?? '',
+    updatedAt: row.updated_at ?? '',
+  };
+}
+
+/**
  * Cloud database adapter using Supabase
  */
 export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
@@ -227,7 +277,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       }
 
       return {
-        items: (data || []) as StoredQuote[],
+        items: (data || []).map(dbRowToStoredQuote),
         total: count || 0,
         page: options.page,
         pageSize: options.pageSize,
@@ -258,7 +308,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         return [];
       }
 
-      return (data || []) as StoredQuote[];
+      return (data || []).map(dbRowToStoredQuote);
     } catch (error) {
       console.error('Error searching quotes from Supabase:', error);
       return [];
@@ -1132,7 +1182,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         return [];
       }
 
-      return (data || []) as StoredQuote[];
+      return (data || []).map(dbRowToStoredQuote);
     } catch (error) {
       console.error('Error getting quotes by company from Supabase:', error);
       return [];
@@ -1152,7 +1202,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         return [];
       }
 
-      return (data || []) as StoredQuote[];
+      return (data || []).map(dbRowToStoredQuote);
     } catch (error) {
       console.error('Error getting quote revisions from Supabase:', error);
       return [];
@@ -1399,14 +1449,22 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
           containerType: "40' standard",
           quantity: 1,
           costZAR: 0,
+          source: 'manual' as const,
         }];
         try {
           const raw = dbQuote.shipping_entries;
+          let entries: any[];
           if (Array.isArray(raw)) {
-            return raw.length > 0 ? raw : defaultEntry;
+            entries = raw.length > 0 ? raw : defaultEntry;
+          } else {
+            const parsed = raw ? JSON.parse(raw) : [];
+            entries = Array.isArray(parsed) && parsed.length > 0 ? parsed : defaultEntry;
           }
-          const parsed = raw ? JSON.parse(raw) : [];
-          return Array.isArray(parsed) && parsed.length > 0 ? parsed : defaultEntry;
+          // Normalize: ensure every entry has source field
+          return entries.map((entry: any) => ({
+            ...entry,
+            source: entry.source || 'manual',
+          }));
         } catch {
           return defaultEntry;
         }

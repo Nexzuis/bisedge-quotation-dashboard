@@ -150,15 +150,19 @@ export default function QuotesListPage() {
 
   const SortHeader = ({ field, label }: { field: SortField; label: string }) => (
     <th
-      className="text-left py-3 px-4 text-surface-300 font-medium cursor-pointer hover:text-surface-100 transition-colors select-none"
-      onClick={() => handleSort(field)}
+      className="text-left py-3 px-4 text-surface-300 font-medium"
+      aria-sort={sortField === field ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'}
     >
-      <span className="flex items-center gap-1">
+      <button
+        type="button"
+        className="flex items-center gap-1 hover:text-surface-100 transition-colors"
+        onClick={() => handleSort(field)}
+      >
         {label}
         {sortField === field && (
           <ArrowUpDown className="w-3 h-3 text-brand-400" />
         )}
-      </span>
+      </button>
     </th>
   );
 

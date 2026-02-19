@@ -27,11 +27,12 @@ const EditModal = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="edit-modal-title"
-      onKeyDown={(e) => e.stopPropagation()}
+      onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
     >
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         aria-hidden="true"
+        onClick={onClose}
       />
 
       <div className="relative bg-slate-900 border border-surface-600/50 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden mx-4">
@@ -40,6 +41,7 @@ const EditModal = ({
           <button
             onClick={onClose}
             className="p-2 hover:bg-surface-700/50 rounded-lg text-surface-100/60 hover:text-surface-100 transition-colors"
+            aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>

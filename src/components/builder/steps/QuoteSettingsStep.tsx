@@ -75,7 +75,7 @@ export function QuoteSettingsStep() {
               step="0.01"
               min="0"
               value={factoryROE || ''}
-              onChange={(e) => setFactoryROE(parseFloat(e.target.value) || 0)}
+              onChange={(e) => setFactoryROE(Math.max(0, parseFloat(e.target.value) || 0))}
               onBlur={() => {
                 if (factoryROE !== defaults.factoryROE) {
                   confirmChange('Factory ROE', factoryROE, defaults.factoryROE, setFactoryROE);
@@ -88,7 +88,7 @@ export function QuoteSettingsStep() {
               step="0.01"
               min="0"
               value={customerROE || ''}
-              onChange={(e) => setCustomerROE(parseFloat(e.target.value) || 0)}
+              onChange={(e) => setCustomerROE(Math.max(0, parseFloat(e.target.value) || 0))}
               onBlur={() => {
                 if (customerROE !== defaults.customerROE) {
                   confirmChange('Customer ROE', customerROE, defaults.customerROE, setCustomerROE);
@@ -116,7 +116,7 @@ export function QuoteSettingsStep() {
               min="0"
               max="100"
               value={discountPct || ''}
-              onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
+              onChange={(e) => setDiscount(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
               onBlur={() => {
                 if (discountPct !== defaults.discountPct) {
                   confirmChange('Discount %', discountPct, defaults.discountPct, setDiscount);
@@ -130,7 +130,7 @@ export function QuoteSettingsStep() {
               min="0"
               max="100"
               value={annualInterestRate || ''}
-              onChange={(e) => setInterestRate(parseFloat(e.target.value) || 0)}
+              onChange={(e) => setInterestRate(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
               onBlur={() => {
                 if (annualInterestRate !== defaults.interestRate) {
                   confirmChange('Interest Rate', annualInterestRate, defaults.interestRate, setInterestRate);

@@ -88,14 +88,14 @@ export function ApprovalDashboard() {
           let chain: ApprovalChainEntry[] = [];
           try {
             chain = typeof q.approvalChain === 'string' ? JSON.parse(q.approvalChain) : q.approvalChain || [];
-          } catch { chain = []; }
+          } catch (e) { console.error('Failed to parse approval chain for quote:', q.id, e); chain = []; }
 
           let submitterName = 'Unknown';
           if (q.submittedBy) {
             try {
               const submitter = await db.getUser(q.submittedBy);
               if (submitter) submitterName = submitter.fullName || submitter.full_name || 'Unknown';
-            } catch {}
+            } catch (e) { console.warn('Failed to load submitter for:', q.submittedBy, e); }
           }
 
           return {
@@ -131,7 +131,8 @@ export function ApprovalDashboard() {
           (e) => e.action === 'reject' && new Date(e.timestamp).getTime() >= todayMs
         ).length;
         setStats({ pending: parsed.length, approvedToday, rejectedToday });
-      } catch {
+      } catch (e) {
+        console.warn('Failed to load approval stats:', e);
         setStats({ pending: parsed.length, approvedToday: 0, rejectedToday: 0 });
       }
     } catch (error) {
@@ -480,8 +481,8 @@ export function ApprovalStats() {
           (e) => e.action === 'reject' && new Date(e.timestamp).getTime() >= todayMs
         ).length,
       });
-    } catch {
-      // ignore
+    } catch (e) {
+      console.warn('Failed to load approval stats:', e);
     } finally {
       setLoading(false);
     }

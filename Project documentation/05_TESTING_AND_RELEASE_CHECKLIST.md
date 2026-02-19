@@ -63,6 +63,24 @@ Before tagging/releasing:
 2. Update `07_STATUS_BOARD.md` to match current shipped behavior
 3. Update any impacted canonical topic docs
 
+## Frontend Regression Checks (Post-Remediation 2026-02-19)
+
+| Test | Result | Notes |
+|---|---|---|
+| `npx tsc --noEmit` | Pass (0 errors) | Full typecheck after all fixes |
+| `npx vitest run` | Pass (96/96) | All existing tests still green |
+| `npx vite build` | Pass | Build succeeds; pre-existing Vite dynamic-vs-static import warnings remain (not introduced by these changes) |
+| LinkedQuotes row click loads correct quote | Manual | Click should navigate to `/quote?id=<quoteId>` |
+| Builder Export button lands on `/#/quote` | Manual | Button text should say "Back to Quote" |
+| Company picker "Create New" navigates to customers | Manual | Should open `/customers` with new lead form |
+| Direct URL `/admin/backup` blocked for non-permitted roles | Manual | Sales rep should see "Access Denied" |
+| Approval chain parse errors logged in console | Manual | Check browser console for `Failed to parse...` messages |
+| No accidental form submits from shared Button | Manual | Buttons default to `type="button"` |
+| `/admin/approvals` shows only one active nav highlight | Manual | Admin tab and Approvals tab should not both highlight |
+| Negative numbers clamped in QuoteSettingsStep | Manual | Enter -5 in ROE field, should clamp to 0 |
+| LoadQuoteModal reopens with clean state | Manual | Close and reopen, search/filter should be reset |
+| Most modals close on Escape and backdrop click | Manual | Test each modal; New Lead modal on CustomerListPage now included |
+
 ## Validation Basis
 
 Validated from npm scripts, test config, existing test files, and active route surface.

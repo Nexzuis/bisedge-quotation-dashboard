@@ -10,9 +10,10 @@ interface CompanyPickerModalProps {
   onClose: () => void;
   onSelect: (company: StoredCompany, primaryContact: StoredContact | null) => void;
   onSkip: () => void;
+  onCreateNew?: () => void;
 }
 
-export function CompanyPickerModal({ isOpen, onClose, onSelect, onSkip }: CompanyPickerModalProps) {
+export function CompanyPickerModal({ isOpen, onClose, onSelect, onSkip, onCreateNew }: CompanyPickerModalProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<StoredCompany[]>([]);
   const [loading, setLoading] = useState(false);
@@ -47,12 +48,13 @@ export function CompanyPickerModal({ isOpen, onClose, onSelect, onSkip }: Compan
       aria-modal="true"
       aria-labelledby="company-picker-modal-title"
       onKeyDown={(e) => e.key === 'Escape' && onClose()}
+      onClick={onClose}
     >
-      <div className="glass rounded-xl w-full max-w-lg max-h-[80vh] flex flex-col">
+      <div className="glass rounded-xl w-full max-w-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-surface-700/50">
           <h2 id="company-picker-modal-title" className="text-lg font-bold text-surface-100">Link to Company</h2>
-          <button onClick={onClose} className="text-surface-400 hover:text-surface-200 transition-colors">
+          <button onClick={onClose} className="text-surface-400 hover:text-surface-200 transition-colors" aria-label="Close">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -104,7 +106,7 @@ export function CompanyPickerModal({ isOpen, onClose, onSelect, onSkip }: Compan
         {/* Footer */}
         <div className="flex items-center justify-between p-4 border-t border-surface-700/50">
           <Button variant="ghost" onClick={onSkip}>Skip (no company)</Button>
-          <Button variant="ghost" icon={Plus} onClick={() => { onClose(); }}>
+          <Button variant="ghost" icon={Plus} onClick={() => { onClose(); onCreateNew?.(); }}>
             Create New
           </Button>
         </div>

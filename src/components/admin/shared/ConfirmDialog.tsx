@@ -65,6 +65,7 @@ const ConfirmDialog = ({
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         aria-hidden="true"
+        onClick={onClose}
       />
 
       <div className="relative bg-slate-900 border border-surface-600/50 rounded-2xl shadow-2xl w-full max-w-md p-6 mx-4">

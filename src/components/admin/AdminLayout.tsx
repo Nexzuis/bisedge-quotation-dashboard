@@ -10,7 +10,25 @@ import TemplateManagement from './templates/TemplateManagement';
 import AuditLogViewer from './audit/AuditLogViewer';
 import BackupRestore from './backup/BackupRestore';
 import { ApprovalDashboard } from './approvals/ApprovalDashboard';
-import { AlertCircle, RotateCcw, Menu, X } from 'lucide-react';
+import { AlertCircle, RotateCcw, Menu, X, ShieldX } from 'lucide-react';
+import { useAuth } from '../auth/AuthContext';
+import { hasPermission, type Role } from '../../auth/permissions';
+
+function RequirePermission({ resource, children }: { resource: string; children: ReactNode }) {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  const allowed = hasPermission(user.role as Role, resource, 'read', user.permissionOverrides);
+  if (!allowed) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4">
+        <ShieldX className="w-12 h-12 text-red-400" />
+        <h3 className="text-xl font-bold text-surface-100">Access Denied</h3>
+        <p className="text-surface-400 text-sm">You do not have permission to access this page.</p>
+      </div>
+    );
+  }
+  return <>{children}</>;
+}
 
 /**
  * Error Boundary for Admin pages.
@@ -133,13 +151,13 @@ const AdminLayout = () => {
           <AdminErrorBoundary>
             <Routes>
               <Route index element={<Navigate to="pricing" replace />} />
-              <Route path="pricing" element={<PricingManagement />} />
-              <Route path="configuration" element={<ConfigurationMatrixManagement />} />
-              <Route path="approvals" element={<ApprovalDashboard />} />
-              <Route path="users" element={<UserManagement />} />
-              <Route path="templates" element={<TemplateManagement />} />
-              <Route path="audit" element={<AuditLogViewer />} />
-              <Route path="backup" element={<BackupRestore />} />
+              <Route path="pricing" element={<RequirePermission resource="admin:pricing"><PricingManagement /></RequirePermission>} />
+              <Route path="configuration" element={<RequirePermission resource="admin:catalog"><ConfigurationMatrixManagement /></RequirePermission>} />
+              <Route path="approvals" element={<RequirePermission resource="approval:review"><ApprovalDashboard /></RequirePermission>} />
+              <Route path="users" element={<RequirePermission resource="admin:users"><UserManagement /></RequirePermission>} />
+              <Route path="templates" element={<RequirePermission resource="admin:templates"><TemplateManagement /></RequirePermission>} />
+              <Route path="audit" element={<RequirePermission resource="admin:audit"><AuditLogViewer /></RequirePermission>} />
+              <Route path="backup" element={<RequirePermission resource="admin:backup"><BackupRestore /></RequirePermission>} />
               <Route path="*" element={<Navigate to="pricing" replace />} />
             </Routes>
           </AdminErrorBoundary>

@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Building2, AlertTriangle } from 'lucide-react';
 import { useQuoteStore } from '../../../store/useQuoteStore';
 import { useBuilder } from '../BuilderContext';
@@ -23,6 +24,7 @@ export function ClientInfoStep() {
   const setCustomerField = useQuoteStore((s) => s.setCustomerField);
   const setCustomerInfo = useQuoteStore((s) => s.setCustomerInfo);
 
+  const navigate = useNavigate();
   const [showPicker, setShowPicker] = useState(false);
   const [duplicateMatch, setDuplicateMatch] = useState<StoredCompany | null>(null);
   const [duplicateDismissed, setDuplicateDismissed] = useState(false);
@@ -260,6 +262,7 @@ export function ClientInfoStep() {
         onClose={() => setShowPicker(false)}
         onSelect={handleCompanySelect}
         onSkip={() => setShowPicker(false)}
+        onCreateNew={() => navigate('/customers', { state: { openNewLead: true } })}
       />
     </div>
   );

@@ -111,3 +111,81 @@ Executed successfully:
 ## Notes
 - Shipping data is now persisted and survives save/load cycles. Financial totals were not forcibly changed to include shipping by default to avoid introducing unapproved pricing side effects.
 - Backup restore continues to protect against user-password data loss patterns; password hashes are still excluded from backup payloads.
+
+## Frontend Audit Report (Go-Live)
+- Added detailed frontend audit report:
+  - `codex/frontend go live frontend report.md`
+- Scope covered: button wiring, route correctness, modal flows, responsive sizing risks, and accessibility issues.
+- Prioritization included: `P0`, `P1`, `P2` with exact file/line references and recommended fix order.
+
+## Front End Fix Final (Combined Codex + Claude)
+- Added consolidated frontend report:
+  - `codex/front end fix final.md`
+- Merges Codex and Claude findings with final severity calibration and execution waves.
+- Includes exact file references for P0/P1/P2 fixes.
+
+## Frontend Remediation Execution (Combined Plan)
+
+Date: 2026-02-19
+Scope: Execute all P0, P1, and P2 frontend fixes from `codex/front end fix final.md`.
+
+### Completed Fixes
+
+**P0 (5/5 completed):**
+- FEF-P0-1: LinkedQuotes now navigates with quote ID (`/quote?id=...`)
+- FEF-P0-2: Builder Export button routes to `/quote` with "Back to Quote" label
+- FEF-P0-3: CompanyPickerModal "Create New" navigates to `/customers` with `openNewLead` state
+- FEF-P0-4: Admin routes wrapped with `RequirePermission` component for per-resource auth
+- FEF-P0-5: All empty catch blocks in ApprovalDashboard now log with console.error/warn
+
+**P1 (10/11 completed, 1 deferred):**
+- FEF-P1-1: Button component defaults to `type="button"`
+- FEF-P1-2: SearchableSelect clear button has `type="button"` and `aria-label`
+- FEF-P1-3: CrmTopBar `isActive()` uses exact path + child matching (no false positives)
+- FEF-P1-4: QuotesListPage sort headers wrapped in `<button>` with `aria-sort`
+- FEF-P1-5: 12 icon-only buttons across 7 files now have `aria-label`
+- FEF-P1-6: ApprovalActionModal Escape key now closes modal (when not processing)
+- FEF-P1-7: EditModal stops propagation only on Escape (no longer blocks all keys)
+- FEF-P1-8: Deferred (hash navigation works correctly with HashRouter)
+- FEF-P1-9: Numeric inputs clamped (ROE >= 0, discount/interest 0-100)
+- FEF-P1-10: LoadQuoteModal and QuoteComparisonModal reset state on close
+- FEF-P1-11: CustomerListPage user name preload has `.catch()` handler
+
+**P2 (4/5 completed, 1 mostly deferred):**
+- FEF-P2-1: Kanban skeleton uses responsive grid (`grid-cols-2 sm:3 md:5 lg:7`)
+- FEF-P2-2: FleetBuilderPanel `text-[10px]` replaced with `text-xs` globally
+- FEF-P2-3: LoadQuoteModal inline width styles replaced with Tailwind classes
+- FEF-P2-4: Deferred (wide-reaching style standardization, low risk)
+- FEF-P2-5: Backdrop click-to-close added to 6 modals
+
+### Changed Files (22)
+- `src/components/crm/detail/LinkedQuotes.tsx`
+- `src/components/builder/steps/ExportStep.tsx`
+- `src/components/crm/shared/CompanyPickerModal.tsx`
+- `src/components/builder/steps/ClientInfoStep.tsx`
+- `src/components/admin/AdminLayout.tsx`
+- `src/components/admin/approvals/ApprovalDashboard.tsx`
+- `src/components/ui/Button.tsx`
+- `src/components/ui/SearchableSelect.tsx`
+- `src/components/crm/CrmTopBar.tsx`
+- `src/components/quotes/QuotesListPage.tsx`
+- `src/components/crm/detail/ContactCard.tsx`
+- `src/components/shared/LoadQuoteModal.tsx`
+- `src/components/shared/QuoteComparisonModal.tsx`
+- `src/components/shared/ApprovalActionModal.tsx`
+- `src/components/admin/shared/EditModal.tsx`
+- `src/components/GlobalSearch.tsx`
+- `src/components/builder/steps/QuoteSettingsStep.tsx`
+- `src/components/crm/CustomerListPage.tsx`
+- `src/components/panels/FleetBuilderPanel.tsx`
+- `src/components/crm/merge/CompanyMergeModal.tsx`
+- `src/components/admin/shared/ConfirmDialog.tsx`
+
+### Validation Results
+- `npx tsc --noEmit`: 0 errors
+- `npx vitest run`: 96/96 tests passed
+- `npx vite build`: Clean production build
+
+### Deferred Items
+- FEF-P1-8: Hash navigation works correctly with HashRouter; proper fix adds complexity for no user benefit
+- FEF-P2-4: Converting 16 raw buttons to shared Button is wide-reaching for purely cosmetic gain

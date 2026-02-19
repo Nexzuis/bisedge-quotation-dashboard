@@ -58,6 +58,16 @@ export function QuoteComparisonModal({ isOpen, onClose, initialQuoteId }: QuoteC
   const [rightQuote, setRightQuote] = useState<QuoteState | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Reset state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setLeftId('');
+      setRightId('');
+      setLeftQuote(null);
+      setRightQuote(null);
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     if (!isOpen) return;
     const loadQuotes = async () => {
@@ -111,8 +121,9 @@ export function QuoteComparisonModal({ isOpen, onClose, initialQuoteId }: QuoteC
       aria-modal="true"
       aria-labelledby="compare-modal-title"
       onKeyDown={(e) => e.key === 'Escape' && onClose()}
+      onClick={onClose}
     >
-      <div className="glass rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="glass rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="border-b border-surface-700 p-6">
           <div className="flex items-center justify-between">
@@ -120,7 +131,7 @@ export function QuoteComparisonModal({ isOpen, onClose, initialQuoteId }: QuoteC
               <ArrowLeftRight className="w-5 h-5 text-brand-400" />
               Compare Quotes
             </h2>
-            <button onClick={onClose} className="text-surface-400 hover:text-surface-100 transition-colors">
+            <button onClick={onClose} className="text-surface-400 hover:text-surface-100 transition-colors" aria-label="Close">
               <X className="w-6 h-6" />
             </button>
           </div>

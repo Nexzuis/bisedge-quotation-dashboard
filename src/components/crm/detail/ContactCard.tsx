@@ -29,10 +29,10 @@ export function ContactCard({ contact, onEdit, onDelete }: ContactCardProps) {
         {contact.phone && <div className="text-xs text-surface-400">{contact.phone}</div>}
       </div>
       <div className="flex gap-1">
-        <button onClick={onEdit} className="p-1 text-surface-500 hover:text-surface-300 transition-colors">
+        <button onClick={onEdit} className="p-1 text-surface-500 hover:text-surface-300 transition-colors" aria-label="Edit contact">
           <Pencil className="w-3.5 h-3.5" />
         </button>
-        <button onClick={onDelete} className="p-1 text-surface-500 hover:text-red-400 transition-colors">
+        <button onClick={onDelete} className="p-1 text-surface-500 hover:text-red-400 transition-colors" aria-label="Delete contact">
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       </div>

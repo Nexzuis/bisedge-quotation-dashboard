@@ -20,6 +20,18 @@ Status: In Progress (major blockers addressed)
 - Backup coverage: expanded table manifest + metadata compatibility checks
 - Login throttling: progressive delay + temporary lockout + audit events
 
+## Frontend Remediation Status (2026-02-19)
+
+Status: Complete (2 low-priority items deferred)
+
+- **P0 Blockers**: 5/5 completed
+  - LinkedQuotes navigation, Builder export route, CompanyPicker create-new flow, Admin route authorization, Approval error logging
+- **P1 High Priority**: 10/11 completed (FEF-P1-8 deferred - works correctly with HashRouter)
+  - Button type safety, SearchableSelect type, CrmTopBar active state, sort header accessibility, aria-labels (12 buttons), ApprovalActionModal Escape, EditModal keyboard, numeric clamping, modal state reset, CRM preload error handling
+- **P2 Polish**: 4/5 completed (FEF-P2-4 mostly deferred - style drift risk)
+  - Kanban skeleton responsive, FleetBuilder text cleanup, LoadQuote table widths, modal backdrop close consistency
+- **Remaining Risks**: None blocking. Deferred items are cosmetic/architectural preferences.
+
 ## Application and Routing
 
 Status: Active
@@ -89,7 +101,7 @@ Status: Active
 Status: Partially Green
 
 - `typecheck`: available and expected to pass
-- `test`: available with 3 current test files
+- `test`: available with 4 current test files
 - `build`: available and expected to pass
 - `lint`: available; current codebase may produce warnings/errors depending on branch state
 

@@ -21,6 +21,7 @@ export function Button({
 
   return (
     <button
+      type="button"
       className={`${variantClass} inline-flex items-center gap-2 ${className}`}
       disabled={disabled || loading}
       {...props}

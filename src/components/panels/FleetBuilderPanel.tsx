@@ -144,10 +144,10 @@ function FleetSlot({ slotIndex }: { slotIndex: SlotIndex }) {
         <span className="text-xs font-semibold text-surface-400">Unit {slotIndex + 1}</span>
         <div className="flex items-center gap-1">
           {slot.modelName && (
-            <Badge variant="brand" className="text-[10px] px-1.5 py-0.5">{slot.modelName}</Badge>
+            <Badge variant="brand" className="text-xs px-1.5 py-0.5">{slot.modelName}</Badge>
           )}
           {pricing && (
-            <Badge variant="success" className="text-[10px] px-1.5 py-0.5">
+            <Badge variant="success" className="text-xs px-1.5 py-0.5">
               {formatZAR(pricing.totalMonthly, false)}/mo
             </Badge>
           )}
@@ -188,7 +188,7 @@ function FleetSlot({ slotIndex }: { slotIndex: SlotIndex }) {
       {slot.modelName && !isExpanded && (
         <div className="space-y-1">
           {pricing && (
-            <div className="text-[10px] text-surface-500 grid grid-cols-2 gap-1">
+            <div className="text-xs text-surface-500 grid grid-cols-2 gap-1">
               <span>Landed: {formatZAR(pricing.landedCostZAR, false)}</span>
               <span>Selling: {formatZAR(pricing.sellingPriceZAR, false)}</span>
             </div>
@@ -252,7 +252,7 @@ function FleetSlot({ slotIndex }: { slotIndex: SlotIndex }) {
               <div className="max-h-60 overflow-y-auto space-y-2 mt-1 bg-surface-900/50 rounded p-2">
                 {Object.entries(groupedOptions).map(([category, options]) => (
                   <div key={category}>
-                    <div className="text-[10px] font-bold text-surface-500 uppercase mb-1">{category}</div>
+                    <div className="text-xs font-bold text-surface-500 uppercase mb-1">{category}</div>
                     {options.map((option) => {
                       if (!seriesData) return null;
                       const avail = getOptionAvailability(option, slot.indxColumn, seriesData.models);
@@ -276,9 +276,9 @@ function FleetSlot({ slotIndex }: { slotIndex: SlotIndex }) {
                           ) : (
                             <span className="flex-1 truncate">{option.description}</span>
                           )}
-                          <span className={`text-[10px] ${badge.textClass}`}>{badge.label}</span>
+                          <span className={`text-xs ${badge.textClass}`}>{badge.label}</span>
                           {avail >= 2 && option.eurPrice > 0 && (
-                            <span className="text-[10px] text-brand-400 font-medium whitespace-nowrap">+R{Math.round(option.eurPrice * factoryROE).toLocaleString()}</span>
+                            <span className="text-xs text-brand-400 font-medium whitespace-nowrap">+R{Math.round(option.eurPrice * factoryROE).toLocaleString()}</span>
                           )}
                         </label>
                       );
@@ -301,13 +301,13 @@ function FleetSlot({ slotIndex }: { slotIndex: SlotIndex }) {
               <div className="mt-1 space-y-3 bg-surface-900/50 rounded p-2">
                 {/* Local Battery */}
                 <div>
-                  <div className="text-[10px] font-bold text-surface-500 uppercase mb-1">Local Battery Cost</div>
+                  <div className="text-xs font-bold text-surface-500 uppercase mb-1">Local Battery Cost</div>
                   <input type="text" placeholder="Battery description"
                     value={slot.localBatteryDescription}
                     onChange={(e) => setLocalBatteryCost(slotIndex, slot.localBatteryCostZAR, e.target.value)}
                     className="input w-full text-xs py-1 mb-1" />
                   <div className="flex items-center gap-1">
-                    <span className="text-[10px] text-surface-500">R</span>
+                    <span className="text-xs text-surface-500">R</span>
                     <input type="number" min="0" step="100" value={slot.localBatteryCostZAR || ''}
                       onChange={(e) => setLocalBatteryCost(slotIndex, parseFloat(e.target.value) || 0, slot.localBatteryDescription)}
                       placeholder="0" className="input w-full text-xs py-1" />
@@ -316,7 +316,7 @@ function FleetSlot({ slotIndex }: { slotIndex: SlotIndex }) {
 
                 {/* Telematics Package */}
                 <div>
-                  <div className="text-[10px] font-bold text-surface-500 uppercase mb-1">Telematics Package</div>
+                  <div className="text-xs font-bold text-surface-500 uppercase mb-1">Telematics Package</div>
                   <SearchableSelect
                     value={slot.telematicsPackageId}
                     onChange={handleTelematicsChange}
@@ -330,7 +330,7 @@ function FleetSlot({ slotIndex }: { slotIndex: SlotIndex }) {
 
                 {/* Local Attachment Cost */}
                 <div>
-                  <div className="text-[10px] font-bold text-surface-500 uppercase mb-1">Local Attachment Cost (ZAR)</div>
+                  <div className="text-xs font-bold text-surface-500 uppercase mb-1">Local Attachment Cost (ZAR)</div>
                   <input type="number" min="0" step="100" value={slot.localAttachmentCostZAR || ''}
                     onChange={(e) => updateSlot(slotIndex, { localAttachmentCostZAR: parseFloat(e.target.value) || 0 })}
                     placeholder="0" className="input w-full text-xs py-1" />
@@ -338,10 +338,10 @@ function FleetSlot({ slotIndex }: { slotIndex: SlotIndex }) {
 
                 {/* Clearing Charges */}
                 <div>
-                  <div className="text-[10px] font-bold text-surface-500 uppercase mb-1">Clearing Charges</div>
+                  <div className="text-xs font-bold text-surface-500 uppercase mb-1">Clearing Charges</div>
                   {(['inlandFreight', 'seaFreight', 'portCharges', 'transport', 'destuffing', 'duties', 'warranty'] as (keyof ClearingCharges)[]).map((field) => (
                     <div key={field} className="flex items-center gap-2 mb-0.5">
-                      <span className="text-[10px] text-surface-400 w-24 capitalize">{field.replace(/([A-Z])/g, ' $1')}</span>
+                      <span className="text-xs text-surface-400 w-24 capitalize">{field.replace(/([A-Z])/g, ' $1')}</span>
                       <input type="number" min="0" step="100" value={slot.clearingCharges[field] || ''}
                         onChange={(e) => setClearingCharge(slotIndex, field, parseFloat(e.target.value) || 0)}
                         className="input flex-1 text-xs py-0.5" />
@@ -351,10 +351,10 @@ function FleetSlot({ slotIndex }: { slotIndex: SlotIndex }) {
 
                 {/* Local Costs */}
                 <div>
-                  <div className="text-[10px] font-bold text-surface-500 uppercase mb-1">Local Costs</div>
+                  <div className="text-xs font-bold text-surface-500 uppercase mb-1">Local Costs</div>
                   {(['assembly', 'loadTest', 'delivery', 'pdi', 'extras'] as (keyof LocalCosts)[]).map((field) => (
                     <div key={field} className="flex items-center gap-2 mb-0.5">
-                      <span className="text-[10px] text-surface-400 w-24 capitalize">{field.replace(/([A-Z])/g, ' $1')}</span>
+                      <span className="text-xs text-surface-400 w-24 capitalize">{field.replace(/([A-Z])/g, ' $1')}</span>
                       <input type="number" min="0" step="100" value={slot.localCosts[field] || ''}
                         onChange={(e) => setLocalCost(slotIndex, field, parseFloat(e.target.value) || 0)}
                         className="input flex-1 text-xs py-0.5" />
@@ -377,73 +377,73 @@ function FleetSlot({ slotIndex }: { slotIndex: SlotIndex }) {
               <div className="mt-1 space-y-2 bg-surface-900/50 rounded p-2">
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-[10px] text-surface-400 mb-0.5">Markup %</label>
+                    <label className="block text-xs text-surface-400 mb-0.5">Markup %</label>
                     <input type="number" step="0.5" value={slot.markupPct || ''}
                       onChange={(e) => setCommercialField(slotIndex, 'markupPct', parseFloat(e.target.value) || 0)}
                       className="input w-full text-xs py-0.5" />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-surface-400 mb-0.5">Finance Cost %</label>
+                    <label className="block text-xs text-surface-400 mb-0.5">Finance Cost %</label>
                     <input type="number" step="0.25" value={slot.financeCostPct || ''}
                       onChange={(e) => setCommercialField(slotIndex, 'financeCostPct', parseFloat(e.target.value) || 0)}
                       className="input w-full text-xs py-0.5" />
                   </div>
                 </div>
 
-                <div className="text-[10px] font-bold text-surface-500 uppercase">Residual Values</div>
+                <div className="text-xs font-bold text-surface-500 uppercase">Residual Values</div>
                 <div className="grid grid-cols-3 gap-1">
                   <div>
-                    <label className="block text-[10px] text-surface-400 mb-0.5">Truck %</label>
+                    <label className="block text-xs text-surface-400 mb-0.5">Truck %</label>
                     <input type="number" step="1" value={slot.residualValueTruckPct || ''}
                       onChange={(e) => setCommercialField(slotIndex, 'residualValueTruckPct', parseFloat(e.target.value) || 0)}
                       className="input w-full text-xs py-0.5" />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-surface-400 mb-0.5">Battery %</label>
+                    <label className="block text-xs text-surface-400 mb-0.5">Battery %</label>
                     <input type="number" step="1" value={slot.residualValueBatteryPct || ''}
                       onChange={(e) => setCommercialField(slotIndex, 'residualValueBatteryPct', parseFloat(e.target.value) || 0)}
                       className="input w-full text-xs py-0.5" />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-surface-400 mb-0.5">Attach %</label>
+                    <label className="block text-xs text-surface-400 mb-0.5">Attach %</label>
                     <input type="number" step="1" value={slot.residualValueAttachmentPct || ''}
                       onChange={(e) => setCommercialField(slotIndex, 'residualValueAttachmentPct', parseFloat(e.target.value) || 0)}
                       className="input w-full text-xs py-0.5" />
                   </div>
                 </div>
 
-                <div className="text-[10px] font-bold text-surface-500 uppercase">Maintenance Rates (R/hr)</div>
+                <div className="text-xs font-bold text-surface-500 uppercase">Maintenance Rates (R/hr)</div>
                 <div className="grid grid-cols-3 gap-1">
                   <div>
-                    <label className="block text-[10px] text-surface-400 mb-0.5">Truck</label>
+                    <label className="block text-xs text-surface-400 mb-0.5">Truck</label>
                     <input type="number" step="1" value={slot.maintenanceRateTruckPerHr || ''}
                       onChange={(e) => setCommercialField(slotIndex, 'maintenanceRateTruckPerHr', parseFloat(e.target.value) || 0)}
                       className="input w-full text-xs py-0.5" />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-surface-400 mb-0.5">Tires</label>
+                    <label className="block text-xs text-surface-400 mb-0.5">Tires</label>
                     <input type="number" step="1" value={slot.maintenanceRateTiresPerHr || ''}
                       onChange={(e) => setCommercialField(slotIndex, 'maintenanceRateTiresPerHr', parseFloat(e.target.value) || 0)}
                       className="input w-full text-xs py-0.5" />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-surface-400 mb-0.5">Attach</label>
+                    <label className="block text-xs text-surface-400 mb-0.5">Attach</label>
                     <input type="number" step="1" value={slot.maintenanceRateAttachmentPerHr || ''}
                       onChange={(e) => setCommercialField(slotIndex, 'maintenanceRateAttachmentPerHr', parseFloat(e.target.value) || 0)}
                       className="input w-full text-xs py-0.5" />
                   </div>
                 </div>
 
-                <div className="text-[10px] font-bold text-surface-500 uppercase">Telematics Subscription</div>
+                <div className="text-xs font-bold text-surface-500 uppercase">Telematics Subscription</div>
                 <div className="grid grid-cols-2 gap-1">
                   <div>
-                    <label className="block text-[10px] text-surface-400 mb-0.5">Cost/mo</label>
+                    <label className="block text-xs text-surface-400 mb-0.5">Cost/mo</label>
                     <input type="number" step="10" value={slot.telematicsSubscriptionCostPerMonth || ''}
                       onChange={(e) => setCommercialField(slotIndex, 'telematicsSubscriptionCostPerMonth', parseFloat(e.target.value) || 0)}
                       className="input w-full text-xs py-0.5" />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-surface-400 mb-0.5">Selling/mo</label>
+                    <label className="block text-xs text-surface-400 mb-0.5">Selling/mo</label>
                     <input type="number" step="10" value={slot.telematicsSubscriptionSellingPerMonth || ''}
                       onChange={(e) => setCommercialField(slotIndex, 'telematicsSubscriptionSellingPerMonth', parseFloat(e.target.value) || 0)}
                       className="input w-full text-xs py-0.5" />
@@ -451,7 +451,7 @@ function FleetSlot({ slotIndex }: { slotIndex: SlotIndex }) {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] text-surface-400 mb-0.5">Operator Price/mo (ZAR)</label>
+                  <label className="block text-xs text-surface-400 mb-0.5">Operator Price/mo (ZAR)</label>
                   <input type="number" step="100" value={slot.operatorPricePerMonth || ''}
                     onChange={(e) => setCommercialField(slotIndex, 'operatorPricePerMonth', parseFloat(e.target.value) || 0)}
                     className="input w-full text-xs py-0.5" />
@@ -462,7 +462,7 @@ function FleetSlot({ slotIndex }: { slotIndex: SlotIndex }) {
 
           {/* Step 6: Summary Line */}
           {pricing && (
-            <div className="bg-surface-800/80 rounded p-2 space-y-1 text-[10px]">
+            <div className="bg-surface-800/80 rounded p-2 space-y-1 text-xs">
               <div className="flex justify-between">
                 <span className="text-surface-400">Factory EUR:</span>
                 <span className="font-mono text-surface-200">€{pricing.factoryCostEUR.toLocaleString()}</span>
@@ -512,7 +512,7 @@ function FleetSlot({ slotIndex }: { slotIndex: SlotIndex }) {
 
           {/* Clear / Collapse */}
           <div className="flex items-center justify-between mt-2">
-            <button onClick={() => clearSlot(slotIndex)} className="text-[10px] text-red-400 hover:text-red-300">
+            <button onClick={() => clearSlot(slotIndex)} className="text-xs text-red-400 hover:text-red-300">
               Clear Unit
             </button>
             <button onClick={() => setIsExpanded(false)} className="text-xs text-brand-400 hover:text-brand-300 flex items-center gap-1">

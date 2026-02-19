@@ -147,7 +147,7 @@ export function SearchableSelect({
               className="flex-1 bg-transparent text-xs text-surface-100 placeholder:text-surface-500 outline-none"
             />
             {search && (
-              <button onClick={() => setSearch('')} className="text-surface-400 hover:text-surface-200">
+              <button type="button" onClick={() => setSearch('')} className="text-surface-400 hover:text-surface-200" aria-label="Clear search">
                 <X className="w-3 h-3" />
               </button>
             )}

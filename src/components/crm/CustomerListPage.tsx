@@ -45,7 +45,7 @@ export default function CustomerListPage() {
         map[u.id] = u.fullName || u.username;
       }
       setUserNameMap(map);
-    });
+    }).catch(() => { console.warn('Failed to load user names'); });
   }, []);
 
   // Check if navigated with openNewLead or filterStage state
@@ -190,7 +190,7 @@ export default function CustomerListPage() {
             </div>
           ) : loading ? (
             viewMode === 'kanban' ? (
-              <div className="grid grid-cols-7 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-2">
                 {Array.from({ length: 7 }).map((_, i) => (
                   <div key={i} className="space-y-2">
                     <div className="h-10 bg-surface-800/40 rounded-t-xl animate-pulse" />
@@ -243,8 +243,8 @@ export default function CustomerListPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
+            onClick={() => setShowNewForm(false)}
+            onKeyDown={(e) => { if (e.key === 'Escape') setShowNewForm(false); }}
             role="dialog"
             aria-modal="true"
             aria-labelledby="new-lead-modal-title"
@@ -255,6 +255,7 @@ export default function CustomerListPage() {
               exit={{ opacity: 0, y: 100, scale: 0.95 }}
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
               className="glass rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
             >
               <h2 id="new-lead-modal-title" className="text-lg font-bold text-surface-100 mb-4">New Lead</h2>
               <CompanyForm

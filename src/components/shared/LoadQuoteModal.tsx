@@ -31,6 +31,17 @@ export function LoadQuoteModal({ isOpen, onClose, onQuoteLoaded }: LoadQuoteModa
   const { listQuotes, searchQuotes, loadFromDB, duplicateQuote, deleteQuote } = useQuoteDB();
   const { confirm, ConfirmDialogElement } = useConfirmDialog();
 
+  // Reset state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setSearchQuery('');
+      setStatusFilter('');
+      setCurrentPage(1);
+      setExpandedRevisionRef(null);
+      setCompareQuoteId(null);
+    }
+  }, [isOpen]);
+
   // Load quotes
   const loadQuotesList = async () => {
     setLoading(true);
@@ -152,8 +163,9 @@ export function LoadQuoteModal({ isOpen, onClose, onQuoteLoaded }: LoadQuoteModa
       aria-modal="true"
       aria-labelledby="load-quote-modal-title"
       onKeyDown={(e) => e.key === 'Escape' && onClose()}
+      onClick={onClose}
     >
-      <div className="glass rounded-xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="glass rounded-xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="border-b border-surface-700 p-6">
           <div className="flex items-center justify-between mb-4">
@@ -161,6 +173,7 @@ export function LoadQuoteModal({ isOpen, onClose, onQuoteLoaded }: LoadQuoteModa
             <button
               onClick={onClose}
               className="text-surface-400 hover:text-surface-100 transition-colors"
+              aria-label="Close"
             >
               <X className="w-6 h-6" />
             </button>
@@ -243,26 +256,27 @@ export function LoadQuoteModal({ isOpen, onClose, onQuoteLoaded }: LoadQuoteModa
                       <td colSpan={5} className="p-0">
                         <div className="border-b border-surface-800 hover:bg-surface-800/30 transition-colors">
                           <div className="flex items-center">
-                            <div className="py-3 px-4 flex-shrink-0" style={{ width: '20%' }}>
+                            <div className="py-3 px-4 flex-shrink-0 w-1/5">
                               <div className="flex items-center gap-2">
                                 <span className="font-mono text-brand-400">{quote.quoteRef}</span>
                                 <button
                                   onClick={() => setExpandedRevisionRef(isExpanded ? null : quote.quoteRef)}
                                   className="p-1 text-surface-500 hover:text-brand-400 transition-colors"
                                   title="Show revision history"
+                                  aria-label="Show revision history"
                                 >
                                   <GitBranch className="w-3.5 h-3.5" />
                                 </button>
                               </div>
                             </div>
-                            <div className="py-3 px-4 flex-shrink-0" style={{ width: '25%' }}>
+                            <div className="py-3 px-4 flex-shrink-0 w-1/4">
                               <div className="text-surface-100">{quote.clientName || 'No customer'}</div>
                               <div className="text-sm text-surface-400">{quote.contactName}</div>
                             </div>
-                            <div className="py-3 px-4 text-surface-300 flex-shrink-0" style={{ width: '15%' }}>
+                            <div className="py-3 px-4 text-surface-300 flex-shrink-0 w-[15%]">
                               {formatDate(new Date(quote.createdAt))}
                             </div>
-                            <div className="py-3 px-4 flex-shrink-0" style={{ width: '15%' }}>
+                            <div className="py-3 px-4 flex-shrink-0 w-[15%]">
                               <Badge variant={getStatusVariant(quote.status)}>
                                 {quote.status.replace('-', ' ').toUpperCase()}
                               </Badge>
@@ -276,6 +290,7 @@ export function LoadQuoteModal({ isOpen, onClose, onQuoteLoaded }: LoadQuoteModa
                                   onClick={() => setCompareQuoteId(quote.id)}
                                   className="p-2 text-surface-400 hover:text-purple-400 transition-colors"
                                   title="Compare"
+                                  aria-label="Compare quotes"
                                 >
                                   <ArrowLeftRight className="w-4 h-4" />
                                 </button>
@@ -283,6 +298,7 @@ export function LoadQuoteModal({ isOpen, onClose, onQuoteLoaded }: LoadQuoteModa
                                   onClick={() => handleDuplicate(quote.id)}
                                   className="p-2 text-surface-400 hover:text-brand-400 transition-colors"
                                   title="Duplicate"
+                                  aria-label="Duplicate quote"
                                 >
                                   <Copy className="w-4 h-4" />
                                 </button>
@@ -290,6 +306,7 @@ export function LoadQuoteModal({ isOpen, onClose, onQuoteLoaded }: LoadQuoteModa
                                   onClick={() => handleDelete(quote.id)}
                                   className="p-2 text-surface-400 hover:text-red-400 transition-colors"
                                   title="Delete"
+                                  aria-label="Delete quote"
                                 >
                                   <Trash2 className="w-4 h-4" />
                                 </button>

@@ -145,7 +145,7 @@ export function GlobalSearch() {
                 onKeyDown={handleKeyDown}
                 className="flex-1 bg-transparent border-none outline-none text-surface-100 px-3 py-4 text-sm placeholder:text-surface-500"
               />
-              <button onClick={() => setIsOpen(false)} className="text-surface-500 hover:text-surface-300">
+              <button onClick={() => setIsOpen(false)} className="text-surface-500 hover:text-surface-300" aria-label="Close search">
                 <X className="w-4 h-4" />
               </button>
             </div>

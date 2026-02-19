@@ -43,7 +43,7 @@ export function LinkedQuotes({ companyId }: LinkedQuotesProps) {
                 <tr
                   key={q.id}
                   className="border-b border-surface-700/30 hover:bg-surface-700/20 transition-colors cursor-pointer"
-                  onClick={() => navigate('/quote')}
+                  onClick={() => navigate('/quote?id=' + q.id)}
                 >
                   <td className="px-3 py-2 text-surface-200 font-medium">{q.quoteRef}</td>
                   <td className="px-3 py-2 text-surface-400">{new Date(q.createdAt).toLocaleDateString('en-ZA')}</td>

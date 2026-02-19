@@ -199,9 +199,8 @@ export function ApprovalActionModal({
     });
   };
 
-  // Handle keyboard shortcuts (disabled — modal only closes via Cancel/action buttons)
-  const handleKeyDown = (_e: React.KeyboardEvent<HTMLDivElement>) => {
-    // intentionally empty
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Escape' && !isProcessing) onClose();
   };
 
   if (!isOpen) return null;

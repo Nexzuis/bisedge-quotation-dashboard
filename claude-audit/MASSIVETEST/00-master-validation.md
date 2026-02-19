@@ -86,6 +86,11 @@ See `14-defects.md` for full details.
 - D-001 through D-005: All fixed in codebase (2026-02-19)
 - All automated build gates: Passing
 - All grep gates (legacy + new targeted): Passing
+- D-001 SQL deployed to Supabase and verified (2026-02-19)
+- Supabase data seeded: 81 series, 15 telematics, 50 containers, 9 settings (2026-02-19)
+- Quotes list snake_case→camelCase mapping fix applied (2026-02-19)
+- Admin defaults UI completed: Factory ROE, Discount %, Residual Truck % added (2026-02-19)
+- Auto-reload ErrorBoundary for stale chunks after deployments (2026-02-19)
 
 ---
 

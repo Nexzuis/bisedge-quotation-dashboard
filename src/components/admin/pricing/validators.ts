@@ -104,15 +104,26 @@ export const validateResidualCurve = (curve: StoredResidualCurve): ValidationErr
 export const validateDefaultValues = (values: Record<string, any>): ValidationError[] => {
   const errors: ValidationError[] = [];
 
+  const factoryROE = Number(values.defaultFactoryROE);
   const roe = Number(values.defaultROE);
+  const discountPct = Number(values.defaultDiscountPct);
   const interestRate = Number(values.defaultInterestRate);
   const cpiRate = Number(values.defaultCPIRate);
   const operatingHours = Number(values.defaultOperatingHours);
   const leaseTerm = Number(values.defaultLeaseTerm);
   const telematicsCost = Number(values.defaultTelematicsCost);
+  const residualTruckPct = Number(values.defaultResidualTruckPct);
+
+  if (values.defaultFactoryROE && (isNaN(factoryROE) || factoryROE <= 0 || factoryROE > 100)) {
+    errors.push({ message: 'Factory ROE must be between 0 and 100', field: 'defaultFactoryROE' });
+  }
 
   if (values.defaultROE && (isNaN(roe) || roe <= 0 || roe > 100)) {
     errors.push({ message: 'Default ROE must be between 0 and 100', field: 'defaultROE' });
+  }
+
+  if (values.defaultDiscountPct && (isNaN(discountPct) || discountPct < 0 || discountPct > 100)) {
+    errors.push({ message: 'Discount must be between 0% and 100%', field: 'defaultDiscountPct' });
   }
 
   if (values.defaultInterestRate && (isNaN(interestRate) || interestRate < 0 || interestRate > 50)) {
@@ -133,6 +144,10 @@ export const validateDefaultValues = (values: Record<string, any>): ValidationEr
 
   if (values.defaultTelematicsCost && (isNaN(telematicsCost) || telematicsCost < 0)) {
     errors.push({ message: 'Telematics cost cannot be negative', field: 'defaultTelematicsCost' });
+  }
+
+  if (values.defaultResidualTruckPct && (isNaN(residualTruckPct) || residualTruckPct < 0 || residualTruckPct > 100)) {
+    errors.push({ message: 'Residual truck value must be between 0% and 100%', field: 'defaultResidualTruckPct' });
   }
 
   return errors;

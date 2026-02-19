@@ -60,6 +60,9 @@ Block release if any of the following are true:
 6. Quote locking does not include stale timeout (1 hour)
 7. `merge_companies` RPC does not handle all 20 frontend fields
 8. Priority hook files contain `console.log`/`console.warn`/`console.error` calls (must use `logger`)
+9. Supabase `settings` table is empty (must have 9 default value rows)
+10. Supabase `price_list_series` table is empty (must have 81 series rows)
+11. Quotes list shows "No customer" or "NaN" dates (snake_case mapping must be active in SupabaseAdapter)
 
 ## Documentation Gate
 

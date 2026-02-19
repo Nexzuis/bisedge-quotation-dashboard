@@ -10,6 +10,17 @@ interface State {
   error: Error | null;
 }
 
+// Detect stale chunk errors after deployment (dynamic import fails because
+// old JS filenames no longer exist on the server).
+function isChunkLoadError(error: Error): boolean {
+  const msg = error.message || '';
+  return (
+    msg.includes('Failed to fetch dynamically imported module') ||
+    msg.includes('Importing a module script failed') ||
+    msg.includes('error loading dynamically imported module')
+  );
+}
+
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
@@ -22,6 +33,16 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('ErrorBoundary caught:', error, info.componentStack);
+
+    // Auto-reload once on stale chunk errors (new deployment invalidated old chunks).
+    // sessionStorage flag prevents infinite reload loops.
+    if (isChunkLoadError(error) && !sessionStorage.getItem('chunk_reload')) {
+      sessionStorage.setItem('chunk_reload', '1');
+      window.location.reload();
+      return;
+    }
+    // Clear the flag on non-chunk errors so next deployment can auto-reload again
+    sessionStorage.removeItem('chunk_reload');
   }
 
   private handleRetry = () => {

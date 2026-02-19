@@ -18,12 +18,15 @@ const DefaultValuesEditor = () => {
     if (dbValues) {
       const cfg = getConfigDefaults();
       setValues({
+        defaultFactoryROE: dbValues.defaultFactoryROE || String(cfg.factoryROE),
         defaultROE: dbValues.defaultROE || String(cfg.customerROE),
+        defaultDiscountPct: dbValues.defaultDiscountPct || String(cfg.discountPct),
         defaultInterestRate: dbValues.defaultInterestRate || String(cfg.interestRate),
         defaultCPIRate: dbValues.defaultCPIRate || String(cfg.cpiRate),
         defaultOperatingHours: dbValues.defaultOperatingHours || String(cfg.operatingHours),
         defaultLeaseTerm: dbValues.defaultLeaseTerm || String(cfg.leaseTerm),
         defaultTelematicsCost: dbValues.defaultTelematicsCost || String(cfg.telematicsCost),
+        defaultResidualTruckPct: dbValues.defaultResidualTruckPct || String(cfg.residualTruckPct),
       });
     }
   }, [dbValues]);
@@ -126,7 +129,27 @@ const DefaultValuesEditor = () => {
 
       {/* Form Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Default ROE */}
+        {/* Default Factory ROE */}
+        <div className="bg-surface-800/40 rounded-xl p-6">
+          <label className="block text-surface-100 font-semibold mb-2">
+            Default Factory ROE (Rate of Exchange)
+          </label>
+          <p className="text-surface-100/60 text-sm mb-3">
+            EUR to ZAR exchange rate for factory cost calculations
+          </p>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              value={values.defaultFactoryROE || ''}
+              onChange={(e) => updateValue('defaultFactoryROE', e.target.value)}
+              step="0.01"
+              className="flex-1 bg-surface-800/40 border border-surface-700/50 rounded-lg px-4 py-3 text-surface-100 text-lg focus:outline-none focus:border-brand-500"
+            />
+            <span className="text-surface-100/60">ZAR/EUR</span>
+          </div>
+        </div>
+
+        {/* Default Customer ROE */}
         <div className="bg-surface-800/40 rounded-xl p-6">
           <label className="block text-surface-100 font-semibold mb-2">
             Default Customer ROE (Rate of Exchange)
@@ -244,6 +267,50 @@ const DefaultValuesEditor = () => {
               className="flex-1 bg-surface-800/40 border border-surface-700/50 rounded-lg px-4 py-3 text-surface-100 text-lg focus:outline-none focus:border-brand-500"
             />
             <span className="text-surface-100/60">ZAR/mo</span>
+          </div>
+        </div>
+
+        {/* Default Discount % */}
+        <div className="bg-surface-800/40 rounded-xl p-6">
+          <label className="block text-surface-100 font-semibold mb-2">
+            Default Discount %
+          </label>
+          <p className="text-surface-100/60 text-sm mb-3">
+            Factory discount percentage applied to gross EUR cost
+          </p>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              value={values.defaultDiscountPct || ''}
+              onChange={(e) => updateValue('defaultDiscountPct', e.target.value)}
+              step="1"
+              min="0"
+              max="100"
+              className="flex-1 bg-surface-800/40 border border-surface-700/50 rounded-lg px-4 py-3 text-surface-100 text-lg focus:outline-none focus:border-brand-500"
+            />
+            <span className="text-surface-100/60">%</span>
+          </div>
+        </div>
+
+        {/* Default Residual Truck % */}
+        <div className="bg-surface-800/40 rounded-xl p-6">
+          <label className="block text-surface-100 font-semibold mb-2">
+            Default Residual Value (Truck) %
+          </label>
+          <p className="text-surface-100/60 text-sm mb-3">
+            Truck residual value percentage at end of lease term
+          </p>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              value={values.defaultResidualTruckPct || ''}
+              onChange={(e) => updateValue('defaultResidualTruckPct', e.target.value)}
+              step="1"
+              min="0"
+              max="100"
+              className="flex-1 bg-surface-800/40 border border-surface-700/50 rounded-lg px-4 py-3 text-surface-100 text-lg focus:outline-none focus:border-brand-500"
+            />
+            <span className="text-surface-100/60">%</span>
           </div>
         </div>
       </div>

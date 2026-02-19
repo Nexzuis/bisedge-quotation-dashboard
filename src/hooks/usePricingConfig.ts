@@ -29,8 +29,6 @@ export const useDefaultValues = () => {
 export const saveCommissionTiers = async (tiers: StoredCommissionTier[], userId: string) => {
   await getDb().saveCommissionTiers(tiers);
   await getDb().logAudit({
-    id: crypto.randomUUID(),
-    timestamp: new Date().toISOString(),
     userId,
     action: 'update',
     entityType: 'commissionTiers',
@@ -44,8 +42,6 @@ export const saveCommissionTiers = async (tiers: StoredCommissionTier[], userId:
 export const saveResidualCurves = async (curves: StoredResidualCurve[], userId: string) => {
   await getDb().saveResidualCurves(curves);
   await getDb().logAudit({
-    id: crypto.randomUUID(),
-    timestamp: new Date().toISOString(),
     userId,
     action: 'update',
     entityType: 'residualCurves',
@@ -59,8 +55,6 @@ export const saveResidualCurves = async (curves: StoredResidualCurve[], userId: 
 export const saveDefaultValues = async (values: Record<string, string>, userId: string) => {
   await getDb().saveSettings(Object.entries(values).map(([key, value]) => ({ key, value })));
   await getDb().logAudit({
-    id: crypto.randomUUID(),
-    timestamp: new Date().toISOString(),
     userId,
     action: 'update',
     entityType: 'settings',

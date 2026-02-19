@@ -38,15 +38,15 @@ const dropdownVariants = {
     opacity: 1,
     scale: 1,
     y: 0,
-    transition: { duration: 0.18, ease: 'easeOut' },
+    transition: { duration: 0.18, ease: 'easeOut' as const },
   },
   exit: {
     opacity: 0,
     scale: 0.95,
     y: -8,
-    transition: { duration: 0.14, ease: 'easeIn' },
+    transition: { duration: 0.14, ease: 'easeIn' as const },
   },
-};
+} as const;
 
 const listVariants = {
   hidden: { opacity: 0 },
@@ -54,7 +54,7 @@ const listVariants = {
     opacity: 1,
     transition: { staggerChildren: 0.04, delayChildren: 0.05 },
   },
-};
+} as const;
 
 // ─── Icon map ────────────────────────────────────────────────────────────────
 

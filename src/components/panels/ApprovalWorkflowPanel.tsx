@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import { Panel } from '../ui/Panel';
 import { CardHeader } from '../ui/Card';
-import { Button } from '../ui/Button';
 import { toast } from '../ui/Toast';
 import { useQuoteStore } from '../../store/useQuoteStore';
 import { useAuthStore } from '../../store/useAuthStore';

@@ -25,7 +25,14 @@ export function SystemHealthWidget() {
     setLoading(true);
     try {
       const counts = await getDb().getTableCounts();
-      setStats(counts);
+      setStats({
+        quotes: counts.quotes ?? 0,
+        companies: counts.companies ?? 0,
+        contacts: counts.contacts ?? 0,
+        activities: counts.activities ?? 0,
+        users: counts.users ?? 0,
+        notifications: counts.notifications ?? 0,
+      });
     } catch (err) {
       console.error('Error loading DB stats:', err);
     } finally {

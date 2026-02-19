@@ -40,6 +40,7 @@ interface PendingQuote {
   approvalChain: ApprovalChainEntry[];
   submittedBy: string | null;
   submittedAt: string | null;
+  createdBy: string | null;
   createdAt: string;
   submitterName?: string;
 }
@@ -109,6 +110,7 @@ export function ApprovalDashboard() {
             approvalChain: chain,
             submittedBy: q.submittedBy || q.submitted_by || null,
             submittedAt: q.submittedAt || q.submitted_at || null,
+            createdBy: q.createdBy || q.created_by || null,
             createdAt: q.createdAt || q.created_at || '',
             submitterName,
           };

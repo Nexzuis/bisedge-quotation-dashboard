@@ -6,7 +6,8 @@
  */
 
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import type { QuoteState } from '../types/quote';
+import type { QuoteState, LeaseTermMonths } from '../types/quote';
+import type { Database } from '../lib/database.types';
 import type {
   SaveResult,
   QuoteFilter,
@@ -23,6 +24,10 @@ import type {
 } from './interfaces';
 import type { IDatabaseAdapter } from './DatabaseAdapter';
 import { sanitizePostgrestValue } from '../utils/sanitize';
+
+type QuotesInsert = Database['public']['Tables']['quotes']['Insert'];
+type DbQuoteStatus = Database['public']['Tables']['quotes']['Row']['status'];
+type DbUserRole = Database['public']['Tables']['users']['Row']['role'];
 
 /**
  * Map a raw Supabase quotes row (snake_case) to StoredQuote (camelCase).
@@ -164,7 +169,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       // Upsert quote
       const { error } = await supabase
         .from('quotes')
-        .upsert(dbQuote, {
+        .upsert(dbQuote as QuotesInsert, {
           onConflict: 'id',
         });
 
@@ -236,7 +241,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
 
       // Apply filters
       if (filters?.status) {
-        query = query.eq('status', filters.status);
+        query = query.eq('status', filters.status as DbQuoteStatus);
       }
       if (filters?.customerName) {
         query = query.ilike('client_name', `%${filters.customerName}%`);
@@ -514,7 +519,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         return [];
       }
 
-      return (data || []) as StoredCustomer[];
+      return (data || []).map(this.dbCustomerToStored);
     } catch (error) {
       console.error('Error searching customers from Supabase:', error);
       return [];
@@ -531,7 +536,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
 
       if (error || !data) return null;
 
-      return data as StoredCustomer;
+      return this.dbCustomerToStored(data);
     } catch (error) {
       console.error('Error getting customer:', error);
       return null;
@@ -550,7 +555,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         return [];
       }
 
-      return (data || []) as StoredCustomer[];
+      return (data || []).map(this.dbCustomerToStored);
     } catch (error) {
       console.error('Error listing customers from Supabase:', error);
       return [];
@@ -601,7 +606,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       const { data, error } = await supabase
         .from('users')
         .select('*')
-        .eq('role', role)
+        .eq('role', role as DbUserRole)
         .eq('is_active', true);
 
       if (error) {
@@ -1246,7 +1251,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
 
   async getTableCounts(): Promise<Record<string, number>> {
     try {
-      const tables = ['quotes', 'companies', 'contacts', 'activities', 'users', 'notifications'];
+      const tables = ['quotes', 'companies', 'contacts', 'activities', 'users', 'notifications'] as const;
       const results = await Promise.all(
         tables.map(async (table) => {
           const { count, error } = await supabase
@@ -1341,7 +1346,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
           min_margin: t.minMargin,
           max_margin: t.maxMargin,
           commission_rate: t.commissionRate,
-        }));
+        })) as unknown as Database['public']['Tables']['commission_tiers']['Insert'][];
 
         const { error } = await supabase.from('commission_tiers').insert(dbTiers);
         if (error) throw new Error(error.message);
@@ -1364,7 +1369,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
           term: c.term,
           residual_pct: c.residualPct,
           model_family: c.modelFamily || '',
-        }));
+        })) as unknown as Database['public']['Tables']['residual_curves']['Insert'][];
 
         const { error } = await supabase.from('residual_curves').insert(dbCurves);
         if (error) throw new Error(error.message);
@@ -1438,7 +1443,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       customerROE: Number(dbQuote.customer_roe) || 0,
       discountPct: Number(dbQuote.discount_pct) || 0,
       annualInterestRate: Number(dbQuote.annual_interest_rate) || 0,
-      defaultLeaseTermMonths: Number(dbQuote.default_lease_term_months) || 0,
+      defaultLeaseTermMonths: (Number(dbQuote.default_lease_term_months) || 60) as LeaseTermMonths,
       batteryChemistryLock: dbQuote.battery_chemistry_lock,
       quoteType: dbQuote.quote_type,
       slots: (() => { try { return JSON.parse(dbQuote.slots || '[]'); } catch { return []; } })(),
@@ -1501,6 +1506,25 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       createdAt: new Date(dbQuote.created_at || Date.now()),
       updatedAt: new Date(dbQuote.updated_at || Date.now()),
       version: Number(dbQuote.version) || 1,
+    };
+  }
+
+  private dbCustomerToStored(row: any): StoredCustomer {
+    let address: string[] = [];
+    if (Array.isArray(row.address)) {
+      address = row.address as string[];
+    } else if (typeof row.address === 'string') {
+      try { address = JSON.parse(row.address); } catch { address = []; }
+    }
+    return {
+      id: row.id,
+      name: row.name,
+      contactPerson: row.contact_person || '',
+      email: row.contact_email || '',
+      phone: row.contact_phone || '',
+      address,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     };
   }
 

@@ -31,6 +31,7 @@ export interface Database {
           employee_id: string | null
           delegate_to: string | null
           delegate_until: string | null
+          permission_overrides: Json | null
         }
         Insert: {
           id: string
@@ -45,6 +46,7 @@ export interface Database {
           employee_id?: string | null
           delegate_to?: string | null
           delegate_until?: string | null
+          permission_overrides?: Json | null
         }
         Update: {
           id?: string
@@ -59,7 +61,9 @@ export interface Database {
           employee_id?: string | null
           delegate_to?: string | null
           delegate_until?: string | null
+          permission_overrides?: Json | null
         }
+        Relationships: []
       }
       customers: {
         Row: {
@@ -95,6 +99,7 @@ export interface Database {
           updated_at?: string
           created_by?: string | null
         }
+        Relationships: []
       }
       quotes: {
         Row: {
@@ -105,8 +110,10 @@ export interface Database {
           created_by: string
           assigned_to: string | null
           customer_id: string | null
+          company_id: string | null
           client_name: string
           contact_name: string
+          contact_title: string | null
           contact_email: string | null
           contact_phone: string | null
           client_address: Json | null
@@ -118,6 +125,7 @@ export interface Database {
           battery_chemistry_lock: 'lead-acid' | 'lithium-ion' | null
           quote_type: 'rental' | 'rent-to-own' | 'dual' | null
           slots: Json // Array of UnitSlot objects
+          shipping_entries: Json | null
           approval_tier: number | null
           approval_status: string | null
           approval_notes: string | null
@@ -129,11 +137,15 @@ export interface Database {
           rejected_by: string | null
           rejected_at: string | null
           rejection_reason: string | null
+          current_assignee_id: string | null
+          current_assignee_role: string | null
+          approval_chain: Json | null
           locked_by: string | null
           locked_at: string | null
           created_at: string
           updated_at: string
           quote_date: string
+          validity_days: number | null
           last_synced_at: string | null
           sync_status: 'synced' | 'pending' | 'conflict' | null
         }
@@ -145,8 +157,10 @@ export interface Database {
           created_by: string
           assigned_to?: string | null
           customer_id?: string | null
+          company_id?: string | null
           client_name: string
           contact_name: string
+          contact_title?: string | null
           contact_email?: string | null
           contact_phone?: string | null
           client_address?: Json | null
@@ -158,6 +172,7 @@ export interface Database {
           battery_chemistry_lock?: 'lead-acid' | 'lithium-ion' | null
           quote_type?: 'rental' | 'rent-to-own' | 'dual' | null
           slots: Json
+          shipping_entries?: Json | null
           approval_tier?: number | null
           approval_status?: string | null
           approval_notes?: string | null
@@ -169,11 +184,15 @@ export interface Database {
           rejected_by?: string | null
           rejected_at?: string | null
           rejection_reason?: string | null
+          current_assignee_id?: string | null
+          current_assignee_role?: string | null
+          approval_chain?: Json | null
           locked_by?: string | null
           locked_at?: string | null
           created_at?: string
           updated_at?: string
           quote_date?: string
+          validity_days?: number | null
           last_synced_at?: string | null
           sync_status?: 'synced' | 'pending' | 'conflict' | null
         }
@@ -185,8 +204,10 @@ export interface Database {
           created_by?: string
           assigned_to?: string | null
           customer_id?: string | null
+          company_id?: string | null
           client_name?: string
           contact_name?: string
+          contact_title?: string | null
           contact_email?: string | null
           contact_phone?: string | null
           client_address?: Json | null
@@ -198,6 +219,7 @@ export interface Database {
           battery_chemistry_lock?: 'lead-acid' | 'lithium-ion' | null
           quote_type?: 'rental' | 'rent-to-own' | 'dual' | null
           slots?: Json
+          shipping_entries?: Json | null
           approval_tier?: number | null
           approval_status?: string | null
           approval_notes?: string | null
@@ -209,14 +231,19 @@ export interface Database {
           rejected_by?: string | null
           rejected_at?: string | null
           rejection_reason?: string | null
+          current_assignee_id?: string | null
+          current_assignee_role?: string | null
+          approval_chain?: Json | null
           locked_by?: string | null
           locked_at?: string | null
           created_at?: string
           updated_at?: string
           quote_date?: string
+          validity_days?: number | null
           last_synced_at?: string | null
           sync_status?: 'synced' | 'pending' | 'conflict' | null
         }
+        Relationships: []
       }
       quote_versions: {
         Row: {
@@ -246,6 +273,7 @@ export interface Database {
           change_summary?: string | null
           created_at?: string
         }
+        Relationships: []
       }
       approval_actions: {
         Row: {
@@ -275,6 +303,7 @@ export interface Database {
           notes?: string | null
           created_at?: string
         }
+        Relationships: []
       }
       quote_collaborators: {
         Row: {
@@ -298,6 +327,7 @@ export interface Database {
           granted_by?: string | null
           granted_at?: string
         }
+        Relationships: []
       }
       quote_presence: {
         Row: {
@@ -315,6 +345,7 @@ export interface Database {
           user_id?: string
           last_seen_at?: string
         }
+        Relationships: []
       }
       audit_log: {
         Row: {
@@ -356,6 +387,7 @@ export interface Database {
           ip_address?: string | null
           user_agent?: string | null
         }
+        Relationships: []
       }
       approval_tiers: {
         Row: {
@@ -385,6 +417,7 @@ export interface Database {
           approver_role?: string | null
           description?: string | null
         }
+        Relationships: []
       }
       commission_tiers: {
         Row: {
@@ -405,6 +438,7 @@ export interface Database {
           max_margin?: number
           commission_pct?: number
         }
+        Relationships: []
       }
       residual_curves: {
         Row: {
@@ -434,6 +468,7 @@ export interface Database {
           term_72?: number | null
           term_84?: number | null
         }
+        Relationships: []
       }
       forklift_models: {
         Row: {
@@ -478,6 +513,7 @@ export interface Database {
           specifications?: Json | null
           image_url?: string | null
         }
+        Relationships: []
       }
       battery_models: {
         Row: {
@@ -516,6 +552,7 @@ export interface Database {
           compatible_models?: string[] | null
           warranty_years?: number | null
         }
+        Relationships: []
       }
       attachments: {
         Row: {
@@ -545,6 +582,7 @@ export interface Database {
           compatible_models?: string[] | null
           image_url?: string | null
         }
+        Relationships: []
       }
       companies: {
         Row: {
@@ -622,6 +660,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       contacts: {
         Row: {
@@ -660,6 +699,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       activities: {
         Row: {
@@ -698,6 +738,7 @@ export interface Database {
           created_by?: string | null
           created_at?: string
         }
+        Relationships: []
       }
       notifications: {
         Row: {
@@ -733,6 +774,7 @@ export interface Database {
           is_read?: boolean
           created_at?: string
         }
+        Relationships: []
       }
       templates: {
         Row: {
@@ -762,6 +804,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       settings: {
         Row: {
@@ -776,6 +819,7 @@ export interface Database {
           key?: string
           value?: string
         }
+        Relationships: []
       }
       price_list_series: {
         Row: {
@@ -796,6 +840,7 @@ export interface Database {
           models?: Json
           options?: Json
         }
+        Relationships: []
       }
       telematics_packages: {
         Row: {
@@ -819,6 +864,7 @@ export interface Database {
           tags?: string
           cost_zar?: number
         }
+        Relationships: []
       }
       container_mappings: {
         Row: {
@@ -851,6 +897,7 @@ export interface Database {
           container_cost_eur?: number
           notes?: string
         }
+        Relationships: []
       }
       configuration_matrices: {
         Row: {
@@ -874,13 +921,21 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      merge_companies: {
+        Args: {
+          p_primary_id: string
+          p_secondary_id: string
+          p_merged_data: Json
+        }
+        Returns: void
+      }
     }
     Enums: {
       [_ in never]: never

@@ -137,13 +137,38 @@ Status: Active
 - PDF generation pipeline exists under `src/pdf/*`
 - Export workflows available from quote-related UI surfaces
 
+## Shipping Auto-Suggestion Engine (2026-02-19)
+
+Status: Complete
+
+- Shipping suggestions calculated from fleet composition + container mappings + factory ROE
+- Pure `generateShippingSuggestion()` function (no side effects, fully testable)
+- `matchSeriesCode()` prefix-matcher extracted as standalone pure function
+- ShippingEntry extended with `source` ('manual' | 'suggested'), `seriesCodes`, `suggestedAt`
+- Stale detection: signature-based comparison (series+qty+ROE), not timestamp-based
+- Per-series fit warnings and config-driven global logistics warnings
+- Old quotes without new fields auto-default safely on hydration
+- Data parity verification script: `scripts/verify-parity.mjs`
+
+## TypeScript Strict-Mode Cleanup (2026-02-19)
+
+Status: Complete (0 errors)
+
+Eliminated all 114 TypeScript strict-mode errors:
+- Root cause: `Relationships: []` missing from all 24 Supabase table definitions in `database.types.ts` (caused 65 `never` type errors)
+- Framer Motion variant objects needed `as const` narrowing (42 errors)
+- Unused imports/variables removed (19 errors)
+- SupabaseAdapter type mismatches resolved (10 errors)
+- Various hook/component type fixes (remaining errors)
+- Zero runtime behavior changes; all fixes are type-annotation-only
+
 ## Automated Quality Gates
 
-Status: Partially Green
+Status: Green
 
-- `typecheck`: available and expected to pass
-- `test`: available with 4 current test files
-- `build`: available and expected to pass
+- `typecheck`: passing (0 errors with `strict: true`, `noUnusedLocals`, `noUnusedParameters`)
+- `test`: passing (122/122 tests across 6 test files)
+- `build`: passing (clean production build)
 - `lint`: available; current codebase may produce warnings/errors depending on branch state
 
 ## Documentation Status

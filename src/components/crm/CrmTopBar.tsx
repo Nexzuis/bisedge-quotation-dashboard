@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Users, FileText, Wand2, Settings, User, LogOut, ChevronDown, BarChart3, ClipboardCheck, List } from 'lucide-react';
+import { Home, Users, Wand2, Settings, User, LogOut, ChevronDown, BarChart3, ClipboardCheck, List } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../auth/AuthContext';
 import { Badge } from '../ui/Badge';

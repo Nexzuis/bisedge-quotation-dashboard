@@ -4,7 +4,6 @@ import { Pencil, Clock, Eye, CheckCircle, XCircle, Send, Timer, Edit3 } from 'lu
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { getDb } from '../../../db/DatabaseAdapter';
-import { ROLE_HIERARCHY, type Role } from '../../../auth/permissions';
 import { staggerContainer, fadeInUp } from '../../crm/shared/motionVariants';
 import type { QuoteStatus } from '../../../types/quote';
 

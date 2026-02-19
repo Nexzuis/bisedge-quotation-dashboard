@@ -112,13 +112,15 @@ export function usePresence(quoteId: string, enabled: boolean = true) {
       }
 
       // Remove presence from database
-      supabase
-        .from('quote_presence')
-        .delete()
-        .eq('quote_id', quoteId)
-        .eq('user_id', user.id)
+      Promise.resolve(
+        supabase
+          .from('quote_presence')
+          .delete()
+          .eq('quote_id', quoteId)
+          .eq('user_id', user.id)
+      )
         .then(() => logger.debug('Presence removed'))
-        .catch((err) => logger.error('Failed to remove presence:', err));
+        .catch((err: Error) => logger.error('Failed to remove presence:', err));
     };
   }, [quoteId, user, enabled]);
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Trash2, ArrowRight, UserCheck, X } from 'lucide-react';
+import { Trash2, ArrowRight, X } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { toast } from '../../ui/Toast';
 import { useCompanies } from '../../../hooks/useCompanies';

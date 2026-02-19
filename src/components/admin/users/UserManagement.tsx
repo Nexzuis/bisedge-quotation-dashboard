@@ -25,7 +25,7 @@ interface UserFormData {
   fullName: string;
   email: string;
   password: string;
-  role: string;
+  role: Role;
   isActive: boolean;
   permissionOverrides: PermissionOverrides;
 }
@@ -129,7 +129,7 @@ const UserManagement = () => {
       fullName: user.fullName,
       email: user.email,
       password: '', // Don't pre-fill password
-      role: user.role,
+      role: user.role as Role,
       isActive: user.isActive,
       permissionOverrides: overrides,
     });
@@ -617,7 +617,7 @@ const UserManagement = () => {
                 type="button"
                 onClick={() => setFormData({
                   ...formData,
-                  permissionOverrides: { ...DEFAULT_PERMISSION_OVERRIDES[formData.role as Role] },
+                  permissionOverrides: { ...DEFAULT_PERMISSION_OVERRIDES[formData.role] },
                 })}
                 className="flex items-center gap-1 text-xs text-surface-100/50 hover:text-surface-100 transition-colors"
               >
@@ -629,7 +629,7 @@ const UserManagement = () => {
               {(Object.keys(PERMISSION_OVERRIDE_LABELS) as PermissionOverrideKey[]).map((key) => {
                 const { label, description } = PERMISSION_OVERRIDE_LABELS[key];
                 const isEnabled = formData.permissionOverrides[key] === true;
-                const isDefault = DEFAULT_PERMISSION_OVERRIDES[formData.role as Role]?.[key] === true;
+                const isDefault = DEFAULT_PERMISSION_OVERRIDES[formData.role]?.[key] === true;
                 return (
                   <div
                     key={key}

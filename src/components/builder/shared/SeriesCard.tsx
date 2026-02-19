@@ -8,7 +8,7 @@ interface SeriesCardProps {
   onClick: () => void;
 }
 
-export function SeriesCard({ seriesCode, seriesName, modelCount, onClick }: SeriesCardProps) {
+export function SeriesCard({ seriesCode: _seriesCode, seriesName, modelCount, onClick }: SeriesCardProps) {
   return (
     <motion.button
       onClick={onClick}

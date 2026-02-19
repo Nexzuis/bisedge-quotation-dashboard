@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight, SkipForward } from 'lucide-react';
 import { Button } from '../ui/Button';
-import { useBuilder, STEP_LABELS } from './BuilderContext';
+import { useBuilder } from './BuilderContext';
 import { RunningTotal } from './shared/RunningTotal';
 
 // Steps that can be skipped (costs + configure are optional)

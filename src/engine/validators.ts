@@ -40,8 +40,8 @@ export function validateApprovalSubmission(
  */
 export async function validateQuote(
   quote: QuoteState,
-  calculatedIRR: number | null,
-  totalDealValue: ZAR
+  _calculatedIRR: number | null,
+  _totalDealValue: ZAR
 ): Promise<ValidationError[]> {
   const errors: ValidationError[] = [];
 
@@ -151,8 +151,8 @@ export async function validateQuote(
  */
 export function validateQuoteSync(
   quote: QuoteState,
-  calculatedIRR: number | null,
-  totalDealValue: ZAR,
+  _calculatedIRR: number | null,
+  _totalDealValue: ZAR,
 ): ValidationError[] {
   const errors: ValidationError[] = [];
 

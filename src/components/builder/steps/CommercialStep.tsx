@@ -4,7 +4,6 @@ import { useBuilder } from '../BuilderContext';
 import { StepHeader } from '../shared/StepHeader';
 import { UnitTabs } from '../shared/UnitTabs';
 import { LivePricingPreview } from '../shared/LivePricingPreview';
-import { Input } from '../../ui/Input';
 import type { SlotIndex, LeaseTermMonths } from '../../../types/quote';
 
 const LEASE_TERMS: LeaseTermMonths[] = [36, 48, 60, 72, 84];
@@ -14,7 +13,7 @@ function UnitCommercialPanel({ slotIndex }: { slotIndex: SlotIndex }) {
   const setCommercialField = useQuoteStore((s) => s.setCommercialField);
   const updateSlot = useQuoteStore((s) => s.updateSlot);
 
-  const numField = (field: string, label: string, step: number = 1, min: number = 0) => (
+  const numField = (field: Parameters<typeof setCommercialField>[1], label: string, step: number = 1, min: number = 0) => (
     <div>
       <label className="block text-xs text-surface-400 mb-1">{label}</label>
       <input

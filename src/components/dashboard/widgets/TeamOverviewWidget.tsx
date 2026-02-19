@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Users, FileText, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../../../store/useAuthStore';
@@ -17,7 +16,6 @@ interface TeamMember {
 }
 
 export function TeamOverviewWidget() {
-  const navigate = useNavigate();
   const { user } = useAuthStore();
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);

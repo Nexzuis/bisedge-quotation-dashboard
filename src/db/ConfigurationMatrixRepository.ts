@@ -1,10 +1,13 @@
 import { supabase } from '../lib/supabase';
+import type { Database } from '../lib/database.types';
 import type {
   StoredConfigurationMatrix,
   StoredConfigurationVariant,
   StoredConfigurationOption,
   IConfigurationMatrixRepository,
 } from './interfaces';
+
+type ConfigMatrixInsert = Database['public']['Tables']['configuration_matrices']['Insert'];
 
 // Snake_case <-> camelCase mapping helpers
 function dbToMatrix(row: any): StoredConfigurationMatrix {
@@ -17,7 +20,7 @@ function dbToMatrix(row: any): StoredConfigurationMatrix {
   };
 }
 
-function matrixToDb(matrix: StoredConfigurationMatrix): Record<string, any> {
+function matrixToDb(matrix: StoredConfigurationMatrix): ConfigMatrixInsert {
   return {
     id: matrix.id,
     base_model_family: matrix.baseModelFamily,

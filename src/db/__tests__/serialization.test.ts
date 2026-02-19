@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { quoteToStored, storedToQuote } from '../serialization';
-import type { QuoteState } from '../../types/quote';
+import type { QuoteState, SlotIndex } from '../../types/quote';
 
 function createTestQuoteState(): QuoteState {
   const now = new Date('2025-06-15T10:30:00.000Z');
@@ -28,7 +28,7 @@ function createTestQuoteState(): QuoteState {
     quoteType: 'rental',
 
     slots: Array.from({ length: 6 }, (_, i) => ({
-      slotIndex: i,
+      slotIndex: i as SlotIndex,
       isEmpty: i > 0,
       seriesCode: i === 0 ? '12750000000' : '',
       modelCode: i === 0 ? 'E16C' : '0',

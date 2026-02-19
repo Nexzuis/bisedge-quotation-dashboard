@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Truck, ChevronDown, ChevronUp, DollarSign, Clock, Info, Settings, Zap, Package, AlertTriangle } from 'lucide-react';
+import { Truck, ChevronDown, ChevronUp, DollarSign, Clock, Settings, Zap } from 'lucide-react';
 import { Panel } from '../ui/Panel';
 import { CardHeader } from '../ui/Card';
 import { Badge } from '../ui/Badge';

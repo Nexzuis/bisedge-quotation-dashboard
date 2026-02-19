@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import type { PipelineMetrics } from '../../../types/crm';
-import type { PipelineStage } from '../../../types/crm';
 import { PIPELINE_STAGES } from '../shared/stageConfig';
 
 interface PipelineOverviewBarProps {

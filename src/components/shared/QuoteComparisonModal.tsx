@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, ArrowLeftRight, Loader2 } from 'lucide-react';
-import { Button } from '../ui/Button';
+import { X, ArrowLeftRight } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 import { formatZAR, formatDate, formatPercentage } from '../../engine/formatters';
 import { storedToQuote } from '../../db/serialization';
@@ -56,7 +55,6 @@ export function QuoteComparisonModal({ isOpen, onClose, initialQuoteId }: QuoteC
   const [rightId, setRightId] = useState<string>('');
   const [leftQuote, setLeftQuote] = useState<QuoteState | null>(null);
   const [rightQuote, setRightQuote] = useState<QuoteState | null>(null);
-  const [loading, setLoading] = useState(false);
 
   // Reset state when modal closes
   useEffect(() => {

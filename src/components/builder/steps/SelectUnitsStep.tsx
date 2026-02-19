@@ -8,7 +8,6 @@ import { StepHeader } from '../shared/StepHeader';
 import { UnitCard } from '../shared/UnitCard';
 import { SeriesCard } from '../shared/SeriesCard';
 import { ModelCard } from '../shared/ModelCard';
-import { Input } from '../../ui/Input';
 import { toast } from '../../ui/Toast';
 import type { SlotIndex } from '../../../types/quote';
 

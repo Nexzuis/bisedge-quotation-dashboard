@@ -118,16 +118,18 @@ export function useQuoteLock(
         releaseLock(user.id);
 
         // Sync lock release to cloud
-        supabase
-          .from('quotes')
-          .update({
-            locked_by: null,
-            locked_at: null,
-          })
-          .eq('id', quoteId)
-          .eq('locked_by', user.id)
+        Promise.resolve(
+          supabase
+            .from('quotes')
+            .update({
+              locked_by: null,
+              locked_at: null,
+            })
+            .eq('id', quoteId)
+            .eq('locked_by', user.id)
+        )
           .then(() => logger.debug('Lock released from cloud'))
-          .catch((err) => logger.error('Failed to release lock from cloud:', err));
+          .catch((err: Error) => logger.error('Failed to release lock from cloud:', err));
       }
     };
   }, [quoteId, user, autoAcquire, autoRelease]);

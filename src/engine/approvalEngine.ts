@@ -61,7 +61,6 @@ export function getAvailableActions(
   const isAssignee = quote.currentAssigneeId === userId;
   const isCreator = quote.createdBy === userId;
   const canApprove = canApproveQuotes(userRole, overrides);
-  const userLevel = ROLE_HIERARCHY[userRole];
 
   switch (quote.status) {
     case 'draft':

@@ -35,7 +35,7 @@ export async function testSupabaseConnection(): Promise<ConnectionTestResult> {
     console.log('🔗 Attempting to connect to database...');
 
     // Simple query to test connection
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('users')
       .select('count')
       .limit(1);
@@ -155,7 +155,7 @@ export async function testRLSPolicies(): Promise<ConnectionTestResult> {
 
   try {
     // Test 1: Anonymous access (should be blocked)
-    const { data: anonData, error: anonError } = await supabase
+    const { error: anonError } = await supabase
       .from('quotes')
       .select('count')
       .limit(1);

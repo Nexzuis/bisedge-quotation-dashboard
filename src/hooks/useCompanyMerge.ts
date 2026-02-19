@@ -92,7 +92,7 @@ function applySelections(
     const source = selections[key] ?? 'primary';
     if (source === 'secondary') {
       // `key` is a keyof StoredCompany so the assignment is always safe.
-      (merged as Record<string, unknown>)[key] = secondary[key];
+      (merged as unknown as Record<string, unknown>)[key] = secondary[key];
     }
   }
 

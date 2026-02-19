@@ -136,7 +136,9 @@ export const useAuthStore = create<AuthState>()(
         let permissionOverrides: PermissionOverrides = {};
         try {
           if (dbUser.permission_overrides) {
-            permissionOverrides = JSON.parse(dbUser.permission_overrides);
+            permissionOverrides = typeof dbUser.permission_overrides === 'string'
+              ? JSON.parse(dbUser.permission_overrides)
+              : dbUser.permission_overrides as PermissionOverrides;
           }
         } catch {
           permissionOverrides = {};
@@ -216,7 +218,9 @@ export const useAuthStore = create<AuthState>()(
         let permissionOverrides: PermissionOverrides = {};
         try {
           if (dbUser.permission_overrides) {
-            permissionOverrides = JSON.parse(dbUser.permission_overrides);
+            permissionOverrides = typeof dbUser.permission_overrides === 'string'
+              ? JSON.parse(dbUser.permission_overrides)
+              : dbUser.permission_overrides as PermissionOverrides;
           }
         } catch {
           permissionOverrides = {};

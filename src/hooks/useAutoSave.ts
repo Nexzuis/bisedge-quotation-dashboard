@@ -33,6 +33,7 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastUpdatedAtRef = useRef<Date>(updatedAt);
   const isSavingRef = useRef(false);
+  const prevQuoteRefRef = useRef(quoteRef);
 
   const repository = getQuoteRepository();
 
@@ -105,6 +106,20 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
       isSavingRef.current = false;
     }
   }, [quoteRef, repository]);
+
+  /**
+   * When quoteRef changes (quote loaded from DB or new quote created),
+   * treat the current state as "clean" so that hasUnsavedChanges starts
+   * from a known baseline. Without this, lastSavedAt stays null after a
+   * load and unsaved-change detection never triggers.
+   */
+  useEffect(() => {
+    if (quoteRef !== prevQuoteRefRef.current) {
+      prevQuoteRefRef.current = quoteRef;
+      setLastSavedAt(new Date());
+      lastUpdatedAtRef.current = updatedAt;
+    }
+  }, [quoteRef, updatedAt]);
 
   /**
    * Watch for changes and trigger debounced save

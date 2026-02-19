@@ -278,6 +278,48 @@ Completed full migration from three-mode (local/hybrid/cloud) architecture to Su
   - SQL fix is applied to the file artifact only; user must execute CREATE OR REPLACE FUNCTION in Supabase SQL editor and re-assert grants
   - SupabaseTestPage component file retained for local dev use but is no longer referenced by router
 
+### 2026-02-19 (Supabase Data Seeding, Admin Defaults UI, Auto-Reload ErrorBoundary)
+- Date: 2026-02-19
+- Summary: Seeded all 4 Supabase tables from local JSON data (price_list_series: 81 rows, telematics_packages: 15 rows, container_mappings: 50 rows, settings: 9 rows). Added 3 missing fields to admin DefaultValuesEditor (Factory ROE, Discount %, Residual Truck %). Added validators for the 3 new fields. Added auto-reload on stale chunk errors to ErrorBoundary (prevents white-screen after Vercel redeployments).
+- Changed Files:
+  - `scripts/seed-supabase-data.mjs` (new — seeds price_list_series, telematics_packages, container_mappings, settings)
+  - `src/components/admin/pricing/DefaultValuesEditor.tsx` (added Factory ROE, Discount %, Residual Truck % fields)
+  - `src/components/admin/pricing/validators.ts` (added validation for defaultFactoryROE, defaultDiscountPct, defaultResidualTruckPct)
+  - `src/components/ErrorBoundary.tsx` (auto-reload on stale chunk / dynamic import failure)
+- Validation Run:
+  - `npx tsc --noEmit` (pass, 0 errors)
+  - Seed script verified: 81 series + 15 telematics + 50 containers + 9 settings rows in Supabase
+- Notes/Risks:
+  - telematics_packages uses auto-generated UUIDs (local JSON had non-UUID string ids like "tel-1")
+  - Auto-reload uses sessionStorage flag to prevent infinite reload loops (one reload per session max)
+
+### 2026-02-19 (Fix snake_case → camelCase mapping in quotes list)
+- Date: 2026-02-19
+- Summary: Fixed critical column mapping bug causing "No customer", "NaN/NaN/NaN" dates, and missing quote refs in the quotes list. Four SupabaseAdapter methods (`listQuotes`, `searchQuotes`, `getQuotesByCompany`, `getQuoteRevisions`) were casting raw Supabase rows (snake_case column names) directly to `StoredQuote[]` (camelCase properties) without mapping. Added `dbRowToStoredQuote()` helper function to properly translate all column names.
+- Root Cause: Supabase returns `quote_ref`, `client_name`, `created_at` etc. but `StoredQuote` interface expects `quoteRef`, `clientName`, `createdAt`. The raw cast `as StoredQuote[]` compiled but produced undefined values at runtime.
+- Changed Files:
+  - `src/db/SupabaseAdapter.ts` — added `dbRowToStoredQuote()` mapping function; replaced `as StoredQuote[]` casts in `listQuotes()` (line 230), `searchQuotes()` (line 261), `getQuotesByCompany()` (line 1135), `getQuoteRevisions()` (line 1155) with `.map(dbRowToStoredQuote)`
+- Validation Run:
+  - `npx tsc --noEmit` (pass, 0 errors)
+- Notes/Risks:
+  - The `loadQuote()` and `saveQuote()` methods already had proper mapping via `dbQuoteToQuoteState()` — only the list/search methods were affected
+  - All 47 StoredQuote fields are now explicitly mapped in `dbRowToStoredQuote()`
+
+### 2026-02-19 (Fix "New Quote" stale data + unsaved changes detection)
+- Date: 2026-02-19
+- Summary: Fixed two bugs preventing "New Quote" from resetting state and unsaved changes warnings from appearing. (1) TopBar's handleNewQuote called `createNewQuote()` without `await`, causing the async store reset to race with React re-render — old quote data persisted visually. (2) `lastSavedAt` in useAutoSave was never set when loading a quote from DB, so `hasUnsavedChanges` was permanently false for loaded quotes, preventing the save/discard modal from appearing. Also added createNewQuote() call to QuickActionsWidget dashboard button, replaced native confirm() with styled 3-button modal (Save & New / Discard & New / Cancel) in TopBar, and added NavigationGuard to QuoteBuilder that intercepts hashchange events when leaving /builder with unsaved edits.
+- Root Cause: Two interrelated bugs — (a) missing `await` on async `createNewQuote()` in TopBar, (b) `lastSavedAt` stayed `null` after `loadFromDB()` because only `saveNow()` set it, making `!!(null && updatedAt > null)` always false.
+- Changed Files:
+  - `src/components/layout/TopBar.tsx` — made handleNewQuote async + added await; replaced confirm() with styled unsaved changes modal
+  - `src/hooks/useAutoSave.ts` — added prevQuoteRefRef tracking; added useEffect that sets lastSavedAt when quoteRef changes (load/new), marking loaded state as clean baseline
+  - `src/components/dashboard/widgets/QuickActionsWidget.tsx` — added createNewQuote() call before navigate('/builder')
+  - `src/components/builder/QuoteBuilder.tsx` — added NavigationGuard component with hashchange interception and save/discard modal
+- Validation Run:
+  - `npx tsc --noEmit` (pass, 0 errors)
+- Notes/Risks:
+  - NavigationGuard uses hashchange event listener (required because app uses HashRouter, not data router — useBlocker unavailable)
+  - The quoteRef-change detection in useAutoSave also fires on initial mount; this is harmless (sets lastSavedAt baseline)
+
 ## Validation Basis
 
 Session entries are based on actual file operations and command outputs executed in this workspace.

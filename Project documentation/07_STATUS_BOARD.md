@@ -59,6 +59,18 @@ All 5 defects (D-001 through D-005) identified during independent Claude and Cod
 | D-004 | P2 | `console.log/warn/error` migrated to `logger` in 7 priority hook/store files |
 | D-005 | P2 | Extraneous `bcryptjs` and `@types/bcryptjs` removed via `npm prune` |
 
+## Post-Launch Fixes (2026-02-19)
+
+Status: Complete
+
+| Fix | Description |
+|-----|-------------|
+| Supabase Data Seeding | Seeded `price_list_series` (81), `telematics_packages` (15), `container_mappings` (50), `settings` (9 defaults) via `scripts/seed-supabase-data.mjs` |
+| Admin Defaults UI | Added Factory ROE, Discount %, Residual Truck % to `DefaultValuesEditor.tsx` + validators |
+| Auto-Reload ErrorBoundary | `ErrorBoundary.tsx` auto-reloads on stale chunk errors after Vercel redeployments (prevents white-screen) |
+| Quotes List Mapping | Fixed snake_case → camelCase mapping in `SupabaseAdapter.ts` for `listQuotes`, `searchQuotes`, `getQuotesByCompany`, `getQuoteRevisions` via `dbRowToStoredQuote()` |
+| New Quote Stale Data | Fixed missing `await` on `createNewQuote()` in TopBar + set `lastSavedAt` baseline on quote load in `useAutoSave.ts`. Added dashboard reset, styled unsaved-changes modal, and builder NavigationGuard |
+
 ## Application and Routing
 
 Status: Active

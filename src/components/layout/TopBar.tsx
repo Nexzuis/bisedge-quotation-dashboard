@@ -93,11 +93,11 @@ export function TopBar() {
   const updatedAt = useQuoteStore((state) => state.updatedAt);
   const hasUnsavedChanges = !!(lastSavedAt && updatedAt > lastSavedAt);
 
-  const handleNewQuote = () => {
+  const handleNewQuote = async () => {
     if (hasUnsavedChanges) {
       setShowNewQuoteModal(true);
     } else {
-      createNewQuote();
+      await createNewQuote();
     }
   };
 

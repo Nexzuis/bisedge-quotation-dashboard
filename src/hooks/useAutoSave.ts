@@ -3,6 +3,7 @@ import { toast } from '../components/ui/Toast';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { getQuoteRepository } from '../db/repositories';
 import type { SaveResult } from '../db/interfaces';
+import { logger } from '../utils/logger';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -20,7 +21,6 @@ export interface UseAutoSaveResult {
  * Only subscribes to updatedAt and quoteRef to avoid re-renders on every keystroke.
  */
 export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
-  const appMode = import.meta.env.VITE_APP_MODE || 'local';
   const [status, setStatus] = useState<SaveStatus>('idle');
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +33,6 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastUpdatedAtRef = useRef<Date>(updatedAt);
   const isSavingRef = useRef(false);
-  const preAuthWarnedRef = useRef(false);
 
   const repository = getQuoteRepository();
 
@@ -43,22 +42,16 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
   const saveNow = useCallback(async () => {
     if (isSavingRef.current) return;
 
-    if (appMode === 'hybrid' || appMode === 'cloud') {
-      try {
-        const { supabase } = await import('../lib/supabase');
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          if (!preAuthWarnedRef.current) {
-            console.warn('Autosave paused: waiting for authenticated Supabase session');
-            preAuthWarnedRef.current = true;
-          }
-          return;
-        }
-        preAuthWarnedRef.current = false;
-      } catch (err) {
-        console.warn('Autosave paused: failed to check Supabase session', err);
+    try {
+      const { supabase } = await import('../lib/supabase');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        logger.warn('Autosave paused: waiting for authenticated Supabase session');
         return;
       }
+    } catch (err) {
+      logger.warn('Autosave paused: failed to check Supabase session', err);
+      return;
     }
 
     // If quote still has default ref, auto-assign a real one before saving
@@ -67,7 +60,7 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
         const nextRef = await repository.getNextQuoteRef();
         useQuoteStore.getState().setQuoteRef(nextRef);
       } catch (err) {
-        console.error('Failed to assign quote ref:', err);
+        logger.error('Failed to assign quote ref:', err);
         return;
       }
     }
@@ -105,13 +98,13 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
         }
       }
     } catch (err) {
-      console.error('Error saving quote:', err);
+      logger.error('Error saving quote:', err);
       setStatus('error');
       setError(err instanceof Error ? err.message : 'Save failed');
     } finally {
       isSavingRef.current = false;
     }
-  }, [appMode, quoteRef, repository]);
+  }, [quoteRef, repository]);
 
   /**
    * Watch for changes and trigger debounced save

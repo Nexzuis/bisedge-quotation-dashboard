@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { getQuoteRepository } from '../db/repositories';
 import type { PaginationOptions, QuoteFilter, PaginatedResult, StoredQuote } from '../db/interfaces';
+import { logger } from '../utils/logger';
 
 export interface UseQuoteDBResult {
   loadFromDB: (id: string) => Promise<boolean>;
@@ -38,7 +39,7 @@ export function useQuoteDB(): UseQuoteDBResult {
         }
         return false;
       } catch (error) {
-        console.error('Error loading quote from DB:', error);
+        logger.error('Error loading quote from DB:', error);
         return false;
       }
     },
@@ -65,7 +66,7 @@ export function useQuoteDB(): UseQuoteDBResult {
         updatedAt: new Date(),
       });
     } catch (error) {
-      console.error('Error creating new quote:', error);
+      logger.error('Error creating new quote:', error);
       throw error;
     }
   }, [repository, resetQuote, loadQuote]);
@@ -82,11 +83,11 @@ export function useQuoteDB(): UseQuoteDBResult {
           await loadFromDB(result.id);
           return true;
         } else {
-          console.error('Failed to duplicate quote:', result.error);
+          logger.error('Failed to duplicate quote:', result.error);
           return false;
         }
       } catch (error) {
-        console.error('Error duplicating quote:', error);
+        logger.error('Error duplicating quote:', error);
         return false;
       }
     },
@@ -105,11 +106,11 @@ export function useQuoteDB(): UseQuoteDBResult {
           await loadFromDB(result.id);
           return true;
         } else {
-          console.error('Failed to create revision:', result.error);
+          logger.error('Failed to create revision:', result.error);
           return false;
         }
       } catch (error) {
-        console.error('Error creating revision:', error);
+        logger.error('Error creating revision:', error);
         return false;
       }
     },
@@ -124,7 +125,7 @@ export function useQuoteDB(): UseQuoteDBResult {
       try {
         await repository.delete(id);
       } catch (error) {
-        console.error('Error deleting quote:', error);
+        logger.error('Error deleting quote:', error);
         throw error;
       }
     },
@@ -142,7 +143,7 @@ export function useQuoteDB(): UseQuoteDBResult {
       try {
         return await repository.list(options, filters);
       } catch (error) {
-        console.error('Error listing quotes:', error);
+        logger.error('Error listing quotes:', error);
         return {
           items: [],
           total: 0,
@@ -163,7 +164,7 @@ export function useQuoteDB(): UseQuoteDBResult {
       try {
         return await repository.search(query);
       } catch (error) {
-        console.error('Error searching quotes:', error);
+        logger.error('Error searching quotes:', error);
         return [];
       }
     },
@@ -182,7 +183,7 @@ export function useQuoteDB(): UseQuoteDBResult {
       }
       return false;
     } catch (error) {
-      console.error('Error loading most recent quote:', error);
+      logger.error('Error loading most recent quote:', error);
       return false;
     }
   }, [repository, loadQuote]);

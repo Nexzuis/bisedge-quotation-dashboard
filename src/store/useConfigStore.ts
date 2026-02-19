@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import type { StoredCommissionTier, StoredResidualCurve } from '../db/schema';
+import type { StoredCommissionTier, StoredResidualCurve } from '../db/interfaces';
+import { getDb } from '../db/DatabaseAdapter';
 
 interface ConfigState {
   commissionTiers: StoredCommissionTier[];
@@ -60,17 +61,11 @@ export const useConfigStore = create<ConfigState>((set) => ({
 
   loadConfig: async () => {
     try {
-      const { db } = await import('../db/schema');
-      const [commissionTiers, residualCurves, settingsArray] = await Promise.all([
-        db.commissionTiers.orderBy('minMargin').toArray(),
-        db.residualCurves.toArray(),
-        db.settings.toArray(),
+      const [commissionTiers, residualCurves, defaultValues] = await Promise.all([
+        getDb().getCommissionTiers(),
+        getDb().getResidualCurves(),
+        getDb().getSettings(),
       ]);
-
-      const defaultValues = settingsArray.reduce(
-        (acc, s) => ({ ...acc, [s.key]: s.value }),
-        {} as Record<string, string>
-      );
 
       set({ commissionTiers, residualCurves, defaultValues, isLoaded: true, loadError: null });
     } catch (error) {

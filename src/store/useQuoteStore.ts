@@ -26,8 +26,11 @@ import {
 } from '../engine/calculationEngine';
 import { calcCommissionSync } from '../engine/commissionEngine';
 import clearingChargeDefaults from '../data/clearingChargeDefaults.json';
-import { db } from '../db/schema';
+import { logger } from '../utils/logger';
+import { getDb } from '../db/DatabaseAdapter';
 import { useConfigStore, getConfigDefaults } from './useConfigStore';
+
+const LOCK_STALE_MS = 60 * 60 * 1000; // 1 hour
 
 // Default clearing charges from EU1 — uses config ROE for EUR→ZAR conversion
 function getDefaultClearing(): ClearingCharges {
@@ -147,14 +150,11 @@ export async function calculateAttachmentCost(attachmentIds: string[]): Promise<
   if (!attachmentIds || attachmentIds.length === 0) return 0;
 
   try {
-    const attachments = await db.attachments
-      .where('id')
-      .anyOf(attachmentIds)
-      .toArray();
+    const attachments = await getDb().getAttachmentsByIds(attachmentIds);
 
     return attachments.reduce((sum, att) => sum + att.eurCost, 0);
   } catch (error) {
-    console.error('Error calculating attachment cost:', error);
+    logger.error('Error calculating attachment cost:', error);
     return 0;
   }
 }
@@ -511,7 +511,7 @@ export const useQuoteStore = create<QuoteStore>()(
       }),
 
     setManualContainerCost: (_slotIndex, _cost) => {
-      console.warn('setManualContainerCost is not implemented � container cost is managed at quote level in LogisticsPanel');
+      logger.warn('setManualContainerCost is not implemented - container cost is managed at quote level in LogisticsPanel');
     },
 
     addShippingEntry: () =>
@@ -810,7 +810,7 @@ export const useQuoteStore = create<QuoteStore>()(
     acquireLock: (userId) => {
       const state = get();
       if (state.lockedBy && state.lockedBy !== userId) {
-        console.warn(`Quote is locked by user ${state.lockedBy}`);
+        logger.warn(`Quote is locked by user ${state.lockedBy}`);
         return false;
       }
       set((draft) => {
@@ -832,7 +832,12 @@ export const useQuoteStore = create<QuoteStore>()(
 
     isLockedByOther: (currentUserId) => {
       const state = get();
-      return !!(state.lockedBy && state.lockedBy !== currentUserId);
+      if (!state.lockedBy || state.lockedBy === currentUserId) return false;
+      if (state.lockedAt) {
+        const lockAge = Date.now() - new Date(state.lockedAt).getTime();
+        if (lockAge > LOCK_STALE_MS) return false;
+      }
+      return true;
     },
 
     canEdit: (userId) => {

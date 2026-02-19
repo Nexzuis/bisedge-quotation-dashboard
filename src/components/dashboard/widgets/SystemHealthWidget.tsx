@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Database, Users, FileText, Building2, Activity, Bell, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { db } from '../../../db/schema';
-import { SyncStatusIndicator } from '../../shared/SyncStatusIndicator';
+import { getDb } from '../../../db/DatabaseAdapter';
 import { fadeInUp, staggerContainer } from '../../crm/shared/motionVariants';
 
 interface DbStats {
@@ -25,15 +24,8 @@ export function SystemHealthWidget() {
   const loadStats = async () => {
     setLoading(true);
     try {
-      const [quotes, companies, contacts, activities, users, notifications] = await Promise.all([
-        db.quotes.count(),
-        db.companies.count(),
-        db.contacts.count(),
-        db.activities.count(),
-        db.users.count(),
-        db.notifications.count(),
-      ]);
-      setStats({ quotes, companies, contacts, activities, users, notifications });
+      const counts = await getDb().getTableCounts();
+      setStats(counts);
     } catch (err) {
       console.error('Error loading DB stats:', err);
     } finally {
@@ -57,7 +49,6 @@ export function SystemHealthWidget() {
           <Database className="w-4 h-4 text-red-400" />
           System Health
         </h3>
-        <SyncStatusIndicator />
       </div>
 
       {loading ? (

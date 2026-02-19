@@ -29,7 +29,6 @@ export default defineConfig({
           'vendor-charts': ['recharts'],
           'vendor-motion': ['framer-motion'],
           'vendor-xlsx': ['xlsx'],
-          'vendor-dexie': ['dexie'],
         },
       },
     },

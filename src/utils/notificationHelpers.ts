@@ -2,16 +2,16 @@
  * notificationHelpers
  *
  * Convenience factory functions for creating domain notifications.
- * Each helper writes a StoredNotification record directly to the Dexie
- * `notifications` table, so they can be called from anywhere in the app
- * without needing the React hook context.
+ * Each helper writes a StoredNotification record via the DatabaseAdapter,
+ * so they can be called from anywhere in the app without needing the React
+ * hook context.
  *
  * Usage example:
  *   import { notifyApprovalNeeded } from '../utils/notificationHelpers';
  *   await notifyApprovalNeeded('Q-2025-001', assigneeUserId);
  */
 
-import { db } from '../db/schema';
+import { getDb } from '../db/DatabaseAdapter';
 import type { StoredNotification, NotificationType } from '../types/notifications';
 
 // ─── Internal helper ────────────────────────────────────────────────────────
@@ -20,18 +20,6 @@ async function writeNotification(
   partial: Omit<StoredNotification, 'id' | 'createdAt' | 'isRead'>
 ): Promise<void> {
   try {
-    const table = (
-      db as unknown as Record<string, import('dexie').Table<StoredNotification, string>>
-    )['notifications'];
-
-    if (!table) {
-      console.warn(
-        '[notificationHelpers] notifications table not found. ' +
-          'Please apply the Dexie schema migration described in src/types/notifications.ts.'
-      );
-      return;
-    }
-
     const record: StoredNotification = {
       ...partial,
       id: crypto.randomUUID(),
@@ -39,7 +27,7 @@ async function writeNotification(
       createdAt: new Date().toISOString(),
     };
 
-    await table.add(record);
+    await getDb().saveNotification(record);
   } catch (err) {
     console.error('[notificationHelpers] writeNotification error:', err);
   }

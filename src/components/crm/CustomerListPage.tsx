@@ -16,7 +16,7 @@ import { useAuth } from '../auth/AuthContext';
 import { Button } from '../ui/Button';
 import { toast } from '../ui/Toast';
 import { staggerContainer, fadeInUp } from './shared/motionVariants';
-import { db } from '../../db/schema';
+import { getDb } from '../../db/DatabaseAdapter';
 import type { StoredCompany } from '../../db/interfaces';
 
 export default function CustomerListPage() {
@@ -39,7 +39,7 @@ export default function CustomerListPage() {
 
   // Load user names for display
   useEffect(() => {
-    db.users.toArray().then((users) => {
+    getDb().listUsers().then((users) => {
       const map: Record<string, string> = {};
       for (const u of users) {
         map[u.id] = u.fullName || u.username;

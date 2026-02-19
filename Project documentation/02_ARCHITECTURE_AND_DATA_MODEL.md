@@ -2,7 +2,7 @@
 
 Last Updated: 2026-02-19
 Owner: Documentation Maintainers
-Source of Truth Inputs: `src/main.tsx`, `src/App.tsx`, `src/db/schema.ts`, `src/db/DatabaseAdapter.ts`, `src/db/LocalAdapter.ts`, `src/db/HybridAdapter.ts`, `src/db/SupabaseAdapter.ts`, `src/store/*`, `src/sync/SyncQueue.ts`
+Source of Truth Inputs: `src/main.tsx`, `src/App.tsx`, `src/db/DatabaseAdapter.ts`, `src/db/SupabaseAdapter.ts`, `src/store/*`
 
 ## Application Shell
 
@@ -13,9 +13,8 @@ App shell:
 - `src/App.tsx`
 - providers: auth context, toast provider, global search, error boundary
 - startup sequence:
-1. `seedDatabaseIfEmpty()`
-2. config load (`useConfigStore`)
-3. load most recent quote after authentication
+1. config load (`useConfigStore`)
+2. load most recent quote after authentication
 
 ## Route Map
 
@@ -37,51 +36,48 @@ Defined in `src/App.tsx`:
 ## Data Layer Model
 
 Adapter abstraction (`src/db/DatabaseAdapter.ts`):
-- `LocalDatabaseAdapter`
-- `SupabaseDatabaseAdapter`
-- `HybridDatabaseAdapter`
+- `SupabaseDatabaseAdapter` -- the only adapter (cloud-only architecture)
 
-Selection:
-- `VITE_APP_MODE=local|cloud|hybrid`
+The adapter interface (`DatabaseAdapter`) defines the contract. `SupabaseAdapter` (`src/db/SupabaseAdapter.ts`) is the sole implementation, executing all CRUD operations directly against Supabase tables.
+
+Removed components (February 2026 hard cutover):
+- `LocalAdapter.ts`, `HybridAdapter.ts`, `IndexedDBRepository.ts` -- deleted
+- `SyncQueue.ts`, `ConflictResolver.ts` -- deleted
+- `schema.ts` (Dexie IndexedDB schema), `seed.ts` (local seed) -- deleted
+- `VITE_APP_MODE` environment variable -- removed
+- Dexie and dexie-react-hooks dependencies -- removed
+
+Repository factories (`src/db/repositories/`) are thin delegates that call `getDb()` to obtain the `SupabaseAdapter` instance and forward method calls.
 
 Repository/contracts:
 - `src/db/interfaces.ts`
-- `src/db/IndexedDBRepository.ts`
 
-## IndexedDB Schema (Dexie)
+## Supabase Table Surface
 
-Database:
-- Name: `BisedgeQuotationDB`
-- Migrations: v1 to v6 (`src/db/schema.ts`)
-
-Stores in v6:
+Tables managed via Supabase (PostgreSQL):
 - `quotes`
 - `customers`
-- `auditLog`
+- `audit_log`
 - `templates`
 - `settings`
-- `forkliftModels`
-- `batteryModels`
-- `approvalTiers`
-- `commissionTiers`
-- `residualCurves`
+- `forklift_models`
+- `battery_models`
+- `approval_tiers`
+- `commission_tiers`
+- `residual_curves`
 - `attachments`
-- `configurationMatrices`
+- `configuration_matrices`
 - `users`
-- `priceListSeries`
-- `telematicsPackages`
-- `containerMappings`
+- `price_list_series`
+- `telematics_packages`
+- `container_mappings`
 - `companies`
 - `contacts`
 - `activities`
 - `notifications`
+- `quote_presence` (presence features)
 
-Notable schema evolution points:
-- v2: approval/commission index fixes and user email index
-- v3: catalog stores (`priceListSeries`, `telematicsPackages`, `containerMappings`)
-- v4: CRM stores (`companies`, `contacts`, `activities`) and customer migration
-- v5: approval-chain related quote fields and role migration
-- v6: notifications store
+Schema is managed in Supabase directly. See `Project documentation/SUPABASE_MASTER_CURRENT_STATE.sql` for the canonical SQL.
 
 ## Domain Model Highlights
 
@@ -112,8 +108,8 @@ Validated by inspecting route declarations, DB schema migrations, adapter factor
 
 Update this file when any of these change:
 - route definitions in `src/App.tsx`
-- schema version/store list in `src/db/schema.ts`
-- adapter mode behavior in `src/db/DatabaseAdapter.ts`
+- Supabase schema (tables, columns, RPC functions)
+- adapter interface or `SupabaseAdapter` method surface
 - major feature module additions/removals under `src/components`
 
 ## Related Docs

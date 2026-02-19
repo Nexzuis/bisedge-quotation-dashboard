@@ -2,17 +2,13 @@
  * useNotifications
  *
  * Provides notification data and mutation helpers for the current user.
- * Reads/writes to the Dexie `notifications` table via the `db` singleton.
+ * Reads/writes via the DatabaseAdapter.
  * Auto-refreshes every 30 seconds.
- *
- * Prerequisites:
- *   - The `notifications` table must be added to BisedgeDatabase (see
- *     src/types/notifications.ts for the migration note).
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../components/auth/AuthContext';
-import { db } from '../db/schema';
+import { getDb } from '../db/DatabaseAdapter';
 import type { StoredNotification } from '../types/notifications';
 
 const REFRESH_INTERVAL_MS = 30_000;
@@ -36,23 +32,7 @@ export function useNotifications() {
 
     setIsLoading(true);
     try {
-      // Cast through unknown because the table is added at runtime via schema
-      // migration — TypeScript won't know about it until the schema file is
-      // updated by the developer.
-      const table = (db as unknown as Record<string, import('dexie').Table<StoredNotification, string>>)['notifications'];
-
-      if (!table) {
-        // Table not yet migrated — silently return empty state.
-        setNotifications([]);
-        setUnreadCount(0);
-        return;
-      }
-
-      const all = await table
-        .where('userId')
-        .equals(user.id)
-        .reverse()
-        .sortBy('createdAt');
+      const all = await getDb().getNotifications(user.id);
 
       const recent = all.slice(0, MAX_RECENT);
       const unread = all.filter((n) => !n.isRead).length;
@@ -85,10 +65,7 @@ export function useNotifications() {
   const markAsRead = useCallback(
     async (id: string): Promise<void> => {
       try {
-        const table = (db as unknown as Record<string, import('dexie').Table<StoredNotification, string>>)['notifications'];
-        if (!table) return;
-
-        await table.update(id, { isRead: true });
+        await getDb().markNotificationRead(id);
         await fetchNotifications();
       } catch (err) {
         console.error('[useNotifications] markAsRead error:', err);
@@ -100,16 +77,7 @@ export function useNotifications() {
   const markAllAsRead = useCallback(async (): Promise<void> => {
     if (!user?.id) return;
     try {
-      const table = (db as unknown as Record<string, import('dexie').Table<StoredNotification, string>>)['notifications'];
-      if (!table) return;
-
-      const unread = await table
-        .where('userId')
-        .equals(user.id)
-        .filter((n) => !n.isRead)
-        .toArray();
-
-      await Promise.all(unread.map((n) => table.update(n.id, { isRead: true })));
+      await getDb().markAllNotificationsRead(user.id);
       await fetchNotifications();
     } catch (err) {
       console.error('[useNotifications] markAllAsRead error:', err);
@@ -121,9 +89,6 @@ export function useNotifications() {
       notification: Omit<StoredNotification, 'id' | 'createdAt' | 'isRead'>
     ): Promise<void> => {
       try {
-        const table = (db as unknown as Record<string, import('dexie').Table<StoredNotification, string>>)['notifications'];
-        if (!table) return;
-
         const record: StoredNotification = {
           ...notification,
           id: crypto.randomUUID(),
@@ -131,7 +96,7 @@ export function useNotifications() {
           createdAt: new Date().toISOString(),
         };
 
-        await table.add(record);
+        await getDb().saveNotification(record);
         await fetchNotifications();
       } catch (err) {
         console.error('[useNotifications] createNotification error:', err);

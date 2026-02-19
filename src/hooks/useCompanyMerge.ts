@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { db } from '../db/schema';
+import { supabase } from '../lib/supabase';
 import type { StoredCompany } from '../db/interfaces';
 
 /**
@@ -106,7 +106,7 @@ function applySelections(
  *  - `fetchMergePreview(primaryId, secondaryId)` — load both companies and
  *    count related records without modifying anything.
  *  - `mergeCompanies(primaryId, secondaryId, selections)` — run the atomic
- *    Dexie transaction that writes the merged company, reassigns all related
+ *    Supabase RPC call that writes the merged company, reassigns all related
  *    records from secondary → primary, and deletes the secondary company.
  */
 export function useCompanyMerge() {
@@ -120,10 +120,13 @@ export function useCompanyMerge() {
       secondaryId: string
     ): Promise<MergePreview | null> => {
       try {
-        const [primary, secondary] = await Promise.all([
-          db.companies.get(primaryId),
-          db.companies.get(secondaryId),
+        const [primaryRes, secondaryRes] = await Promise.all([
+          supabase.from('companies').select('*').eq('id', primaryId).single(),
+          supabase.from('companies').select('*').eq('id', secondaryId).single(),
         ]);
+
+        const primary = primaryRes.data as StoredCompany | null;
+        const secondary = secondaryRes.data as StoredCompany | null;
 
         if (!primary || !secondary) {
           console.error(
@@ -133,16 +136,20 @@ export function useCompanyMerge() {
           return null;
         }
 
-        const [contacts, activities, quotes] = await Promise.all([
-          db.contacts.where('companyId').equals(secondaryId).count(),
-          db.activities.where('companyId').equals(secondaryId).count(),
-          db.quotes.where('companyId').equals(secondaryId).count(),
+        const [contactsRes, activitiesRes, quotesRes] = await Promise.all([
+          supabase.from('contacts').select('id', { count: 'exact', head: true }).eq('company_id', secondaryId),
+          supabase.from('activities').select('id', { count: 'exact', head: true }).eq('company_id', secondaryId),
+          supabase.from('quotes').select('id', { count: 'exact', head: true }).eq('company_id', secondaryId),
         ]);
 
         return {
           primary,
           secondary,
-          relatedCounts: { contacts, activities, quotes },
+          relatedCounts: {
+            contacts: contactsRes.count ?? 0,
+            activities: activitiesRes.count ?? 0,
+            quotes: quotesRes.count ?? 0,
+          },
         };
       } catch (error) {
         console.error('fetchMergePreview failed:', error);
@@ -153,17 +160,15 @@ export function useCompanyMerge() {
   );
 
   /**
-   * Execute the merge atomically inside a Dexie read-write transaction.
+   * Execute the merge atomically via a Supabase RPC call (`merge_companies`).
    *
-   * Steps (all-or-nothing):
-   *  1. Re-fetch both companies inside the transaction to ensure consistency.
+   * Steps (all-or-nothing inside the database function):
+   *  1. Re-fetch both companies to build the merged payload.
    *  2. Compute the merged company record from field selections.
-   *  3. Write the merged record to the primary company's row.
-   *  4. Reassign every Contact  whose companyId === secondaryId → primaryId.
-   *  5. Reassign every Activity whose companyId === secondaryId → primaryId.
-   *  6. Reassign every Quote    whose companyId === secondaryId → primaryId
-   *     and update clientName to match the (possibly changed) primary name.
-   *  7. Delete the secondary company record.
+   *  3. Call `supabase.rpc('merge_companies')` which atomically:
+   *     - Writes the merged record to the primary company's row.
+   *     - Reassigns contacts, activities, and quotes from secondary → primary.
+   *     - Deletes the secondary company record.
    *
    * Returns `true` on success, `false` on any error.
    */
@@ -174,77 +179,54 @@ export function useCompanyMerge() {
       selections: MergeFieldSelections
     ): Promise<boolean> => {
       try {
-        await db.transaction(
-          'rw',
-          [db.companies, db.contacts, db.activities, db.quotes],
-          async () => {
-            // ── 1. Re-fetch inside transaction ──────────────────────────
-            const primary = await db.companies.get(primaryId);
-            const secondary = await db.companies.get(secondaryId);
+        // Re-fetch both companies to build the merged payload
+        const [primaryRes, secondaryRes] = await Promise.all([
+          supabase.from('companies').select('*').eq('id', primaryId).single(),
+          supabase.from('companies').select('*').eq('id', secondaryId).single(),
+        ]);
 
-            if (!primary || !secondary) {
-              throw new Error(
-                `Merge aborted: company not found (primary=${primaryId}, secondary=${secondaryId})`
-              );
-            }
+        const primary = primaryRes.data as StoredCompany | null;
+        const secondary = secondaryRes.data as StoredCompany | null;
 
-            // ── 2. Compute merged record ─────────────────────────────────
-            const mergedCompany = applySelections(primary, secondary, selections);
+        if (!primary || !secondary) {
+          throw new Error(
+            `Merge aborted: company not found (primary=${primaryId}, secondary=${secondaryId})`
+          );
+        }
 
-            // ── 3. Update primary company row ────────────────────────────
-            await db.companies.put(mergedCompany);
+        const mergedCompany = applySelections(primary, secondary, selections);
 
-            // The final name used for quote clientName updates:
-            const survivingName = mergedCompany.name;
+        // Build snake_case payload for the RPC
+        const mergedData = {
+          name: mergedCompany.name,
+          trading_name: mergedCompany.tradingName,
+          registration_number: mergedCompany.registrationNumber,
+          vat_number: mergedCompany.vatNumber,
+          industry: mergedCompany.industry,
+          website: mergedCompany.website,
+          address: mergedCompany.address,
+          city: mergedCompany.city,
+          province: mergedCompany.province,
+          postal_code: mergedCompany.postalCode,
+          country: mergedCompany.country,
+          phone: mergedCompany.phone,
+          email: mergedCompany.email,
+          pipeline_stage: mergedCompany.pipelineStage,
+          assigned_to: mergedCompany.assignedTo,
+          estimated_value: mergedCompany.estimatedValue,
+          credit_limit: mergedCompany.creditLimit,
+          payment_terms: mergedCompany.paymentTerms,
+          tags: mergedCompany.tags,
+          notes: mergedCompany.notes,
+        };
 
-            // ── 4. Reassign Contacts ─────────────────────────────────────
-            const contactsToMove = await db.contacts
-              .where('companyId')
-              .equals(secondaryId)
-              .toArray();
+        const { error } = await supabase.rpc('merge_companies', {
+          p_primary_id: primaryId,
+          p_secondary_id: secondaryId,
+          p_merged_data: mergedData,
+        });
 
-            const now = new Date().toISOString();
-            await Promise.all(
-              contactsToMove.map((contact) =>
-                db.contacts.update(contact.id, {
-                  companyId: primaryId,
-                  updatedAt: now,
-                })
-              )
-            );
-
-            // ── 5. Reassign Activities ───────────────────────────────────
-            const activitiesToMove = await db.activities
-              .where('companyId')
-              .equals(secondaryId)
-              .toArray();
-
-            await Promise.all(
-              activitiesToMove.map((activity) =>
-                db.activities.update(activity.id, { companyId: primaryId })
-              )
-            );
-
-            // ── 6. Reassign Quotes ───────────────────────────────────────
-            const quotesToMove = await db.quotes
-              .where('companyId')
-              .equals(secondaryId)
-              .toArray();
-
-            await Promise.all(
-              quotesToMove.map((quote) =>
-                db.quotes.update(quote.id, {
-                  companyId: primaryId,
-                  clientName: survivingName,
-                  updatedAt: now,
-                })
-              )
-            );
-
-            // ── 7. Delete secondary company ──────────────────────────────
-            await db.companies.delete(secondaryId);
-          }
-        );
+        if (error) throw error;
 
         return true;
       } catch (error) {

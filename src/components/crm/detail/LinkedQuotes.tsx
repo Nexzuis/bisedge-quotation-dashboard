@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText } from 'lucide-react';
-import { db } from '../../../db/schema';
+import { getDb } from '../../../db/DatabaseAdapter';
 import type { StoredQuote } from '../../../db/interfaces';
 
 interface LinkedQuotesProps {
@@ -14,7 +14,7 @@ export function LinkedQuotes({ companyId }: LinkedQuotesProps) {
 
   useEffect(() => {
     const load = async () => {
-      const data = await db.quotes.where('companyId').equals(companyId).toArray();
+      const data = await getDb().getQuotesByCompany(companyId);
       setQuotes(data.sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
     };
     load();

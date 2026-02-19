@@ -1,104 +1,80 @@
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db/schema';
-import type { StoredCommissionTier, StoredResidualCurve } from '../db/schema';
+import { useState, useEffect } from 'react';
+import { getDb } from '../db/DatabaseAdapter';
+import type { StoredCommissionTier, StoredResidualCurve } from '../db/interfaces';
 
-/**
- * Hook to get commission tiers from database (live query)
- */
 export const useCommissionTiers = () => {
-  return useLiveQuery(() => db.commissionTiers.orderBy('minMargin').toArray(), []);
-};
-
-/**
- * Hook to get residual curves from database (live query)
- */
-export const useResidualCurves = () => {
-  return useLiveQuery(() => db.residualCurves.toArray(), []);
-};
-
-/**
- * Hook to get default values from settings table (live query)
- */
-export const useDefaultValues = () => {
-  return useLiveQuery(async () => {
-    const settings = await db.settings.toArray();
-    return settings.reduce((acc, s) => ({ ...acc, [s.key]: s.value }), {} as Record<string, string>);
+  const [tiers, setTiers] = useState<StoredCommissionTier[] | undefined>(undefined);
+  useEffect(() => {
+    getDb().getCommissionTiers().then(setTiers).catch(() => setTiers([]));
   }, []);
+  return tiers;
 };
 
-/**
- * Save commission tiers to database
- */
+export const useResidualCurves = () => {
+  const [curves, setCurves] = useState<StoredResidualCurve[] | undefined>(undefined);
+  useEffect(() => {
+    getDb().getResidualCurves().then(setCurves).catch(() => setCurves([]));
+  }, []);
+  return curves;
+};
+
+export const useDefaultValues = () => {
+  const [values, setValues] = useState<Record<string, string> | undefined>(undefined);
+  useEffect(() => {
+    getDb().getSettings().then(setValues).catch(() => setValues({}));
+  }, []);
+  return values;
+};
+
 export const saveCommissionTiers = async (tiers: StoredCommissionTier[], userId: string) => {
-  await db.transaction('rw', db.commissionTiers, db.auditLog, async () => {
-    await db.commissionTiers.clear();
-    await db.commissionTiers.bulkAdd(tiers);
-
-    await db.auditLog.add({
-      id: crypto.randomUUID(),
-      timestamp: new Date().toISOString(),
-      userId,
-      action: 'update',
-      entityType: 'commissionTiers',
-      entityId: 'all',
-      changes: { tiers },
-      oldValues: null,
-      newValues: tiers,
-    });
+  await getDb().saveCommissionTiers(tiers);
+  await getDb().logAudit({
+    id: crypto.randomUUID(),
+    timestamp: new Date().toISOString(),
+    userId,
+    action: 'update',
+    entityType: 'commissionTiers',
+    entityId: 'all',
+    changes: { tiers },
+    oldValues: null,
+    newValues: tiers,
   });
 };
 
-/**
- * Save residual curves to database
- */
 export const saveResidualCurves = async (curves: StoredResidualCurve[], userId: string) => {
-  await db.transaction('rw', db.residualCurves, db.auditLog, async () => {
-    await db.residualCurves.clear();
-    await db.residualCurves.bulkAdd(curves);
-
-    await db.auditLog.add({
-      id: crypto.randomUUID(),
-      timestamp: new Date().toISOString(),
-      userId,
-      action: 'update',
-      entityType: 'residualCurves',
-      entityId: 'all',
-      changes: { curves },
-      oldValues: null,
-      newValues: curves,
-    });
+  await getDb().saveResidualCurves(curves);
+  await getDb().logAudit({
+    id: crypto.randomUUID(),
+    timestamp: new Date().toISOString(),
+    userId,
+    action: 'update',
+    entityType: 'residualCurves',
+    entityId: 'all',
+    changes: { curves },
+    oldValues: null,
+    newValues: curves,
   });
 };
 
-/**
- * Save default values to settings table
- */
 export const saveDefaultValues = async (values: Record<string, string>, userId: string) => {
-  await db.transaction('rw', db.settings, db.auditLog, async () => {
-    for (const [key, value] of Object.entries(values)) {
-      await db.settings.put({ key, value });
-    }
-
-    await db.auditLog.add({
-      id: crypto.randomUUID(),
-      timestamp: new Date().toISOString(),
-      userId,
-      action: 'update',
-      entityType: 'settings',
-      entityId: 'defaults',
-      changes: { values },
-      oldValues: null,
-      newValues: values,
-    });
+  await getDb().saveSettings(Object.entries(values).map(([key, value]) => ({ key, value })));
+  await getDb().logAudit({
+    id: crypto.randomUUID(),
+    timestamp: new Date().toISOString(),
+    userId,
+    action: 'update',
+    entityType: 'settings',
+    entityId: 'defaults',
+    changes: { values },
+    oldValues: null,
+    newValues: values,
   });
 };
 
-/**
- * Get impact analysis for residual curve changes
- */
 export const getResidualCurveImpact = async (chemistry: string): Promise<number> => {
   try {
-    const allQuotes = await db.quotes.toArray();
+    const result = await getDb().listQuotes({ page: 1, pageSize: 10000, sortBy: 'createdAt', sortOrder: 'desc' });
+    const allQuotes = result.items;
 
     let count = 0;
     for (const quote of allQuotes) {

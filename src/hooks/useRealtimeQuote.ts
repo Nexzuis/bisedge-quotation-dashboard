@@ -8,9 +8,10 @@
 import { useEffect, useCallback } from 'react';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { useAuthStore } from '../store/useAuthStore';
-import { supabase, isCloudMode, FEATURES } from '../lib/supabase';
+import { supabase, FEATURES } from '../lib/supabase';
 import { getDb } from '../db/DatabaseAdapter';
 import { toast } from 'sonner';
+import { logger } from '../utils/logger';
 
 /**
  * Subscribe to real-time updates for a specific quote
@@ -25,18 +26,18 @@ export function useRealtimeQuote(quoteId: string, enabled: boolean = true) {
 
   const handleRemoteUpdate = useCallback(
     async (payload: any) => {
-      console.log('📡 Remote update detected for quote:', quoteId);
+      logger.debug('Remote update detected for quote:', quoteId);
 
       // Don't reload if we made the change
       if (payload.new.updated_by === user?.id) {
-        console.log('ℹ️  Update was made by us, skipping reload');
+        logger.debug('Update was made by us, skipping reload');
         return;
       }
 
       // Check version
       const remoteVersion = payload.new.version;
       if (remoteVersion <= currentVersion) {
-        console.log('ℹ️  Remote version is not newer, skipping reload');
+        logger.debug('Remote version is not newer, skipping reload');
         return;
       }
 
@@ -46,7 +47,7 @@ export function useRealtimeQuote(quoteId: string, enabled: boolean = true) {
         const updatedQuote = await db.loadQuote(quoteId);
 
         if (updatedQuote) {
-          console.log('✅ Quote reloaded from remote update');
+          logger.debug('Quote reloaded from remote update');
           loadQuote(updatedQuote);
 
           toast.info('Quote updated remotely', {
@@ -55,7 +56,7 @@ export function useRealtimeQuote(quoteId: string, enabled: boolean = true) {
           });
         }
       } catch (error) {
-        console.error('Failed to reload quote after remote update:', error);
+        logger.error('Failed to reload quote after remote update:', error);
         toast.error('Failed to sync remote changes');
       }
     },
@@ -63,11 +64,11 @@ export function useRealtimeQuote(quoteId: string, enabled: boolean = true) {
   );
 
   useEffect(() => {
-    if (!enabled || !isCloudMode() || !FEATURES.realtime || !quoteId) {
+    if (!enabled || !FEATURES.realtime || !quoteId) {
       return;
     }
 
-    console.log('🔔 Setting up real-time subscription for quote:', quoteId);
+    logger.debug('Setting up real-time subscription for quote:', quoteId);
 
     // Subscribe to changes on this specific quote
     const subscription = supabase
@@ -84,14 +85,14 @@ export function useRealtimeQuote(quoteId: string, enabled: boolean = true) {
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          console.log('✅ Real-time updates active for quote:', quoteId);
+          logger.debug('Real-time updates active for quote:', quoteId);
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('❌ Real-time subscription error');
+          logger.error('Real-time subscription error');
         }
       });
 
     return () => {
-      console.log('🔌 Unsubscribing from real-time updates:', quoteId);
+      logger.debug('Unsubscribing from real-time updates:', quoteId);
       subscription.unsubscribe();
     };
   }, [quoteId, enabled, handleRemoteUpdate]);
@@ -105,11 +106,11 @@ export function useRealtimeQuoteList(onUpdate?: () => void) {
   const { user } = useAuthStore();
 
   useEffect(() => {
-    if (!isCloudMode() || !FEATURES.realtime || !user) {
+    if (!FEATURES.realtime || !user) {
       return;
     }
 
-    console.log('🔔 Setting up real-time subscription for quote list');
+    logger.debug('Setting up real-time subscription for quote list');
 
     // Subscribe to all quote changes
     const subscription = supabase
@@ -122,7 +123,7 @@ export function useRealtimeQuoteList(onUpdate?: () => void) {
           table: 'quotes',
         },
         (payload) => {
-          console.log('📡 Quote list update detected:', payload.eventType);
+          logger.debug('Quote list update detected:', payload.eventType);
 
           if (onUpdate) {
             onUpdate();
@@ -136,7 +137,7 @@ export function useRealtimeQuoteList(onUpdate?: () => void) {
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          console.log('✅ Real-time list updates active');
+          logger.debug('Real-time list updates active');
         }
       });
 

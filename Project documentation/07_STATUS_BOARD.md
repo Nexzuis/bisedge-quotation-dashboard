@@ -2,25 +2,36 @@
 
 Last Updated: 2026-02-19
 Owner: Documentation Maintainers
-Source of Truth Inputs: `src/App.tsx`, `src/db/schema.ts`, `src/db/*Adapter.ts`, `src/sync/SyncQueue.ts`, `src/auth/permissions.ts`, `src/db/seed.ts`, `src/pdf/*`, `package.json`, test files
+Source of Truth Inputs: `src/App.tsx`, `src/db/SupabaseAdapter.ts`, `src/db/DatabaseAdapter.ts`, `src/auth/permissions.ts`, `src/pdf/*`, `package.json`, test files
 
 ## Current System Snapshot
 
+## Supabase-Only Hard Cutover (February 2026)
+
+Status: Complete
+
+Full migration from three-mode (local/hybrid/cloud) architecture to Supabase-only:
+- Deleted 12 files (SyncQueue, ConflictResolver, HybridAdapter, LocalAdapter, IndexedDBRepository, useOnlineStatus, SyncStatusIndicator, migrateToSupabase, DataMigrationPanel, BackupRestore, seed, schema)
+- Extended SupabaseAdapter with 14 new methods + guard rails
+- Rewrote 7 repository factories as thin getDb() delegates
+- Refactored 17 business flow files from db.* to adapter calls
+- Replaced 12 useLiveQuery hooks with useState+useEffect
+- Created company merge RPC function
+- Removed dexie and dexie-react-hooks dependencies
+- All grep gates pass, TypeScript compiles with 0 errors
+
 ## Go-Live Remediation Status (2026-02-19)
 
-Status: In Progress (major blockers addressed)
+Status: Complete (addressed prior to hard cutover)
 
-- Deep-link quote loading: fixed (`/quote?id=...` now id-aware, with explicit not-found handling)
-- Autosave concurrency: fixed (single autosave instance via app-level context)
-- Financial basis: updated to landed-cost margin/IRR basis, PMT invalid-term guard added
-- Permission overrides: explicit deny semantics implemented (`override=false` now revokes)
-- PDF line items: switched from deprecated monthly fields to current computed fields
-- Logistics shipping persistence: moved from local component state to persisted quote state, including Supabase `shipping_entries` write/read mapping
-- CRM low-role visibility: restricted to assigned accounts in hook and list UX
-- Backup coverage: expanded table manifest + metadata compatibility checks
+- Deep-link quote loading: fixed
+- Autosave concurrency: fixed
+- Financial basis: updated to landed-cost margin/IRR basis
+- Permission overrides: explicit deny semantics implemented
+- PDF line items: switched to current computed fields
+- Logistics shipping persistence: persisted quote state with Supabase `shipping_entries` mapping
+- CRM low-role visibility: restricted to assigned accounts
 - Login throttling: progressive delay + temporary lockout + audit events
-- Hybrid sync hardening: `created_by` fallback enforcement, quote `23505` retry classification, cloud-aware quote ref generation, and pre-auth autosave/session guards
-- Hybrid follow-up hardening: duplicate/revision/repair quote sync session guards and quote-ref conflict remediation before retry
 
 ## Frontend Remediation Status (2026-02-19)
 
@@ -34,6 +45,20 @@ Status: Complete (2 low-priority items deferred)
   - Kanban skeleton responsive, FleetBuilder text cleanup, LoadQuote table widths, modal backdrop close consistency
 - **Remaining Risks**: None blocking. Deferred items are cosmetic/architectural preferences.
 
+## Pre-Launch Defect Fixes (2026-02-19)
+
+Status: Complete
+
+All 5 defects (D-001 through D-005) identified during independent Claude and Codex audits have been resolved:
+
+| ID | Severity | Fix Applied |
+|----|----------|-------------|
+| D-001 | P1 | `merge_companies` RPC updated with all 20 frontend fields (13 added) |
+| D-002 | P1 | `isLockedByOther` now includes 1-hour stale lock timeout (`LOCK_STALE_MS`) |
+| D-003 | P1 | `SupabaseTestPage` import and `/test-supabase` route removed from `App.tsx` |
+| D-004 | P2 | `console.log/warn/error` migrated to `logger` in 7 priority hook/store files |
+| D-005 | P2 | Extraneous `bcryptjs` and `@types/bcryptjs` removed via `npm prune` |
+
 ## Application and Routing
 
 Status: Active
@@ -45,27 +70,23 @@ Status: Active
 
 ## Data and Persistence
 
+Status: Active (Cloud-Only)
+
+- Supabase (PostgreSQL) is the single source of truth
+- SupabaseAdapter is the sole database adapter
+- Repository factories are thin delegates to getDb()
+- No IndexedDB, no Dexie, no local storage for business data
+- No mode switching (VITE_APP_MODE removed)
+
+## Supabase Integration
+
 Status: Active
 
-- IndexedDB database `BisedgeQuotationDB`
-- Schema migrations up to v6
-- Local repositories and adapter abstraction in place
-- App mode switch supports local/cloud/hybrid behavior
-
-## Sync and Cloud Integration
-
-Status: Active
-
-- Sync queue implemented with serialized processing
-- Entity priority ordering implemented for parent-child dependencies
-- Retry and permanent-failure handling implemented
-- Quote `23505` conflicts are retried (not permanently blocklisted)
-- Quote `23505` conflicts are remediated with regenerated `quote_ref` before retry
-- Hybrid quote sync enqueue now requires authenticated Supabase session
-- Hybrid duplicate/revision/repair quote enqueue paths also require authenticated session
-- Hybrid quote payload generation enforces non-null `created_by` with session fallback
-- Hybrid quote reference generation is cloud-aware when online/authenticated
-- Supabase connectivity and RLS testing utility route available (`/test-supabase`)
+- All CRUD operations execute directly against Supabase tables
+- Supabase Auth is the only authentication path (no local bcrypt fallback)
+- Company merge via Supabase RPC function
+- Supabase connectivity testing utility available in local dev only (SupabaseTestPage; removed from production routes)
+- Realtime and presence features available via feature flags
 
 ## Auth and Authorization
 
@@ -131,7 +152,7 @@ Status entries are based on direct codebase inspection and command-driven invent
 
 ## Out-of-Date Risk
 
-Update this board whenever feature availability, route surface, schema version, adapter mode behavior, or quality gate status changes.
+Update this board whenever feature availability, route surface, Supabase schema, adapter method surface, or quality gate status changes.
 
 ## Related Docs
 

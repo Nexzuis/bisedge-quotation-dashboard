@@ -1,4 +1,4 @@
-import type { StoredCommissionTier, StoredResidualCurve } from '../../../db/schema';
+import type { StoredCommissionTier, StoredResidualCurve } from '../../../db/interfaces';
 
 export interface ValidationError {
   message: string;

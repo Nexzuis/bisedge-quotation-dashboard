@@ -4,12 +4,11 @@ import { Plus, Eye, EyeOff, RotateCcw, KeyRound } from 'lucide-react';
 import DataTable from '../shared/DataTable';
 import EditModal from '../shared/EditModal';
 import ConfirmDialog from '../shared/ConfirmDialog';
-import { db, type StoredUser } from '../../../db/schema';
+import type { StoredUser } from '../../../db/interfaces';
 import { getAuditRepository } from '../../../db/repositories';
 import { useAuth } from '../../auth/AuthContext';
-import bcrypt from 'bcryptjs';
 import { Badge } from '../../ui/Badge';
-import { supabase, isCloudMode } from '../../../lib/supabase';
+import { supabase } from '../../../lib/supabase';
 import { createClient } from '@supabase/supabase-js';
 import {
   ALL_ROLES,
@@ -65,10 +64,9 @@ const UserManagement = () => {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const allUsers = await db.users.toArray();
-      // Sort by createdAt desc
-      allUsers.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      setUsers(allUsers);
+      const { data, error } = await supabase.from('users').select('*').order('full_name');
+      if (error) throw error;
+      setUsers((data ?? []) as unknown as StoredUser[]);
     } catch (error) {
       console.error('Failed to load users:', error);
       toast.error('Failed to load users');
@@ -148,7 +146,11 @@ const UserManagement = () => {
     try {
       // Check username uniqueness
       if (!selectedUser || selectedUser.username !== formData.username) {
-        const existingUser = await db.users.where('username').equals(formData.username).first();
+        const { data: existingUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('username', formData.username)
+          .maybeSingle();
         if (existingUser) {
           setValidationErrors({ username: 'Username already exists' });
           setSaving(false);
@@ -158,7 +160,11 @@ const UserManagement = () => {
 
       // Check email uniqueness
       if (!selectedUser || selectedUser.email !== formData.email) {
-        const existingEmail = await db.users.where('email').equals(formData.email).first();
+        const { data: existingEmail } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', formData.email)
+          .maybeSingle();
         if (existingEmail) {
           setValidationErrors({ email: 'Email already exists' });
           setSaving(false);
@@ -168,40 +174,18 @@ const UserManagement = () => {
 
       if (selectedUser) {
         // Update existing user
-        const updates: Partial<StoredUser> = {
+        const { error: updateError } = await supabase.from('users').update({
           username: formData.username,
-          fullName: formData.fullName,
+          full_name: formData.fullName,
           email: formData.email,
           role: formData.role,
-          isActive: formData.isActive,
-          permissionOverrides: JSON.stringify(formData.permissionOverrides),
-        };
+          is_active: formData.isActive,
+          permission_overrides: JSON.stringify(formData.permissionOverrides),
+        }).eq('id', selectedUser.id!);
 
-        // Only update password if provided
-        if (formData.password) {
-          const salt = await bcrypt.genSalt(10);
-          updates.passwordHash = await bcrypt.hash(formData.password, salt);
-        }
-
-        await db.users.update(selectedUser.id!, updates);
-
-        // Sync to Supabase public.users in cloud/hybrid mode
-        if (isCloudMode()) {
-          try {
-            const { error: updateError } = await supabase.from('users').update({
-              email: formData.email,
-              full_name: formData.fullName,
-              role: formData.role,
-              is_active: formData.isActive,
-            }).eq('id', selectedUser.id!);
-            if (updateError) {
-              console.error('public.users update failed:', updateError.message);
-              toast.error('User updated locally but cloud sync failed: ' + updateError.message);
-            }
-          } catch (syncError) {
-            console.error('Cloud sync error during user update:', syncError);
-            toast.error('User updated locally but cloud sync failed. Check console for details.');
-          }
+        if (updateError) {
+          console.error('users update failed:', updateError.message);
+          throw updateError;
         }
 
         // Audit log
@@ -210,110 +194,74 @@ const UserManagement = () => {
           action: 'update',
           entityType: 'user',
           entityId: selectedUser.id!,
-          changes: updates,
+          changes: { username: formData.username, email: formData.email, role: formData.role, isActive: formData.isActive },
           oldValues: selectedUser,
-          newValues: { ...selectedUser, ...updates },
+          newValues: { ...selectedUser, ...formData },
         });
       } else {
-        // Create new user
-        const salt = await bcrypt.genSalt(10);
-        const passwordHash = await bcrypt.hash(formData.password, salt);
-
-        const newUser: StoredUser = {
-          id: crypto.randomUUID(),
-          username: formData.username,
-          fullName: formData.fullName,
+        // Create new user via Supabase Auth + public.users
+        const signUpClient = createClient(
+          import.meta.env.VITE_SUPABASE_URL,
+          import.meta.env.VITE_SUPABASE_ANON_KEY,
+          { auth: { persistSession: false } }
+        );
+        const { data: authData, error: authError } = await signUpClient.auth.signUp({
           email: formData.email,
-          passwordHash,
-          role: formData.role,
-          isActive: formData.isActive,
-          permissionOverrides: JSON.stringify(formData.permissionOverrides),
-          createdAt: new Date().toISOString(),
-        };
-
-        await db.users.add(newUser);
-
-        // Sync to Supabase Auth + public.users in cloud/hybrid mode
-        if (isCloudMode()) {
-          try {
-            // Use a non-persisting client so admin's own session is not disturbed
-            const signUpClient = createClient(
-              import.meta.env.VITE_SUPABASE_URL,
-              import.meta.env.VITE_SUPABASE_ANON_KEY,
-              { auth: { persistSession: false } }
-            );
-            const { data: authData, error: authError } = await signUpClient.auth.signUp({
-              email: formData.email,
-              password: formData.password,
-            });
-
-            if (authError) {
-              console.warn('Supabase auth signUp failed:', authError.message);
-
-              // Handle re-creating a previously deleted user:
-              // signUp fails because the auth user still exists, but public.users
-              // has is_active=false from the soft-delete. Reactivate the row.
-              const { data: existingUser } = await supabase
-                .from('users')
-                .select('id')
-                .eq('email', formData.email)
-                .single();
-
-              if (existingUser) {
-                await supabase.from('users').update({
-                  full_name: formData.fullName,
-                  role: formData.role,
-                  is_active: formData.isActive,
-                }).eq('id', existingUser.id);
-
-                // Update local user ID to match the Supabase ID
-                await db.users.delete(newUser.id!);
-                newUser.id = existingUser.id;
-                await db.users.add(newUser);
-
-                toast.info('Reactivated existing cloud user. Note: the user must log in with their previous Supabase password or use password reset.');
-              } else {
-                toast.warning('User created locally but cloud sync failed: ' + authError.message);
-              }
-            } else if (authData.user && authData.user.identities && authData.user.identities.length > 0) {
-              // Brand new user — insert into public.users with the Supabase auth ID
-              const { error: insertError } = await supabase.from('users').insert({
-                id: authData.user.id,
-                email: formData.email,
-                full_name: formData.fullName,
-                role: formData.role,
-                is_active: formData.isActive,
-              });
-              if (insertError) {
-                console.error('public.users insert failed:', insertError.message);
-                toast.error('Cloud user record failed: ' + insertError.message);
-              }
-
-              // Only update local ID to match Supabase auth ID if insert succeeded
-              if (!insertError) {
-                await db.users.delete(newUser.id!);
-                newUser.id = authData.user.id;
-                await db.users.add(newUser);
-              }
-            } else if (authData.user) {
-              // signUp returned a user but with no identities — email not actually created
-              toast.error('Cloud sync failed: email may already exist in Supabase Auth. Check Supabase dashboard.');
-            }
-          } catch (syncError) {
-            console.error('Cloud sync error during user creation:', syncError);
-            toast.error('User created locally but cloud sync failed. Check console for details.');
-          }
-        }
-
-        // Audit log
-        await auditRepo.log({
-          userId: currentUser!.id,
-          action: 'create',
-          entityType: 'user',
-          entityId: newUser.id!,
-          changes: { created: true },
-          newValues: newUser,
+          password: formData.password,
         });
+
+        if (authError) {
+          console.warn('Supabase auth signUp failed:', authError.message);
+
+          // Handle re-creating a previously deleted user:
+          // signUp fails because the auth user still exists, but public.users
+          // has is_active=false from the soft-delete. Reactivate the row.
+          const { data: existingUser } = await supabase
+            .from('users')
+            .select('id')
+            .eq('email', formData.email)
+            .single();
+
+          if (existingUser) {
+            await supabase.from('users').update({
+              full_name: formData.fullName,
+              role: formData.role,
+              is_active: formData.isActive,
+            }).eq('id', existingUser.id);
+
+            toast.info('Reactivated existing cloud user. Note: the user must log in with their previous Supabase password or use password reset.');
+          } else {
+            throw new Error('Cloud user creation failed: ' + authError.message);
+          }
+        } else if (authData.user && authData.user.identities && authData.user.identities.length > 0) {
+          // Brand new user — insert into public.users with the Supabase auth ID
+          const { error: insertError } = await supabase.from('users').insert({
+            id: authData.user.id,
+            username: formData.username,
+            email: formData.email,
+            full_name: formData.fullName,
+            role: formData.role,
+            is_active: formData.isActive,
+            permission_overrides: JSON.stringify(formData.permissionOverrides),
+          });
+          if (insertError) {
+            console.error('public.users insert failed:', insertError.message);
+            toast.error('Cloud user record failed: ' + insertError.message);
+          } else {
+            // Audit log
+            await auditRepo.log({
+              userId: currentUser!.id,
+              action: 'create',
+              entityType: 'user',
+              entityId: authData.user.id,
+              changes: { created: true },
+              newValues: { id: authData.user.id, ...formData },
+            });
+          }
+        } else if (authData.user) {
+          // signUp returned a user but with no identities — email not actually created
+          toast.error('Cloud sync failed: email may already exist in Supabase Auth. Check Supabase dashboard.');
+        }
       }
 
       setShowEditModal(false);
@@ -347,24 +295,16 @@ const UserManagement = () => {
     }
 
     try {
-      // Soft-delete in Supabase (can't delete auth user without service role key)
-      if (isCloudMode()) {
-        try {
-          const { error: softDeleteError } = await supabase
-            .from('users')
-            .update({ is_active: false })
-            .eq('id', selectedUser.id!);
-          if (softDeleteError) {
-            console.error('public.users soft-delete failed:', softDeleteError.message);
-            toast.error('User deleted locally but cloud sync failed: ' + softDeleteError.message);
-          }
-        } catch (syncError) {
-          console.error('Cloud sync error during user delete:', syncError);
-          toast.error('User deleted locally but cloud sync failed. Check console for details.');
-        }
-      }
+      // Soft-delete: mark user as inactive (cannot delete auth user without service role key)
+      const { error: softDeleteError } = await supabase
+        .from('users')
+        .update({ is_active: false })
+        .eq('id', selectedUser.id!);
 
-      await db.users.delete(selectedUser.id!);
+      if (softDeleteError) {
+        console.error('users soft-delete failed:', softDeleteError.message);
+        throw softDeleteError;
+      }
 
       // Audit log
       await auditRepo.log({
@@ -409,24 +349,13 @@ const UserManagement = () => {
     setResettingPassword(true);
 
     try {
-      const passwordHash = await bcrypt.hash(newPassword, 10);
-
-      await db.users.update(selectedUser.id!, { passwordHash });
-
-      // Send password reset email via Supabase in cloud/hybrid mode
-      if (isCloudMode()) {
-        try {
-          const { error: resetError } = await supabase.auth.resetPasswordForEmail(selectedUser.email);
-          if (resetError) {
-            console.error('Supabase password reset email failed:', resetError.message);
-            toast.error('Password reset email failed: ' + resetError.message);
-          } else {
-            toast.info('Password reset email sent to ' + selectedUser.email);
-          }
-        } catch (syncError) {
-          console.error('Cloud sync error during password reset:', syncError);
-          toast.error('Password reset cloud sync failed. Check console for details.');
-        }
+      // Send password reset email via Supabase Auth
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(selectedUser.email);
+      if (resetError) {
+        console.error('Supabase password reset email failed:', resetError.message);
+        toast.error('Password reset email failed: ' + resetError.message);
+      } else {
+        toast.info('Password reset email sent to ' + selectedUser.email);
       }
 
       // Audit log
@@ -441,7 +370,7 @@ const UserManagement = () => {
         targetUserName: selectedUser.fullName,
       });
 
-      toast.success(`Password reset successfully for ${selectedUser.username}`);
+      toast.success(`Password reset email sent for ${selectedUser.username}`);
       setShowPasswordResetDialog(false);
     } catch (error) {
       console.error('Failed to reset password:', error);

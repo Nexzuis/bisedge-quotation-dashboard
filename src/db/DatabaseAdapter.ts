@@ -1,13 +1,8 @@
 /**
  * Database Adapter Abstraction Layer
  *
- * Provides a unified interface for database operations that works with both:
- * - Local mode: IndexedDB (current implementation)
- * - Cloud mode: Supabase PostgreSQL
- * - Hybrid mode: IndexedDB with Supabase sync
- *
- * This allows the app to switch between local and cloud storage without
- * changing any component code.
+ * Provides a unified interface for database operations using Supabase.
+ * All data operations go through SupabaseDatabaseAdapter as the single source of truth.
  */
 
 import type { QuoteState } from '../types/quote';
@@ -32,137 +27,49 @@ import type {
  */
 export interface IDatabaseAdapter {
   // ===== Quote Operations =====
-  /**
-   * Save or update a quote
-   * Returns success status and new version number
-   */
   saveQuote(quote: QuoteState): Promise<SaveResult>;
-
-  /**
-   * Load a quote by ID
-   * Returns null if not found
-   */
   loadQuote(id: string): Promise<QuoteState | null>;
-
-  /**
-   * List quotes with pagination and filters
-   * Applies role-based filtering in cloud mode
-   */
-  listQuotes(
-    options: PaginationOptions,
-    filters?: QuoteFilter
-  ): Promise<PaginatedResult<StoredQuote>>;
-
-  /**
-   * Search quotes by query string
-   */
+  listQuotes(options: PaginationOptions, filters?: QuoteFilter): Promise<PaginatedResult<StoredQuote>>;
   searchQuotes(query: string): Promise<StoredQuote[]>;
-
-  /**
-   * Duplicate a quote (create new with incremented quote ref)
-   */
   duplicateQuote(id: string): Promise<SaveResult>;
-
-  /**
-   * Create revision (increment decimal: 2142.0 → 2142.1)
-   */
   createRevision(id: string): Promise<SaveResult>;
-
-  /**
-   * Delete a quote
-   */
   deleteQuote(id: string): Promise<void>;
-
-  /**
-   * Get next quote reference number
-   */
   getNextQuoteRef(): Promise<string>;
-
-  /**
-   * Get most recently updated quote
-   */
   getMostRecentQuote(): Promise<QuoteState | null>;
+  getQuotesByCompany(companyId: string): Promise<StoredQuote[]>;
+  getQuoteRevisions(baseRef: string): Promise<StoredQuote[]>;
+  countQuotesSince(date: string): Promise<number>;
 
   // ===== Customer Operations =====
-  /**
-   * Save a customer
-   */
   saveCustomer(customer: Omit<StoredCustomer, 'id' | 'createdAt' | 'updatedAt'>): Promise<string>;
-
-  /**
-   * Search customers by query
-   */
   searchCustomers(query: string): Promise<StoredCustomer[]>;
-
-  /**
-   * Get customer by ID
-   */
   getCustomer(id: string): Promise<StoredCustomer | null>;
-
-  /**
-   * List all customers
-   */
   listCustomers(): Promise<StoredCustomer[]>;
 
-  // ===== User Operations (Cloud only) =====
-  /**
-   * Get user by ID
-   */
+  // ===== User Operations =====
   getUser(id: string): Promise<any | null>;
-
-  /**
-   * List all users
-   */
   listUsers(): Promise<any[]>;
-
-  // ===== User Query Operations =====
-  /**
-   * Get users by role
-   */
   getUsersByRole(role: string): Promise<any[]>;
 
   // ===== Configuration Operations =====
-  /**
-   * Get commission tier configuration
-   */
   getCommissionTiers(): Promise<any[]>;
-
-  /**
-   * Get residual curves
-   */
   getResidualCurves(): Promise<any[]>;
+  saveCommissionTiers(tiers: any[]): Promise<void>;
+  saveResidualCurves(curves: any[]): Promise<void>;
+  getSettings(): Promise<Record<string, string>>;
+  saveSettings(entries: { key: string; value: string }[]): Promise<void>;
 
   // ===== Audit Operations =====
-  /**
-   * Log an audit entry
-   */
   logAudit(entry: Omit<AuditLogEntry, 'id' | 'timestamp'>): Promise<void>;
-
-  /**
-   * Get audit log for an entity
-   */
   getAuditLog(entityType: string, entityId: string): Promise<AuditLogEntry[]>;
+  listAuditLog(filters?: { entityType?: string; userId?: string }): Promise<AuditLogEntry[]>;
 
   // ===== Template Operations =====
-  /**
-   * Save a template
-   */
   saveTemplate(template: Omit<StoredTemplate, 'id' | 'createdAt' | 'updatedAt'>): Promise<string>;
-
-  /**
-   * Get templates by type
-   */
   getTemplatesByType(type: StoredTemplate['type']): Promise<StoredTemplate[]>;
-
-  /**
-   * Get default template by type
-   */
   getDefaultTemplate(type: StoredTemplate['type']): Promise<StoredTemplate | null>;
-
-  /**
-   * Delete a template
-   */
   deleteTemplate(id: string): Promise<void>;
+  getTemplate(id: string): Promise<StoredTemplate | null>;
 
   // ===== Company Operations (CRM) =====
   saveCompany(company: Omit<StoredCompany, 'id' | 'createdAt' | 'updatedAt'>): Promise<string>;
@@ -176,12 +83,15 @@ export interface IDatabaseAdapter {
   saveContact(contact: Omit<StoredContact, 'id' | 'createdAt' | 'updatedAt'>): Promise<string>;
   updateContact(id: string, updates: Partial<StoredContact>): Promise<void>;
   getContactsByCompany(companyId: string): Promise<StoredContact[]>;
+  getContact(id: string): Promise<StoredContact | null>;
   deleteContact(id: string): Promise<void>;
 
   // ===== Activity Operations (CRM) =====
   saveActivity(activity: Omit<StoredActivity, 'id' | 'createdAt'>): Promise<string>;
   getActivitiesByCompany(companyId: string, limit?: number): Promise<StoredActivity[]>;
   getRecentActivities(limit: number): Promise<StoredActivity[]>;
+  getActivitiesByQuote(quoteId: string): Promise<StoredActivity[]>;
+  listAllActivities(): Promise<StoredActivity[]>;
   deleteActivity(id: string): Promise<void>;
 
   // ===== Notification Operations =====
@@ -190,56 +100,28 @@ export interface IDatabaseAdapter {
   markNotificationRead(id: string): Promise<void>;
   markAllNotificationsRead(userId: string): Promise<void>;
 
-  // ===== Sync Operations (Hybrid mode only) =====
-  /**
-   * Get sync status
-   */
-  getSyncStatus?(): Promise<{
-    pendingOperations: number;
-    lastSyncedAt: Date | null;
-    isOnline: boolean;
-  }>;
-
-  /**
-   * Force sync now
-   */
-  forceSyncNow?(): Promise<void>;
+  // ===== Aggregate Operations =====
+  getTableCounts(): Promise<Record<string, number>>;
+  getAttachmentsByIds(ids: string[]): Promise<{ id: string; eurCost: number }[]>;
 }
 
-// Static imports are safe here because the adapter files use `import type`
-// for IDatabaseAdapter, breaking the circular dependency at runtime.
-import { LocalDatabaseAdapter } from './LocalAdapter';
 import { SupabaseDatabaseAdapter } from './SupabaseAdapter';
-import { HybridDatabaseAdapter } from './HybridAdapter';
 
 /**
  * Singleton instance of the database adapter
- * Use this throughout the app for all database operations
+ * Always returns SupabaseDatabaseAdapter (cloud-only architecture)
  */
 let adapterInstance: IDatabaseAdapter | null = null;
 
 export function getDb(): IDatabaseAdapter {
   if (!adapterInstance) {
-    const mode = import.meta.env.VITE_APP_MODE || 'local';
-
-    switch (mode) {
-      case 'cloud':
-        adapterInstance = new SupabaseDatabaseAdapter();
-        break;
-      case 'hybrid':
-        adapterInstance = new HybridDatabaseAdapter();
-        break;
-      case 'local':
-      default:
-        adapterInstance = new LocalDatabaseAdapter();
-        break;
-    }
+    adapterInstance = new SupabaseDatabaseAdapter();
   }
   return adapterInstance;
 }
 
 /**
- * Reset the adapter instance (useful for testing or mode switching)
+ * Reset the adapter instance (useful for testing)
  */
 export function resetDbAdapter(): void {
   adapterInstance = null;

@@ -2,7 +2,7 @@
 
 Last Updated: 2026-02-19
 Owner: Documentation Maintainers
-Source of Truth Inputs: `package.json`, `scripts/start-dev.js`, `src/App.tsx`, `src/db/seed.ts`, `src/lib/supabase.ts`, `src/db/DatabaseAdapter.ts`, admin component surface under `src/components/admin/*`
+Source of Truth Inputs: `package.json`, `src/App.tsx`, `src/lib/supabase.ts`, `src/db/DatabaseAdapter.ts`, `src/db/SupabaseAdapter.ts`, admin component surface under `src/components/admin/*`
 
 ## Local Development Startup
 
@@ -17,41 +17,38 @@ npm run dev
 3. Open:
 - `http://localhost:5173`
 
-## Runtime Modes
+## Runtime Mode
 
-Configure in `.env.local`:
-- `VITE_APP_MODE=local|cloud|hybrid`
+The application operates in cloud-only mode. Supabase is the single source of truth for all data.
 
-Operational meaning:
-- `local`: no cloud dependency for data operations
-- `cloud`: Supabase-only persistence paths
-- `hybrid`: local-first with background sync queue
+Required in `.env.local`:
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+The `VITE_APP_MODE` environment variable has been removed. There is no local or hybrid mode.
 
 ## Authentication Operations
 
-Local seed behavior:
-- first seed creates local admin record if none exists
-- email: `admin@bisedge.com`
+Authentication is handled exclusively by Supabase Auth (no local password fallback).
 
-Cloud/hybrid notes:
-- Supabase session availability affects sync queue execution
-- `/test-supabase` route can be used by admin for environment and policy checks
-- In hybrid mode, quote sync enqueue is skipped until a Supabase session exists (local save still succeeds)
+- Users are managed in Supabase Auth + `public.users` table
+- The Supabase test page (`SupabaseTestPage.tsx`) is available only in local dev builds (`npm run dev`); it is excluded from production routes
+- All data operations require an active Supabase session
 
 ## Daily Operator Flow
 
-1. Login
+1. Login (Supabase Auth)
 2. Work in CRM (`/#/customers`) and quote flows (`/#/quote`, `/#/builder`)
-3. Monitor sync indicator in hybrid/cloud usage
+3. All changes persist directly to Supabase
 4. Export documents from quote flows as needed
-5. Use admin sections for configuration, users, templates, and backup/restore
+5. Use admin sections for configuration, users, templates, and operational management
 
 ## Backup and Restore
 
-Use Admin > Backup & Restore UI for operational backups.
+Backups are managed through Supabase dashboard and project settings.
 
 Runbook rule:
-- Perform backup before major data imports or bulk edits.
+- Use Supabase's built-in backup capabilities for data protection.
 - Validate restore in a controlled environment before production usage.
 
 ## Supabase Operations
@@ -63,28 +60,12 @@ When updating cloud schema/policies:
 
 ## Incident Triage Checklist
 
-1. Confirm mode (`VITE_APP_MODE`)
-2. Confirm env vars present for Supabase paths
-3. Check browser console for Supabase/auth/sync errors
-4. Inspect sync status and pending queue behavior
-5. Confirm DB seed/config load completed on startup
-
-## Known Sync Error Playbook
-
-1. Error: `null value in column "created_by" ... violates not-null constraint` (`23502`)
-- Meaning: quote payload reached cloud path without resolved creator identity
-- Current expected behavior: queue should defer quote enqueue until authenticated session and inject session user as `created_by`
-- Action: verify user is logged in and session is active; then trigger sync repair if needed
-
-2. Error: `duplicate key value violates unique constraint "quotes_quote_ref_key"` (`23505`)
-- Meaning: quote reference collision between local/cloud sequences
-- Current expected behavior: treated as recoverable retry (not permanent blocklist), with automatic `quote_ref` regeneration before retry
-- Action: verify hybrid quote ref generation is cloud-aware and allow retry loop; repair queue if legacy blocked entries exist
-
-3. Warning: `Skipping sync — no authenticated Supabase session`
-- Meaning: queue processor running before/without cloud auth
-- Current expected behavior: no cloud sync attempted until session exists
-- Action: complete login and recheck queue processing; duplicate/revision/repair enqueue paths should also remain deferred until session exists
+1. Confirm Supabase env vars are present and correct (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`)
+2. Check browser console for Supabase/auth errors
+3. Verify user has an active Supabase auth session
+4. In local dev, use the Supabase test page to check connectivity and RLS policy status
+5. Confirm config load completed on startup
+6. Check Supabase dashboard for service status, quota limits, and error logs
 
 ## Documentation Operations
 
@@ -95,14 +76,15 @@ After each implementation session:
 
 ## Validation Basis
 
-Validated from scripts, adapter mode factory, Supabase client behavior, and route/admin surfaces.
+Validated from scripts, SupabaseAdapter behavior, Supabase client initialization, and route/admin surfaces.
 
 ## Out-of-Date Risk
 
 Update when changing:
 - npm scripts or startup command behavior
-- adapter modes and env flags
-- admin operational flows (backup/restore, users, templates)
+- Supabase env requirements or feature flags
+- admin operational flows (users, templates)
+- Supabase schema or RPC functions
 
 ## Related Docs
 

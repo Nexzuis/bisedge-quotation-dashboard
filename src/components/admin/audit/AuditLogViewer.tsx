@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from '../../ui/Toast';
 import { Eye, Download } from 'lucide-react';
-import { db } from '../../../db/schema';
+import { getDb } from '../../../db/DatabaseAdapter';
 import type { AuditLogEntry } from '../../../db/interfaces';
 import { Badge } from '../../ui/Badge';
 import * as XLSX from 'xlsx';
@@ -35,7 +35,7 @@ const AuditLogViewer = () => {
   const loadLogs = async () => {
     try {
       setLoading(true);
-      const allLogs = await db.auditLog.orderBy('timestamp').reverse().toArray();
+      const allLogs = await getDb().listAuditLog();
       setLogs(allLogs);
     } catch (error) {
       console.error('Failed to load audit logs:', error);
@@ -47,7 +47,7 @@ const AuditLogViewer = () => {
 
   const loadUsers = async () => {
     try {
-      const allUsers = await db.users.toArray();
+      const allUsers = await getDb().listUsers();
       setUsers(allUsers.map(u => u.id).filter((id): id is string => id !== undefined));
     } catch (error) {
       console.error('Failed to load users:', error);

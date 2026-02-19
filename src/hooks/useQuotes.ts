@@ -10,7 +10,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
 import { getDb } from '../db/DatabaseAdapter';
-import { isCloudMode } from '../lib/supabase';
 import { ROLE_HIERARCHY, type Role } from '../auth/permissions';
 import type { StoredQuote, QuoteFilter, PaginationOptions } from '../db/interfaces';
 import type { QuoteState } from '../types/quote';
@@ -48,27 +47,11 @@ export function useQuotes() {
         // Apply role-based filtering
         let roleFilters: QuoteFilter = { ...filters };
 
-        // In local mode, apply filtering manually
-        if (!isCloudMode()) {
-          // Role-based filtering will happen in the component layer
-          // For now, just fetch all quotes
-        }
-
         // Fetch quotes (RLS policies in Supabase handle filtering automatically)
         const result = await db.listQuotes(paginationOptions, roleFilters);
 
-        // Additional client-side filtering for local mode
-        let filteredQuotes = result.items;
-
-        if (!isCloudMode() && (ROLE_HIERARCHY[user.role as Role] || 0) < 2) {
-          // Sales rep / key account: filter to own quotes
-          filteredQuotes = filteredQuotes.filter(
-            (q: any) => q.createdBy === user.id || q.assignedTo === user.id
-          );
-        }
-
-        setQuotes(filteredQuotes);
-        console.log(`✅ Loaded ${filteredQuotes.length} quotes for role: ${user.role}`);
+        setQuotes(result.items);
+        console.log(`✅ Loaded ${result.items.length} quotes for role: ${user.role}`);
       } catch (err) {
         console.error('Error loading quotes:', err);
         setError(err instanceof Error ? err.message : 'Failed to load quotes');
@@ -95,14 +78,7 @@ export function useQuotes() {
 
       try {
         const db = getDb();
-        let results = await db.searchQuotes(query);
-
-        // Apply role-based filtering
-        if (!isCloudMode() && (ROLE_HIERARCHY[user.role as Role] || 0) < 2) {
-          results = results.filter(
-            (q: any) => q.createdBy === user.id || q.assignedTo === user.id
-          );
-        }
+        const results = await db.searchQuotes(query);
 
         setQuotes(results);
         console.log(`🔍 Found ${results.length} quotes matching: "${query}"`);

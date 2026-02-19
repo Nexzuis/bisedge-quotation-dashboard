@@ -5,7 +5,7 @@ import { Badge } from '../ui/Badge';
 import { formatZAR, formatDate, formatPercentage } from '../../engine/formatters';
 import { storedToQuote } from '../../db/serialization';
 import { calcSlotPricingFull } from '../../engine/calculationEngine';
-import { db } from '../../db/schema';
+import { getDb } from '../../db/DatabaseAdapter';
 import type { StoredQuote } from '../../db/interfaces';
 import type { QuoteState, QuoteStatus } from '../../types/quote';
 
@@ -71,7 +71,7 @@ export function QuoteComparisonModal({ isOpen, onClose, initialQuoteId }: QuoteC
   useEffect(() => {
     if (!isOpen) return;
     const loadQuotes = async () => {
-      const quotes = await db.quotes.orderBy('createdAt').reverse().limit(50).toArray();
+      const quotes = await getDb().listQuotes({ page: 1, pageSize: 50, sortBy: 'createdAt', sortOrder: 'desc' }).then((r) => r.items);
       setAllQuotes(quotes);
       if (initialQuoteId) {
         setLeftId(initialQuoteId);

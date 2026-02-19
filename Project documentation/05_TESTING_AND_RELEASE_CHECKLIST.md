@@ -38,15 +38,16 @@ Core routes:
 7. `/admin/*` renders for admin-level users
 8. `/notifications` loads notification inbox
 
-Data and persistence:
-1. Quote save/load roundtrip works
+Data and persistence (Supabase-only):
+1. Quote save/load roundtrip works via Supabase
 2. Config load after startup works
-3. In hybrid mode, queue operations appear and process when online/authenticated
+3. All CRUD operations execute against Supabase tables
 
-Supabase checks (cloud/hybrid):
+Supabase checks:
 1. `.env.local` contains valid Supabase URL/key
-2. `/test-supabase` reports successful connectivity
+2. In local dev, Supabase test page reports successful connectivity
 3. CRUD path works for at least one protected table under current role
+4. Company merge RPC function executes correctly
 
 ## Release Gate Checklist
 
@@ -55,7 +56,10 @@ Block release if any of the following are true:
 2. Build fails
 3. Automated tests fail
 4. Critical route smoke test fails
-5. Mode-specific data persistence fails in target deployment mode
+5. Supabase data persistence fails (CRUD operations against cloud tables)
+6. Quote locking does not include stale timeout (1 hour)
+7. `merge_companies` RPC does not handle all 20 frontend fields
+8. Priority hook files contain `console.log`/`console.warn`/`console.error` calls (must use `logger`)
 
 ## Documentation Gate
 
@@ -81,11 +85,8 @@ Before tagging/releasing:
 | Negative numbers clamped in QuoteSettingsStep | Manual | Enter -5 in ROE field, should clamp to 0 |
 | LoadQuoteModal reopens with clean state | Manual | Close and reopen, search/filter should be reset |
 | Most modals close on Escape and backdrop click | Manual | Test each modal; New Lead modal on CustomerListPage now included |
-| Hybrid quote autosave does not enqueue before auth session | Manual | Open quote unauthenticated in hybrid mode; no quote sync enqueue should occur |
-| Quote sync payload always has `created_by` | Manual | In hybrid mode after login, save quote and confirm no `23502 created_by null` |
-| Quote `23505` is retried and not permanently blocklisted | Manual | Force quote_ref collision and confirm it is treated as retryable |
-| Quote `23505` remediation changes payload `quote_ref` before retry | Manual | Confirm conflict logs show remediated ref and next attempt uses new `quote_ref` |
-| Duplicate/Revision/Repair queue paths defer until session exists | Manual | In hybrid mode without session, these paths should not enqueue quote cloud payloads |
+| Quote save persists to Supabase with `created_by` | Manual | Save quote after login, confirm row appears in Supabase `quotes` table |
+| Company merge RPC executes correctly | Manual | Merge two companies, confirm contacts/quotes reassigned and source deleted |
 | Login password field has `autocomplete=\"current-password\"` | Manual | Inspect login form DOM attributes |
 
 ## Validation Basis

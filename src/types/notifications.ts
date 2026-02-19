@@ -1,23 +1,7 @@
 /**
  * Notification types for the Bisedge CRM + Quotation Dashboard.
  *
- * SCHEMA MIGRATION NOTE:
- * Add the following table declaration to BisedgeDatabase in src/db/schema.ts:
- *
- *   // In the class body, alongside the other Table declarations:
- *   notifications!: Table<StoredNotification, string>;
- *
- *   // In the version(6).stores({...}) call (new version), add:
- *   notifications: 'id, userId, type, isRead, createdAt, [userId+isRead]',
- *
- * Full version 6 entry example:
- *
- *   this.version(6).stores({
- *     // ...all existing v5 table definitions unchanged...
- *     notifications: 'id, userId, type, isRead, createdAt, [userId+isRead]',
- *   });
- *
- * Also add `notifications` to the clearDatabase() helper if desired.
+ * Notifications are stored in the Supabase `notifications` table.
  */
 
 export type NotificationType =

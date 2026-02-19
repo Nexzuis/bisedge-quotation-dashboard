@@ -8,7 +8,6 @@ import ConfigurationMatrixManagement from './configuration/ConfigurationMatrixMa
 import UserManagement from './users/UserManagement';
 import TemplateManagement from './templates/TemplateManagement';
 import AuditLogViewer from './audit/AuditLogViewer';
-import BackupRestore from './backup/BackupRestore';
 import { ApprovalDashboard } from './approvals/ApprovalDashboard';
 import { AlertCircle, RotateCcw, Menu, X, ShieldX } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
@@ -157,7 +156,6 @@ const AdminLayout = () => {
               <Route path="users" element={<RequirePermission resource="admin:users"><UserManagement /></RequirePermission>} />
               <Route path="templates" element={<RequirePermission resource="admin:templates"><TemplateManagement /></RequirePermission>} />
               <Route path="audit" element={<RequirePermission resource="admin:audit"><AuditLogViewer /></RequirePermission>} />
-              <Route path="backup" element={<RequirePermission resource="admin:backup"><BackupRestore /></RequirePermission>} />
               <Route path="*" element={<Navigate to="pricing" replace />} />
             </Routes>
           </AdminErrorBoundary>

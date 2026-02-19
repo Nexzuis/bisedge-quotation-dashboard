@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Role, PermissionOverrides } from '../auth/permissions';
+import { supabase } from '../lib/supabase';
+import { getDb } from '../db/DatabaseAdapter';
 
 interface User {
   id: string;
@@ -19,45 +21,9 @@ interface AuthState {
   checkAuth: () => Promise<boolean>;
 }
 
-/**
- * Try Supabase Auth login (for hybrid/cloud mode).
- * Returns the user record from public.users if successful, or null.
- */
-async function trySupabaseLogin(email: string, password: string) {
-  try {
-    const { supabase } = await import('../lib/supabase');
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (authError || !authData.user) return null;
-
-    // Fetch the user record from public.users by auth ID
-    const { data: dbUser, error: dbError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', authData.user.id)
-      .single();
-
-    if (dbError || !dbUser) {
-      console.warn('Supabase auth succeeded but no matching public.users row for', authData.user.id);
-      return null;
-    }
-    if (!dbUser.is_active) return null;
-
-    return {
-      id: dbUser.id,
-      username: dbUser.email || email,
-      role: dbUser.role as Role,
-      fullName: dbUser.full_name || email,
-      email: dbUser.email || email,
-      permissionOverrides: '{}',
-    };
-  } catch (err) {
-    console.warn('Supabase login failed (may be offline):', err);
-    return null;
-  }
-}
+// ---------------------------------------------------------------------------
+// In-memory rate limiting / lockout (no persistence needed)
+// ---------------------------------------------------------------------------
 
 interface LoginAttemptState {
   failedCount: number;
@@ -88,21 +54,21 @@ async function logAuthSecurityEvent(
   identifier: string
 ): Promise<void> {
   try {
-    const { db } = await import('../db/schema');
-    await db.auditLog.add({
-      timestamp: new Date().toISOString(),
+    await getDb().logAudit({
       userId: 'system',
-      userName: identifier,
       action,
       entityType: 'user',
       entityId: identifier,
       changes: { identifier },
-      notes: action === 'lockout' ? 'Temporary lockout triggered by failed login attempts' : undefined,
     });
   } catch {
     // Non-critical
   }
 }
+
+// ---------------------------------------------------------------------------
+// Store
+// ---------------------------------------------------------------------------
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -111,16 +77,17 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
 
       login: async (emailOrUsername: string, password: string) => {
-        const appMode = import.meta.env.VITE_APP_MODE || 'local';
         const loginKey = normalizeLoginKey(emailOrUsername);
         const existingAttempt = LOGIN_ATTEMPTS.get(loginKey);
         const now = Date.now();
 
+        // Lockout check
         if (existingAttempt?.lockUntil && now < existingAttempt.lockUntil) {
           await logAuthSecurityEvent('lockout', loginKey);
           return false;
         }
 
+        // Progressive delay
         await sleep(getProgressiveDelayMs(existingAttempt?.failedCount ?? 0));
 
         const registerFailedAttempt = async () => {
@@ -143,197 +110,78 @@ export const useAuthStore = create<AuthState>()(
           LOGIN_ATTEMPTS.delete(loginKey);
         };
 
-        // In hybrid or cloud mode, try Supabase Auth first
-        if (appMode === 'hybrid' || appMode === 'cloud') {
-          const supaUser = await trySupabaseLogin(emailOrUsername, password);
-          if (supaUser) {
-            clearFailedAttempts();
-            // Parse permission overrides
-            let permissionOverrides: PermissionOverrides = {};
-            try {
-              if (supaUser.permissionOverrides) {
-                permissionOverrides = JSON.parse(supaUser.permissionOverrides);
-              }
-            } catch {
-              permissionOverrides = {};
-            }
+        // Supabase authentication
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email: emailOrUsername,
+          password,
+        });
 
-            set({
-              user: {
-                id: supaUser.id,
-                username: supaUser.username,
-                role: supaUser.role,
-                fullName: supaUser.fullName,
-                email: supaUser.email,
-                permissionOverrides,
-              },
-              isAuthenticated: true,
-            });
-
-            // Seed user into local IndexedDB for offline access
-            try {
-              const { db } = await import('../db/schema');
-              const bcrypt = await import('bcryptjs');
-              const passwordHash = await bcrypt.hash(password, 10);
-              await db.users.put({
-                id: supaUser.id,
-                username: supaUser.email,
-                passwordHash,
-                role: supaUser.role,
-                fullName: supaUser.fullName,
-                email: supaUser.email,
-                isActive: true,
-                createdAt: new Date().toISOString(),
-                permissionOverrides: supaUser.permissionOverrides || '{}',
-              });
-            } catch (seedErr) {
-              console.warn('Could not seed user to local DB:', seedErr);
-            }
-
-            // Log login action
-            try {
-              const { db } = await import('../db/schema');
-              await db.auditLog.add({
-                timestamp: new Date().toISOString(),
-                userId: supaUser.id,
-                userName: supaUser.fullName,
-                action: 'login',
-                entityType: 'user',
-                entityId: supaUser.id,
-                changes: {},
-              });
-            } catch {
-              // Non-critical
-            }
-
-            // Auto-repair: clear old sync failures and re-enqueue all local data
-            // so previously-blocked entities get synced with the now-valid session
-            try {
-              const { getDb } = await import('../db/DatabaseAdapter');
-              const adapter = getDb() as any;
-              if (typeof adapter.repairStuckSyncs === 'function') {
-                adapter.repairStuckSyncs().then((count: number) => {
-                  console.log(`🔧 Post-login sync repair: ${count} entities re-queued`);
-                }).catch((err: any) => {
-                  console.warn('Post-login sync repair failed:', err);
-                });
-              }
-            } catch {
-              // Non-critical
-            }
-
-            return true;
-          }
+        if (authError || !authData.user) {
+          return await registerFailedAttempt();
         }
 
-        // Local / offline fallback: check IndexedDB with bcrypt
-        const { db } = await import('../db/schema');
-        const bcrypt = await import('bcryptjs');
+        // Fetch user row from public.users
+        const { data: dbUser, error: dbError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', authData.user.id)
+          .single();
 
-        // Try by username first, then by email
-        let user = await db.users
-          .where('username')
-          .equals(emailOrUsername)
-          .first();
-
-        if (!user) {
-          user = await db.users
-            .where('email')
-            .equals(emailOrUsername)
-            .first();
+        if (dbError || !dbUser || !dbUser.is_active) {
+          set({ user: null, isAuthenticated: false });
+          return await registerFailedAttempt();
         }
 
-        if (!user) return await registerFailedAttempt();
-        if (!user.isActive) return await registerFailedAttempt();
-
-        const isValid = await bcrypt.compare(password, user.passwordHash);
-        if (!isValid) return await registerFailedAttempt();
-
-        // In hybrid mode, also sign into Supabase Auth so the session
-        // exists for sync queue operations (RLS requires authenticated session)
-        if (appMode === 'hybrid' || appMode === 'cloud') {
-          try {
-            const { supabase } = await import('../lib/supabase');
-            const email = user.email || emailOrUsername;
-            await supabase.auth.signInWithPassword({ email, password });
-          } catch {
-            console.warn('Local login succeeded but Supabase session not established — sync will be skipped');
-          }
-        }
-
-        // Parse permission overrides from stored JSON string
+        // Parse permission overrides
         let permissionOverrides: PermissionOverrides = {};
         try {
-          if (user.permissionOverrides) {
-            permissionOverrides = JSON.parse(user.permissionOverrides);
+          if (dbUser.permission_overrides) {
+            permissionOverrides = JSON.parse(dbUser.permission_overrides);
           }
         } catch {
           permissionOverrides = {};
         }
 
+        const userId = dbUser.id as string;
+
         set({
           user: {
-            id: user.id!,
-            username: user.username,
-            role: user.role as Role,
-            fullName: user.fullName,
-            email: user.email,
+            id: userId,
+            username: dbUser.email || emailOrUsername,
+            role: dbUser.role as Role,
+            fullName: dbUser.full_name || emailOrUsername,
+            email: dbUser.email || emailOrUsername,
             permissionOverrides,
           },
           isAuthenticated: true,
         });
 
-        // Log login action
-        await db.auditLog.add({
-          timestamp: new Date().toISOString(),
-          userId: user.id!,
-          userName: user.fullName,
-          action: 'login',
-          entityType: 'user',
-          entityId: user.id!,
-          changes: {},
-        });
+        // Audit log
+        try {
+          await getDb().logAudit({
+            userId,
+            action: 'login',
+            entityType: 'user',
+            entityId: userId,
+            changes: {},
+          });
+        } catch {
+          // Non-critical
+        }
 
         clearFailedAttempts();
         return true;
       },
 
       logout: async () => {
-        // 1. Sign out of Supabase
-        const appMode = import.meta.env.VITE_APP_MODE || 'local';
-        if (appMode === 'hybrid' || appMode === 'cloud') {
-          try {
-            const { supabase } = await import('../lib/supabase');
-            await supabase.auth.signOut();
-          } catch {
-            // Non-critical
-          }
-        }
-
-        // 2. Clear user-specific IndexedDB tables (keep config/seed data)
+        // Sign out of Supabase
         try {
-          const { db } = await import('../db/schema');
-          await Promise.all([
-            db.quotes.clear(),
-            db.companies.clear(),
-            db.contacts.clear(),
-            db.activities.clear(),
-            db.notifications.clear(),
-            db.auditLog.clear(),
-          ]);
-        } catch {
-          // Non-critical — DB may not be open yet
-        }
-
-        // 3. Clear sync queue from localStorage
-        try {
-          localStorage.removeItem('bisedge_sync_queue');
-          localStorage.removeItem('bisedge_sync_permanent_failures');
+          await supabase.auth.signOut();
         } catch {
           // Non-critical
         }
 
-        // 4. Reset quote store to prevent stale data in memory
+        // Reset quote store to prevent stale data in memory
         try {
           const { useQuoteStore } = await import('./useQuoteStore');
           useQuoteStore.getState().resetAll();
@@ -341,58 +189,57 @@ export const useAuthStore = create<AuthState>()(
           // Non-critical
         }
 
-        // 5. Clear auth state
+        // Clear auth state
         set({ user: null, isAuthenticated: false });
       },
 
       checkAuth: async () => {
-        const { user } = get();
-        if (!user) return false;
+        const { data: { session } } = await supabase.auth.getSession();
 
-        // Verify user still exists and is active
-        const { db } = await import('../db/schema');
-        const dbUser = await db.users.get(user.id);
-        if (!dbUser || !dbUser.isActive) {
-          // In hybrid mode, also check Supabase
-          const appMode = import.meta.env.VITE_APP_MODE || 'local';
-          if (appMode === 'hybrid' || appMode === 'cloud') {
-            try {
-              const { supabase } = await import('../lib/supabase');
-              const { data } = await supabase
-                .from('users')
-                .select('*')
-                .eq('id', user.id)
-                .single();
-              if (data && data.is_active) {
-                return true;
-              }
-            } catch {
-              // Offline — keep session if we have local data
-              if (dbUser) return true;
-            }
-          }
+        if (!session) {
           set({ user: null, isAuthenticated: false });
           return false;
         }
 
-        // Re-sync permission overrides from DB
+        const { data: dbUser, error: dbError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (dbError || !dbUser || !dbUser.is_active) {
+          set({ user: null, isAuthenticated: false });
+          return false;
+        }
+
+        // Parse permission overrides
         let permissionOverrides: PermissionOverrides = {};
         try {
-          if (dbUser.permissionOverrides) {
-            permissionOverrides = JSON.parse(dbUser.permissionOverrides);
+          if (dbUser.permission_overrides) {
+            permissionOverrides = JSON.parse(dbUser.permission_overrides);
           }
         } catch {
           permissionOverrides = {};
         }
 
+        const { user } = get();
+
         // Update role and overrides if they changed
-        if (dbUser.role !== user.role || JSON.stringify(permissionOverrides) !== JSON.stringify(user.permissionOverrides)) {
+        if (
+          !user ||
+          dbUser.role !== user.role ||
+          JSON.stringify(permissionOverrides) !== JSON.stringify(user.permissionOverrides)
+        ) {
           set({
             user: {
-              ...user,
+              id: dbUser.id,
+              username: dbUser.email,
               role: dbUser.role as Role,
+              fullName: dbUser.full_name,
+              email: dbUser.email,
               permissionOverrides,
             },
+            isAuthenticated: true,
           });
         }
 

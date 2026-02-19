@@ -15,12 +15,11 @@ const ReportsPage = lazy(() => import('./components/crm/reporting/ReportsPage'))
 const NotificationsPage = lazy(() => import('./components/notifications/NotificationsPage'));
 const QuotesListPage = lazy(() => import('./components/quotes/QuotesListPage'));
 
-import SupabaseTestPage from './components/SupabaseTestPage';
 import { ToastProvider } from './components/ui/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import NotFoundPage from './components/NotFoundPage';
 import { GlobalSearch } from './components/GlobalSearch';
-import { seedDatabaseIfEmpty } from './db/seed';
+
 import { useQuoteDB } from './hooks/useQuoteDB';
 import { useConfigStore } from './store/useConfigStore';
 import { useUnsavedChanges } from './hooks/useUnsavedChanges';
@@ -64,8 +63,8 @@ function AppContent() {
   const { loadMostRecent } = useQuoteDB();
   const { isAuthenticated } = useAuth();
   const location = useLocation();
-  const seededRef = useRef(false);
   const initialQuoteLoadRef = useRef(false);
+  const configLoadedRef = useRef(false);
 
   // Expose saveNow for the keyboard shortcut so Ctrl+S reuses the same
   // save path as the auto-save debounce (handles version locking, toasts, etc.).
@@ -78,14 +77,13 @@ function AppContent() {
   // Ctrl+K is intentionally excluded — GlobalSearch.tsx owns that shortcut.
   useKeyboardShortcuts({ onSave: autoSave.saveNow });
 
-  // One-time database seed + config load
+  // One-time config load
   useEffect(() => {
-    if (seededRef.current) return;
-    seededRef.current = true;
+    if (configLoadedRef.current) return;
+    configLoadedRef.current = true;
 
-    const initializeDB = async () => {
+    const initializeApp = async () => {
       try {
-        await seedDatabaseIfEmpty();
         await useConfigStore.getState().loadConfig();
       } catch (error) {
         console.error('Failed to initialize app:', error);
@@ -95,7 +93,7 @@ function AppContent() {
       }
     };
 
-    initializeDB();
+    initializeApp();
   }, []);
 
   // Auth-dependent quote load with cancellation
@@ -166,11 +164,6 @@ function AppContent() {
     <AutoSaveContextProvider value={autoSave}>
       <Routes>
       <Route path="/login" element={<LoginPage />} />
-
-      {/* Supabase Connection Test Page */}
-      <Route path="/test-supabase" element={
-        <RequireAuth><RequireAdmin><SupabaseTestPage /></RequireAdmin></RequireAuth>
-      } />
 
       {/* Home Dashboard — role-aware landing page */}
       <Route path="/" element={

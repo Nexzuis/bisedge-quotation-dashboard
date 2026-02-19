@@ -1,5 +1,5 @@
 import type { ZAR } from '../types/quote';
-import { db } from '../db/schema';
+import { getDb } from '../db/DatabaseAdapter';
 
 export interface CommissionTier {
   minMargin: number;
@@ -19,7 +19,7 @@ export interface CommissionTier {
  */
 export async function calcCommission(totalSales: ZAR, marginPct: number): Promise<ZAR> {
   try {
-    const tiers = await db.commissionTiers.orderBy('minMargin').toArray();
+    const tiers = await getDb().getCommissionTiers();
     const tier = tiers.find(
       (t) => marginPct >= t.minMargin && marginPct < t.maxMargin
     );
@@ -64,7 +64,7 @@ export function calcCommissionSync(
  */
 export async function getCommissionTier(marginPct: number): Promise<CommissionTier | null> {
   try {
-    const tiers = await db.commissionTiers.orderBy('minMargin').toArray();
+    const tiers = await getDb().getCommissionTiers();
     const tier = tiers.find(
       (t) => marginPct >= t.minMargin && marginPct < t.maxMargin
     );
@@ -90,7 +90,7 @@ export async function getCommissionTier(marginPct: number): Promise<CommissionTi
  */
 export async function getAllCommissionTiers(): Promise<CommissionTier[]> {
   try {
-    const tiers = await db.commissionTiers.orderBy('minMargin').toArray();
+    const tiers = await getDb().getCommissionTiers();
     return tiers.map((t) => ({
       minMargin: t.minMargin,
       maxMargin: t.maxMargin,

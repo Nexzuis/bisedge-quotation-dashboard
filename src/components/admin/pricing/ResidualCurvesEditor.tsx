@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useResidualCurves, saveResidualCurves, getResidualCurveImpact } from '../../../hooks/usePricingConfig';
 import { validateResidualCurve } from './validators';
 import { useAuth } from '../../auth/AuthContext';
-import type { StoredResidualCurve } from '../../../db/schema';
+import type { StoredResidualCurve } from '../../../db/interfaces';
 import { CheckCircle2, AlertCircle, Save, TrendingDown } from 'lucide-react';
 
 const ResidualCurvesEditor = () => {

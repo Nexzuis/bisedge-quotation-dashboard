@@ -2,17 +2,16 @@
 
 Last Updated: 2026-02-19
 Owner: Documentation Maintainers
-Source of Truth Inputs: `src/App.tsx`, `src/db/schema.ts`, `src/db/seed.ts`, `src/auth/permissions.ts`, `src/db/DatabaseAdapter.ts`, `package.json`, `.env.example`, `WHAT_THIS_TOOL_IS.md`
+Source of Truth Inputs: `src/App.tsx`, `src/auth/permissions.ts`, `src/db/DatabaseAdapter.ts`, `src/db/SupabaseAdapter.ts`, `package.json`, `.env.example`, `WHAT_THIS_TOOL_IS.md`
 
 ## Purpose
 
-Bisedge Quotation Dashboard is a local-first quotation and CRM system for forklift sales/rental operations, with optional cloud synchronization to Supabase.
+Bisedge Quotation Dashboard is a cloud-only quotation and CRM system for forklift sales/rental operations, with Supabase as the single source of truth.
 
 Primary outcomes:
 - Build and maintain quotes quickly
 - Track CRM pipeline activity
-- Preserve operation in offline conditions
-- Sync safely when internet/auth are available
+- Real-time multi-user collaboration via Supabase
 
 ## Scope
 
@@ -23,8 +22,9 @@ In scope:
 - Notifications and approval workflows
 
 Out of scope:
-- Server-side custom API layer (app talks directly to Supabase in cloud/hybrid modes)
+- Server-side custom API layer (app talks directly to Supabase)
 - Native mobile client
+- Offline/local-first operation (removed in February 2026 hard cutover)
 
 ## Users and Roles
 
@@ -44,27 +44,23 @@ Role permissions combine:
 
 - Framework: React 19 + TypeScript + Vite
 - Router: HashRouter
-- Local database: Dexie IndexedDB, DB name `BisedgeQuotationDB`
-- Schema migration level: version 6
-- Cloud backend: Supabase (optional by mode)
+- Database: Supabase (PostgreSQL) -- single source of truth
+- Cloud backend: Supabase (always required)
 
-Adapter mode (`VITE_APP_MODE`):
-- `local`: IndexedDB only
-- `cloud`: Supabase adapter
-- `hybrid`: local-first plus sync queue
+Architecture: Cloud-only with Supabase as single source of truth. No local database, no IndexedDB, no offline mode. The `VITE_APP_MODE` environment variable has been removed.
 
 ## Operational Baselines
 
-Current seed defaults (`src/db/seed.ts`):
+Default configuration values (managed via Supabase `settings` table):
 - `defaultROE`: 19.73
 - `defaultFactoryROE`: 19.73
 - `defaultInterestRate`: 9.5
 - `defaultLeaseTerm`: 60
 - `defaultOperatingHours`: 180
 
-Seeded admin behavior:
-- local admin record uses email `admin@bisedge.com`
-- password comes from `VITE_DEFAULT_ADMIN_PASSWORD` or is generated at first seed
+Admin user:
+- Managed via Supabase Auth and `public.users` table
+- No local seed file (removed in hard cutover)
 
 ## Documentation Policy
 
@@ -82,10 +78,10 @@ Validated from direct code inspection of entrypoints, schema migrations, auth ro
 ## Out-of-Date Risk
 
 Refresh this document when any of these change:
-- `src/db/schema.ts` (new stores/migrations)
 - `src/auth/permissions.ts` (roles/permissions)
-- `src/db/seed.ts` (defaults or bootstrap users)
-- `src/db/DatabaseAdapter.ts` (mode behavior)
+- `src/db/DatabaseAdapter.ts` (adapter behavior)
+- `src/db/SupabaseAdapter.ts` (Supabase table/method surface)
+- Supabase schema (tables, RLS policies, RPC functions)
 
 ## Related Docs
 

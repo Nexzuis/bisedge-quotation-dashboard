@@ -2,7 +2,7 @@
 
 Last Updated: 2026-02-19
 Owner: Documentation Maintainers
-Source of Truth Inputs: `src/lib/supabase.ts`, `src/store/useAuthStore.ts`, `src/db/SupabaseAdapter.ts`, `src/db/HybridAdapter.ts`, `src/sync/SyncQueue.ts`, `.env.example`, `Project documentation/SUPABASE_MASTER_CURRENT_STATE.sql`
+Source of Truth Inputs: `src/lib/supabase.ts`, `src/store/useAuthStore.ts`, `src/db/SupabaseAdapter.ts`, `.env.example`, `Project documentation/SUPABASE_MASTER_CURRENT_STATE.sql`
 
 ## Environment Variables
 
@@ -10,13 +10,15 @@ Required by `src/lib/supabase.ts`:
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
 
-Mode and feature flags:
-- `VITE_APP_MODE=local|cloud|hybrid`
-- `VITE_ENABLE_OFFLINE`
+Feature flags:
 - `VITE_ENABLE_REALTIME`
 - `VITE_ENABLE_PRESENCE`
 - `VITE_PRESENCE_HEARTBEAT_MS`
-- `VITE_SYNC_INTERVAL_MS`
+
+Removed flags (February 2026 hard cutover):
+- `VITE_APP_MODE` -- removed (no mode switching)
+- `VITE_ENABLE_OFFLINE` -- removed (no offline support)
+- `VITE_SYNC_INTERVAL_MS` -- removed (no sync queue)
 
 Important behavior:
 - Supabase client module validates URL/key at module load and throws if missing.
@@ -38,11 +40,11 @@ The master SQL includes the previously applied chain:
 
 ## Auth Model
 
-Auth logic is centralized through auth store/context and may use both cloud and local behavior depending on mode.
+Auth logic is centralized through auth store/context. Supabase Auth is the only authentication path (no local bcrypt fallback).
 
 Key points:
-- Supabase auth session is required for RLS-protected sync operations.
-- User role/permissions are mapped from app user records (`public.users` in cloud paths and local `users` store in local paths).
+- Supabase auth session is required for all data operations (RLS-enforced).
+- User role/permissions are mapped from `public.users` table in Supabase.
 - Login/logout paths update app-local auth state and related cache data.
 
 ## Live Snapshot Alignment (2026-02-19)
@@ -56,53 +58,25 @@ The canonical master SQL has been aligned to the current Supabase state you prov
 
 ## Adapter Behavior
 
-`local` mode:
-- IndexedDB only
+Cloud-only architecture (since February 2026 hard cutover):
+- `SupabaseAdapter` is the sole adapter implementation
+- All CRUD operations execute directly against Supabase tables
+- No local persistence layer, no sync queue, no offline fallback
+- All React data hooks use `useState` + `useEffect` patterns (no `useLiveQuery`)
 
-`cloud` mode:
-- Supabase adapter executes CRUD directly against Supabase tables
+Removed components:
+- `LocalAdapter.ts`, `HybridAdapter.ts` -- deleted
+- `SyncQueue.ts`, `ConflictResolver.ts` -- deleted
+- IndexedDB/Dexie layer -- removed entirely
+- Mode switching (`VITE_APP_MODE`) -- removed
 
-`hybrid` mode:
-- Save locally first, queue cloud sync in background
-- Reads prioritize local cache with cloud refresh patterns depending on method
-- Quote autosave/save queueing is deferred until an authenticated Supabase session exists
-- Quote payload preparation enforces non-null `created_by` (falls back to current Supabase session user)
-- Quote duplicate/revision enqueue paths and sync-repair enqueue paths also require authenticated Supabase session
+Quotes shipping detail:
+- `src/db/SupabaseAdapter.ts` reads and writes `quotes.shipping_entries`
+- `shipping_entries` is serialized from `quote.shippingEntries`
+- Read-path handles both text (`JSON.parse`) and JSONB array return shapes
 
-Quotes shipping sync detail:
-- `src/db/SupabaseAdapter.ts` now reads and writes `quotes.shipping_entries`.
-- Expected payload behavior: `shipping_entries` is serialized from `quote.shippingEntries`.
-- Read-path compatibility: adapter handles both text (`JSON.parse`) and JSONB array return shapes.
-- Without this column/payload mapping, shipping data persists only locally and is lost on cloud-only restore/new-device scenarios.
-
-## Sync Queue Model (`src/sync/SyncQueue.ts`)
-
-Queue storage:
-- localStorage key: `bisedge_sync_queue`
-- permanent-failure key: `bisedge_sync_permanent_failures`
-
-Processing:
-- serialized processing chain prevents concurrent queue runs
-- queue only processes when online and authenticated session exists
-
-Entity priority (parent first):
-1. `company` / `user`
-2. `contact` / `customer`
-3. `activity` / `notification`
-4. `quote`
-
-Retry/error behavior:
-- FK violation (`23503`): retried up to 10 attempts
-- transient failures: retried up to 5 attempts
-- quote duplicate-ref conflict (`23505` on `quotes`): treated as recoverable/retriable (not permanent blocklist)
-- quote duplicate-ref conflict remediation: queue regenerates `quote_ref` and updates local quote before retry
-- permanent error code blocklist: `42703`, `42P01`
-- permanent failures are blocklisted from re-enqueue until cleared
-
-Quote reference generation (`hybrid` mode):
-- Local ref generation is always available for offline operation
-- When online and authenticated, next quote ref is cloud-aware (compares local/cloud next refs and uses the higher sequence)
-- If cloud upsert returns quote-ref conflict, the queue requests a fresh next ref and retries with updated payload
+Company merge:
+- Implemented via Supabase RPC function for atomic merge operations
 
 ## Supabase Table Surface Used in Code
 
@@ -122,22 +96,22 @@ Frequently used tables include:
 
 ## Operational Guardrails
 
-1. Keep schema and RLS files in sync with app adapter expectations.
-2. Confirm auth session availability before expecting sync processing.
-3. When debugging sync issues, inspect queue entries and permanent failure blocklist.
-4. For hybrid mode validation, test create/update/delete in offline then online transition.
+1. Keep Supabase schema and RLS policies in sync with app adapter expectations.
+2. Confirm Supabase auth session is available before data operations.
+3. Monitor Supabase dashboard for query performance and error rates.
+4. Test CRUD operations against protected tables under each role.
 
 ## Validation Basis
 
-Validated by reading Supabase client initialization, adapter implementations, auth store cloud integration, and queue implementation details.
+Validated by reading Supabase client initialization, SupabaseAdapter implementation, auth store cloud integration, and RPC function definitions.
 
 ## Out-of-Date Risk
 
 Update this document when any of these change:
-- `src/lib/supabase.ts` env requirements or mode flags
-- `src/sync/SyncQueue.ts` priority/retry logic
-- `src/db/SupabaseAdapter.ts` table usage
+- `src/lib/supabase.ts` env requirements or feature flags
+- `src/db/SupabaseAdapter.ts` table usage or method surface
 - SQL source files adopted as active baseline
+- Supabase RPC functions added or modified
 
 ## Related Docs
 

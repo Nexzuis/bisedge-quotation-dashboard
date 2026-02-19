@@ -7,9 +7,10 @@
 
 import { useEffect } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
-import { supabase, isCloudMode, FEATURES } from '../lib/supabase';
+import { supabase, FEATURES } from '../lib/supabase';
 import { toast } from 'sonner';
 import { CheckCircle, XCircle, Bell } from 'lucide-react';
+import { logger } from '../utils/logger';
 
 /**
  * Subscribe to approval notifications for current user's quotes
@@ -18,11 +19,11 @@ export function useApprovalNotifications() {
   const { user } = useAuthStore();
 
   useEffect(() => {
-    if (!user || !isCloudMode() || !FEATURES.realtime) {
+    if (!user || !FEATURES.realtime) {
       return;
     }
 
-    console.log('🔔 Setting up approval notifications for user:', user.email);
+    logger.debug('Setting up approval notifications for user:', user.email);
 
     // Subscribe to approval actions on user's quotes
     const subscription = supabase
@@ -37,7 +38,7 @@ export function useApprovalNotifications() {
         async (payload) => {
           const action = payload.new;
 
-          console.log('📬 Approval action received:', action);
+          logger.debug('Approval action received:', action);
 
           // Check if this is for one of our quotes
           try {
@@ -93,20 +94,20 @@ export function useApprovalNotifications() {
                 break;
             }
           } catch (error) {
-            console.error('Error processing approval notification:', error);
+            logger.error('Error processing approval notification:', error);
           }
         }
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          console.log('✅ Approval notifications active');
+          logger.debug('Approval notifications active');
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('❌ Failed to subscribe to approval notifications');
+          logger.error('Failed to subscribe to approval notifications');
         }
       });
 
     return () => {
-      console.log('🔌 Unsubscribing from approval notifications');
+      logger.debug('Unsubscribing from approval notifications');
       subscription.unsubscribe();
     };
   }, [user]);
@@ -119,7 +120,7 @@ export function useApproverNotifications() {
   const { user } = useAuthStore();
 
   useEffect(() => {
-    if (!user || !isCloudMode() || !FEATURES.realtime) {
+    if (!user || !FEATURES.realtime) {
       return;
     }
 
@@ -129,7 +130,7 @@ export function useApproverNotifications() {
       return;
     }
 
-    console.log('🔔 Setting up approver notifications');
+    logger.debug('Setting up approver notifications');
 
     // Subscribe to new quote submissions
     const subscription = supabase
@@ -145,7 +146,7 @@ export function useApproverNotifications() {
         async (payload) => {
           const action = payload.new;
 
-          console.log('📬 New quote submitted for approval:', action);
+          logger.debug('New quote submitted for approval:', action);
 
           try {
             // Check if we can approve this tier
@@ -184,13 +185,13 @@ export function useApproverNotifications() {
               });
             }
           } catch (error) {
-            console.error('Error processing approver notification:', error);
+            logger.error('Error processing approver notification:', error);
           }
         }
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          console.log('✅ Approver notifications active');
+          logger.debug('Approver notifications active');
         }
       });
 

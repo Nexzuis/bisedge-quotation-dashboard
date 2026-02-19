@@ -1,5 +1,5 @@
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db/schema';
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 import type {
   PriceListSeries,
   PriceListModel,
@@ -13,61 +13,158 @@ import type {
  * Returns { seriesCode, seriesName, modelCount } for each series.
  */
 export function usePriceListSeries(): { seriesCode: string; seriesName: string; modelCount: number }[] {
-  const series = useLiveQuery(
-    async () => {
-      const all = await db.priceListSeries.orderBy('seriesName').toArray();
-      return all.map((s) => ({
-        seriesCode: s.seriesCode,
-        seriesName: s.seriesName,
-        modelCount: JSON.parse(s.models).length,
-      }));
-    },
-    [],
-    []
-  );
+  const [series, setSeries] = useState<{ seriesCode: string; seriesName: string; modelCount: number }[]>([]);
 
-  return series || [];
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchSeries() {
+      const { data, error } = await supabase
+        .from('price_list_series')
+        .select('*')
+        .order('series_name');
+
+      if (error) {
+        console.error('usePriceListSeries: error fetching price_list_series', error);
+        return;
+      }
+
+      if (!cancelled && data) {
+        const mapped = data.map((row) => {
+          const models =
+            typeof row.models === 'string'
+              ? JSON.parse(row.models)
+              : (row.models || []);
+          return {
+            seriesCode: row.series_code as string,
+            seriesName: row.series_name as string,
+            modelCount: (models as unknown[]).length,
+          };
+        });
+        setSeries(mapped);
+      }
+    }
+
+    fetchSeries();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return series;
 }
 
 /**
  * Hook to get full series data including models and options.
  */
 export function useSeriesData(seriesCode: string): PriceListSeries | null {
-  const series = useLiveQuery(
-    async () => {
-      if (!seriesCode) return null;
-      const stored = await db.priceListSeries.get(seriesCode);
-      if (!stored) return null;
-      return {
-        seriesCode: stored.seriesCode,
-        seriesName: stored.seriesName,
-        models: JSON.parse(stored.models) as PriceListModel[],
-        options: JSON.parse(stored.options) as PriceListOption[],
-      };
-    },
-    [seriesCode],
-    null
-  );
+  const [series, setSeries] = useState<PriceListSeries | null>(null);
 
-  return series ?? null;
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!seriesCode) {
+      setSeries(null);
+      return;
+    }
+
+    async function fetchSeriesData() {
+      const { data, error } = await supabase
+        .from('price_list_series')
+        .select('*')
+        .eq('series_code', seriesCode)
+        .maybeSingle();
+
+      if (error) {
+        console.error('useSeriesData: error fetching series data', error);
+        return;
+      }
+
+      if (!cancelled) {
+        if (!data) {
+          setSeries(null);
+          return;
+        }
+
+        const models: PriceListModel[] =
+          typeof data.models === 'string'
+            ? JSON.parse(data.models)
+            : (data.models || []);
+
+        const options: PriceListOption[] =
+          typeof data.options === 'string'
+            ? JSON.parse(data.options)
+            : (data.options || []);
+
+        setSeries({
+          seriesCode: data.series_code as string,
+          seriesName: data.series_name as string,
+          models,
+          options,
+        });
+      }
+    }
+
+    fetchSeriesData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [seriesCode]);
+
+  return series;
 }
 
 /**
  * Hook to get models within a series.
  */
 export function useSeriesModels(seriesCode: string): PriceListModel[] {
-  const models = useLiveQuery(
-    async () => {
-      if (!seriesCode) return [];
-      const stored = await db.priceListSeries.get(seriesCode);
-      if (!stored) return [];
-      return JSON.parse(stored.models) as PriceListModel[];
-    },
-    [seriesCode],
-    []
-  );
+  const [models, setModels] = useState<PriceListModel[]>([]);
 
-  return models || [];
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!seriesCode) {
+      setModels([]);
+      return;
+    }
+
+    async function fetchModels() {
+      const { data, error } = await supabase
+        .from('price_list_series')
+        .select('*')
+        .eq('series_code', seriesCode)
+        .maybeSingle();
+
+      if (error) {
+        console.error('useSeriesModels: error fetching series models', error);
+        return;
+      }
+
+      if (!cancelled) {
+        if (!data) {
+          setModels([]);
+          return;
+        }
+
+        const parsed: PriceListModel[] =
+          typeof data.models === 'string'
+            ? JSON.parse(data.models)
+            : (data.models || []);
+
+        setModels(parsed);
+      }
+    }
+
+    fetchModels();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [seriesCode]);
+
+  return models;
 }
 
 /**
@@ -78,74 +175,172 @@ export function useModelOptions(
   seriesCode: string,
   indxColumn: number
 ): PriceListOption[] {
-  const options = useLiveQuery(
-    async () => {
-      if (!seriesCode || !indxColumn) return [];
-      const stored = await db.priceListSeries.get(seriesCode);
-      if (!stored) return [];
+  const [options, setOptions] = useState<PriceListOption[]>([]);
 
-      const allOptions = JSON.parse(stored.options) as PriceListOption[];
-      const models = JSON.parse(stored.models) as PriceListModel[];
+  useEffect(() => {
+    let cancelled = false;
 
-      // Find the index of our INDX column within the sorted INDX columns
-      const indxIndex = models.findIndex((m) => m.indxColumn === indxColumn);
-      if (indxIndex === -1) return [];
+    if (!seriesCode || !indxColumn) {
+      setOptions([]);
+      return;
+    }
 
-      // Filter options that have availability > 0 at this INDX position
-      return allOptions.filter((opt) => {
-        const avail = opt.availability[indxIndex];
-        return avail !== undefined && avail > 0;
-      });
-    },
-    [seriesCode, indxColumn],
-    []
-  );
+    async function fetchOptions() {
+      const { data, error } = await supabase
+        .from('price_list_series')
+        .select('*')
+        .eq('series_code', seriesCode)
+        .maybeSingle();
 
-  return options || [];
+      if (error) {
+        console.error('useModelOptions: error fetching series options', error);
+        return;
+      }
+
+      if (!cancelled) {
+        if (!data) {
+          setOptions([]);
+          return;
+        }
+
+        const allOptions: PriceListOption[] =
+          typeof data.options === 'string'
+            ? JSON.parse(data.options)
+            : (data.options || []);
+
+        const models: PriceListModel[] =
+          typeof data.models === 'string'
+            ? JSON.parse(data.models)
+            : (data.models || []);
+
+        // Find the index of our INDX column within the sorted INDX columns
+        const indxIndex = models.findIndex((m) => m.indxColumn === indxColumn);
+        if (indxIndex === -1) {
+          setOptions([]);
+          return;
+        }
+
+        // Filter options that have availability > 0 at this INDX position
+        const filtered = allOptions.filter((opt) => {
+          const avail = opt.availability[indxIndex];
+          return avail !== undefined && avail > 0;
+        });
+
+        setOptions(filtered);
+      }
+    }
+
+    fetchOptions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [seriesCode, indxColumn]);
+
+  return options;
 }
 
 /**
  * Hook to get all telematics packages.
  */
 export function useTelematicsPackages(): TelematicsPackage[] {
-  const packages = useLiveQuery(
-    async () => {
-      return await db.telematicsPackages.toArray();
-    },
-    [],
-    []
-  );
+  const [packages, setPackages] = useState<TelematicsPackage[]>([]);
 
-  return (packages as TelematicsPackage[]) || [];
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchPackages() {
+      const { data, error } = await supabase
+        .from('telematics_packages')
+        .select('*');
+
+      if (error) {
+        console.error('useTelematicsPackages: error fetching telematics_packages', error);
+        return;
+      }
+
+      if (!cancelled && data) {
+        const mapped = data.map((row) => ({
+          ...row,
+          costZAR: row.cost_zar,
+        })) as TelematicsPackage[];
+        setPackages(mapped);
+      }
+    }
+
+    fetchPackages();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return packages;
 }
 
 /**
  * Hook to get container mapping for a series.
  */
 export function useContainerMapping(seriesCode: string): ContainerMapping | null {
-  const mapping = useLiveQuery(
-    async () => {
-      if (!seriesCode) return null;
+  const [mapping, setMapping] = useState<ContainerMapping | null>(null);
 
-      // Series codes in the container mappings are short (e.g. "1275")
-      // while priceListSeries uses full codes (e.g. "12750000000")
-      // Try both exact match and prefix match
-      const all = await db.containerMappings.toArray();
-      const match = all.find(
-        (m) =>
-          m.seriesCode === seriesCode ||
-          seriesCode.startsWith(m.seriesCode) ||
-          m.seriesCode === seriesCode.replace(/0+\d?$/, '')
-      );
+  useEffect(() => {
+    let cancelled = false;
 
-      if (!match) return null;
-      return match as unknown as ContainerMapping;
-    },
-    [seriesCode],
-    null
-  );
+    if (!seriesCode) {
+      setMapping(null);
+      return;
+    }
 
-  return mapping ?? null;
+    async function fetchMapping() {
+      const { data, error } = await supabase
+        .from('container_mappings')
+        .select('*');
+
+      if (error) {
+        console.error('useContainerMapping: error fetching container_mappings', error);
+        return;
+      }
+
+      if (!cancelled) {
+        if (!data) {
+          setMapping(null);
+          return;
+        }
+
+        // Series codes in the container mappings are short (e.g. "1275")
+        // while priceListSeries uses full codes (e.g. "12750000000")
+        // Try both exact match and prefix match
+        const match = data.find(
+          (m) =>
+            m.series_code === seriesCode ||
+            seriesCode.startsWith(m.series_code) ||
+            m.series_code === seriesCode.replace(/0+\d?$/, '')
+        );
+
+        if (!match) {
+          setMapping(null);
+          return;
+        }
+
+        setMapping({
+          ...match,
+          seriesCode: match.series_code,
+          qtyPerContainer: match.qty_per_container,
+          containerType: match.container_type,
+          containerCostEUR: match.container_cost_eur,
+        } as ContainerMapping);
+      }
+    }
+
+    fetchMapping();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [seriesCode]);
+
+  return mapping;
 }
 
 // --- Helper functions (non-hooks, for use in store/engine) ---

@@ -1,6 +1,6 @@
 ﻿# Bisedge Quotation Dashboard
 
-Offline-first quotation and CRM platform for Bisedge South Africa.
+Quotation and CRM platform for Bisedge South Africa, powered by Supabase.
 
 ## Quick Start
 
@@ -48,6 +48,6 @@ Legacy historical docs are archived under:
 ## Runtime Notes
 
 - Router: `HashRouter`
-- Database: Dexie IndexedDB (`BisedgeQuotationDB`, schema v6)
-- Adapters: `local`, `cloud`, `hybrid` via `VITE_APP_MODE`
-- Local-first with optional Supabase sync
+- Database: Supabase (PostgreSQL) — single source of truth
+- Adapter: `SupabaseDatabaseAdapter` (cloud-only)
+- All data reads/writes go through Supabase

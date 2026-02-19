@@ -101,15 +101,9 @@ export async function getCurrentUser() {
 }
 
 /**
- * App mode configuration
- */
-export const APP_MODE = import.meta.env.VITE_APP_MODE || 'local';
-
-/**
  * Feature flags
  */
 export const FEATURES = {
-  offline: import.meta.env.VITE_ENABLE_OFFLINE === 'true',
   realtime: import.meta.env.VITE_ENABLE_REALTIME === 'true',
   presence: import.meta.env.VITE_ENABLE_PRESENCE === 'true',
 };
@@ -119,26 +113,4 @@ export const FEATURES = {
  */
 export const CONFIG = {
   presenceHeartbeatMs: parseInt(import.meta.env.VITE_PRESENCE_HEARTBEAT_MS || '30000'),
-  syncIntervalMs: parseInt(import.meta.env.VITE_SYNC_INTERVAL_MS || '5000'),
 };
-
-/**
- * Check if app is running in cloud mode
- */
-export function isCloudMode(): boolean {
-  return APP_MODE === 'cloud' || APP_MODE === 'hybrid';
-}
-
-/**
- * Check if app is running in local mode
- */
-export function isLocalMode(): boolean {
-  return APP_MODE === 'local' || APP_MODE === 'hybrid';
-}
-
-/**
- * Check if app is running in hybrid mode (both local and cloud)
- */
-export function isHybridMode(): boolean {
-  return APP_MODE === 'hybrid';
-}

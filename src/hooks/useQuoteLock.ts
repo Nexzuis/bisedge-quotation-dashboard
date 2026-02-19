@@ -9,8 +9,9 @@
 import { useEffect, useState, useRef } from 'react';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { useAuthStore } from '../store/useAuthStore';
-import { supabase, isCloudMode } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
+import { logger } from '../utils/logger';
 
 export interface QuoteLockStatus {
   isLocked: boolean;
@@ -50,10 +51,10 @@ export function useQuoteLock(
       // Check if already locked
       if (isLockedByOther(user.id)) {
         // Someone else has the lock
-        console.warn(`Quote ${quoteId} is locked by another user`);
+        logger.warn(`Quote ${quoteId} is locked by another user`);
 
         // Fetch the user's name who has the lock
-        if (isCloudMode() && lockedBy) {
+        if (lockedBy) {
           try {
             const { data: lockOwner } = await supabase
               .from('users')
@@ -69,7 +70,7 @@ export function useQuoteLock(
               });
             }
           } catch (error) {
-            console.error('Error fetching lock owner name:', error);
+            logger.error('Error fetching lock owner name:', error);
           }
         }
 
@@ -77,31 +78,34 @@ export function useQuoteLock(
         return;
       }
 
+      // Stale lock override: lockedBy exists but isLockedByOther returned false
+      if (lockedBy && lockedBy !== user.id) {
+        logger.warn('Stale lock override', { quoteId, previousHolder: lockedBy, lockedAt });
+      }
+
       // Try to acquire lock
       const acquired = acquireLock(user.id);
 
       if (acquired) {
-        console.log(`🔒 Lock acquired for quote ${quoteId}`);
+        logger.debug(`Lock acquired for quote ${quoteId}`);
         setHasLock(true);
 
-        // Sync lock to cloud if in cloud/hybrid mode
-        if (isCloudMode()) {
-          try {
-            await supabase
-              .from('quotes')
-              .update({
-                locked_by: user.id,
-                locked_at: new Date().toISOString(),
-              })
-              .eq('id', quoteId);
+        // Sync lock to cloud
+        try {
+          await supabase
+            .from('quotes')
+            .update({
+              locked_by: user.id,
+              locked_at: new Date().toISOString(),
+            })
+            .eq('id', quoteId);
 
-            console.log('☁️  Lock synced to cloud');
-          } catch (error) {
-            console.error('Failed to sync lock to cloud:', error);
-          }
+          logger.debug('Lock synced to cloud');
+        } catch (error) {
+          logger.error('Failed to sync lock to cloud:', error);
         }
       } else {
-        console.warn(`❌ Failed to acquire lock for quote ${quoteId}`);
+        logger.warn(`Failed to acquire lock for quote ${quoteId}`);
         setHasLock(false);
       }
     };
@@ -114,18 +118,16 @@ export function useQuoteLock(
         releaseLock(user.id);
 
         // Sync lock release to cloud
-        if (isCloudMode()) {
-          supabase
-            .from('quotes')
-            .update({
-              locked_by: null,
-              locked_at: null,
-            })
-            .eq('id', quoteId)
-            .eq('locked_by', user.id)
-            .then(() => console.log('☁️  Lock released from cloud'))
-            .catch((err) => console.error('Failed to release lock from cloud:', err));
-        }
+        supabase
+          .from('quotes')
+          .update({
+            locked_by: null,
+            locked_at: null,
+          })
+          .eq('id', quoteId)
+          .eq('locked_by', user.id)
+          .then(() => logger.debug('Lock released from cloud'))
+          .catch((err) => logger.error('Failed to release lock from cloud:', err));
       }
     };
   }, [quoteId, user, autoAcquire, autoRelease]);
@@ -151,7 +153,7 @@ export function useManualQuoteLock(quoteId: string) {
 
     const acquired = acquireLock(user.id);
 
-    if (acquired && isCloudMode()) {
+    if (acquired) {
       try {
         await supabase
           .from('quotes')
@@ -161,7 +163,7 @@ export function useManualQuoteLock(quoteId: string) {
           })
           .eq('id', quoteId);
       } catch (error) {
-        console.error('Failed to sync lock:', error);
+        logger.error('Failed to sync lock:', error);
       }
     }
 
@@ -173,19 +175,17 @@ export function useManualQuoteLock(quoteId: string) {
 
     releaseLock(user.id);
 
-    if (isCloudMode()) {
-      try {
-        await supabase
-          .from('quotes')
-          .update({
-            locked_by: null,
-            locked_at: null,
-          })
-          .eq('id', quoteId)
-          .eq('locked_by', user.id);
-      } catch (error) {
-        console.error('Failed to release lock:', error);
-      }
+    try {
+      await supabase
+        .from('quotes')
+        .update({
+          locked_by: null,
+          locked_at: null,
+        })
+        .eq('id', quoteId)
+        .eq('locked_by', user.id);
+    } catch (error) {
+      logger.error('Failed to release lock:', error);
     }
   };
 

@@ -7,7 +7,7 @@
 
 import { useState } from 'react';
 import { runAllTests, type ConnectionTestResult } from '../utils/testSupabaseConnection';
-import { APP_MODE, isSupabaseConfigured } from '../lib/supabase';
+import { isSupabaseConfigured } from '../lib/supabase';
 
 export default function SupabaseTestPage() {
   const [isRunning, setIsRunning] = useState(false);
@@ -67,7 +67,7 @@ export default function SupabaseTestPage() {
             <h2 className="text-lg font-semibold mb-2">Current Configuration</h2>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div>
-                <strong>App Mode:</strong> <code className="bg-blue-100 px-2 py-1 rounded">{APP_MODE}</code>
+                <strong>App Mode:</strong> <code className="bg-blue-100 px-2 py-1 rounded">cloud</code>
               </div>
               <div>
                 <strong>Supabase Configured:</strong>{' '}

@@ -17,6 +17,42 @@ Append one entry per implementation session using this format:
 
 ## Entries
 
+### Session: Supabase-Only Hard Cutover (February 2026)
+
+Completed full migration from three-mode (local/hybrid/cloud) architecture to Supabase-only:
+- Deleted 12 files: SyncQueue.ts, ConflictResolver.ts, HybridAdapter.ts, LocalAdapter.ts, IndexedDBRepository.ts, useOnlineStatus.ts, SyncStatusIndicator.tsx, migrateToSupabase.ts, DataMigrationPanel.tsx, BackupRestore.tsx, seed.ts, schema.ts
+- Extended SupabaseAdapter with 14 new methods + guard rails
+- Rewrote 7 repository factories as thin getDb() delegates
+- Refactored 17 business flow files from db.* to adapter calls
+- Replaced 12 useLiveQuery hooks with useState+useEffect
+- Removed mode/offline branches from 7 files
+- Created company merge RPC function
+- Removed dexie and dexie-react-hooks dependencies
+- All grep gates pass (zero references to removed patterns)
+- TypeScript compiles with 0 errors
+
+- Date: February 2026
+- Summary: Hard cutover from three-mode (local/hybrid/cloud) to Supabase-only architecture. Removed all IndexedDB, Dexie, SyncQueue, HybridAdapter, LocalAdapter, ConflictResolver, offline support, and mode switching code. Single data path through SupabaseAdapter. Single auth path through Supabase Auth.
+- Changed Files:
+  - Deleted: `src/sync/SyncQueue.ts`, `src/sync/ConflictResolver.ts`, `src/db/HybridAdapter.ts`, `src/db/LocalAdapter.ts`, `src/db/IndexedDBRepository.ts`, `src/hooks/useOnlineStatus.ts`, `src/components/shared/SyncStatusIndicator.tsx`, `src/db/migrateToSupabase.ts`, `src/components/admin/DataMigrationPanel.tsx`, `src/components/admin/backup/BackupRestore.tsx`, `src/db/seed.ts`, `src/db/schema.ts`
+  - Modified: `src/db/SupabaseAdapter.ts` (14 new methods + guard rails), 7 repository factories, 17 business flow files, 12 hook files (useLiveQuery to useState+useEffect), 7 files with mode/offline branch removal
+  - Removed dependencies: `dexie`, `dexie-react-hooks`
+  - Created: Supabase RPC function for company merge
+- Validation Run:
+  - `npm run typecheck` (pass, 0 errors)
+  - Grep gates: zero references to removed patterns (SyncQueue, HybridAdapter, LocalAdapter, ConflictResolver, IndexedDBRepository, useLiveQuery, dexie, VITE_APP_MODE, navigator.onLine for business logic)
+- Documentation Updated:
+  - `Project documentation/01_PROJECT_CONTEXT.md`
+  - `Project documentation/02_ARCHITECTURE_AND_DATA_MODEL.md`
+  - `Project documentation/03_SUPABASE_AND_SYNC.md`
+  - `Project documentation/04_OPERATIONS_RUNBOOK.md`
+  - `Project documentation/05_TESTING_AND_RELEASE_CHECKLIST.md`
+  - `Project documentation/06_SESSION_LOG.md`
+  - `Project documentation/07_STATUS_BOARD.md`
+- Notes/Risks:
+  - No offline fallback exists. Internet connectivity is required for all operations.
+  - All local IndexedDB data from previous installations is orphaned and no longer read by the app.
+
 ### 2026-02-19
 - Date: 2026-02-19
 - Summary: Documentation system consolidated into canonical docs plus legacy archive, with root docs refreshed to current codebase behavior.
@@ -208,6 +244,39 @@ Append one entry per implementation session using this format:
   - Release checklist expanded with explicit quote conflict remediation checks.
 - Notes/Risks:
   - Legacy queue entries with stale payloads may still need one-time repair via existing queue clear/repair controls.
+
+### 2026-02-19 (Pre-Launch Defect Fixes D-001 through D-005)
+- Date: 2026-02-19
+- Summary: Fixed all 5 defects identified during independent Claude and Codex audits (3 P1 blockers, 2 P2). D-001: Added 13 missing fields to merge_companies RPC SQL. D-002: Added LOCK_STALE_MS (1 hour) stale lock timeout to isLockedByOther + stale override logging in useQuoteLock. D-003: Removed SupabaseTestPage import and /test-supabase route from App.tsx. D-004: Migrated console.log/warn/error to logger in 7 priority hook/store files. D-005: Ran npm prune to remove extraneous bcryptjs packages.
+- Changed Files:
+  - `Project documentation/sql/company_merge_rpc.sql` (13 fields added to UPDATE clause)
+  - `src/store/useQuoteStore.ts` (LOCK_STALE_MS constant, stale lock check, console->logger)
+  - `src/hooks/useQuoteLock.ts` (stale lock override logging, console->logger)
+  - `src/App.tsx` (removed SupabaseTestPage import and route)
+  - `src/hooks/useRealtimeQuote.ts` (console->logger)
+  - `src/hooks/usePresence.ts` (console->logger)
+  - `src/hooks/useAutoSave.ts` (console->logger)
+  - `src/hooks/useQuoteDB.ts` (console->logger)
+  - `src/hooks/useApprovalNotifications.tsx` (console->logger)
+  - `Project documentation/04_OPERATIONS_RUNBOOK.md` (removed /test-supabase references)
+  - `Project documentation/05_TESTING_AND_RELEASE_CHECKLIST.md` (updated checklist, added release gates)
+  - `Project documentation/06_SESSION_LOG.md` (this entry)
+  - `Project documentation/07_STATUS_BOARD.md` (added defect fix section)
+  - `claude-audit/MASSIVETEST/14-defects.md` (D-001..D-005 marked FIXED)
+  - `claude-audit/MASSIVETEST/99-go-no-go.md` (updated decision)
+  - `claude-audit/MASSIVETEST/02-build-gates-evidence.md` (fresh gate outputs)
+  - `claude-audit/MASSIVETEST/00-master-validation.md` (updated status)
+- Validation Run:
+  - `npx tsc --noEmit` (pass, 0 errors)
+  - `npm run test` (pass, 96/96)
+  - `npx vite build` (pass, clean)
+  - Legacy grep gates: all 6 pass (zero forbidden patterns)
+  - New targeted gates: all pass (no /test-supabase in App.tsx, no SupabaseTestPage import, LOCK_STALE_MS present, merge_companies has 20 fields, zero console.log in priority files, no bcryptjs in prod deps)
+- Documentation Updated:
+  - Operations runbook, testing checklist, status board, session log, defect register, go-no-go decision
+- Notes/Risks:
+  - SQL fix is applied to the file artifact only; user must execute CREATE OR REPLACE FUNCTION in Supabase SQL editor and re-assert grants
+  - SupabaseTestPage component file retained for local dev use but is no longer referenced by router
 
 ## Validation Basis
 

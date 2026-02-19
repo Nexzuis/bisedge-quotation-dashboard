@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { DollarSign, Users, FileText, History, Database, Settings, ClipboardCheck } from 'lucide-react';
+import { DollarSign, Users, FileText, History, Settings, ClipboardCheck } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 import { hasPermission, type Role } from '../../../auth/permissions';
 
@@ -13,7 +13,6 @@ const AdminSidebar = () => {
     { path: '/admin/users', label: 'Users', icon: Users, resource: 'admin:users' },
     { path: '/admin/templates', label: 'Templates', icon: FileText, resource: 'admin:templates' },
     { path: '/admin/audit', label: 'Audit Log', icon: History, resource: 'admin:audit' },
-    { path: '/admin/backup', label: 'Backup & Restore', icon: Database, resource: 'admin:backup' },
   ];
 
   // Safely filter nav items - guard against user being null during transitions

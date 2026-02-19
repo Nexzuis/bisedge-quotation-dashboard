@@ -3,7 +3,7 @@ import { Clock, GitBranch, Loader2 } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { formatDate } from '../../engine/formatters';
-import { db } from '../../db/schema';
+import { getDb } from '../../db/DatabaseAdapter';
 import type { StoredQuote } from '../../db/interfaces';
 import type { QuoteStatus } from '../../types/quote';
 
@@ -40,9 +40,7 @@ export function RevisionHistory({ quoteRef, onLoadRevision, currentQuoteId }: Re
         }
 
         // Query all quotes whose quoteRef starts with this base number
-        const allQuotes = await db.quotes
-          .filter((q) => q.quoteRef.split('.')[0] === baseRef)
-          .toArray();
+        const allQuotes = await getDb().getQuoteRevisions(baseRef);
 
         // Sort by revision number descending (newest first)
         allQuotes.sort((a, b) => {

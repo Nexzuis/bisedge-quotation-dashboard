@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { db } from '../db/schema';
+import { getDb } from '../db/DatabaseAdapter';
 import type { PipelineStage, PipelineMetrics } from '../types/crm';
 
 const ALL_STAGES: PipelineStage[] = [
@@ -51,7 +51,7 @@ function computeMetrics(
 
 export function usePipelineMetrics() {
   const getMetrics = useCallback(async (userId?: string): Promise<PipelineMetrics> => {
-    const allCompanies = await db.companies.toArray();
+    const allCompanies = await getDb().listCompanies();
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
@@ -62,9 +62,7 @@ export function usePipelineMetrics() {
     const base = computeMetrics(companies, startOfMonth);
 
     // Quotes created this month
-    const quotesThisMonth = await db.quotes
-      .filter((q) => q.createdAt >= startOfMonth)
-      .count();
+    const quotesThisMonth = await getDb().countQuotesSince(startOfMonth);
 
     return { ...base, quotesThisMonth };
   }, []);

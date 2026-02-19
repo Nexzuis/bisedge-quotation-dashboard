@@ -1,39 +1,43 @@
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db/schema';
+import { useState, useEffect } from 'react';
 import { configurationMatrixRepository } from '../db/ConfigurationMatrixRepository';
 import type {
+  StoredConfigurationMatrix,
   StoredConfigurationVariant,
   StoredConfigurationOption,
 } from '../db/interfaces';
 
 /**
  * Hook to get configuration matrix by base model family
- * Returns live-updating data from IndexedDB
  */
 export function useConfigurationMatrix(baseModelFamily: string) {
-  return useLiveQuery(
-    async () => {
-      if (!baseModelFamily) return null;
+  const [matrix, setMatrix] = useState<StoredConfigurationMatrix | null | undefined>(undefined);
 
-      return await db.configurationMatrices
-        .where('baseModelFamily')
-        .equals(baseModelFamily)
-        .first();
-    },
-    [baseModelFamily]
-  );
+  useEffect(() => {
+    if (!baseModelFamily) {
+      setMatrix(null);
+      return;
+    }
+    configurationMatrixRepository.getMatrixByModelFamily(baseModelFamily)
+      .then(setMatrix)
+      .catch(() => setMatrix(null));
+  }, [baseModelFamily]);
+
+  return matrix;
 }
 
 /**
  * Hook to get all configuration matrices
  */
 export function useAllConfigurationMatrices() {
-  return useLiveQuery(
-    async () => {
-      return await db.configurationMatrices.toArray();
-    },
-    []
-  );
+  const [matrices, setMatrices] = useState<StoredConfigurationMatrix[] | undefined>(undefined);
+
+  useEffect(() => {
+    configurationMatrixRepository.list()
+      .then(setMatrices)
+      .catch(() => setMatrices([]));
+  }, []);
+
+  return matrices;
 }
 
 /**
@@ -41,23 +45,26 @@ export function useAllConfigurationMatrices() {
  * Searches all matrices for the variant code
  */
 export function useVariantConfiguration(variantCode: string) {
-  return useLiveQuery(
-    async () => {
-      if (!variantCode) return null;
+  const [result, setResult] = useState<{ matrix: StoredConfigurationMatrix; variant: StoredConfigurationVariant } | null | undefined>(undefined);
 
-      const matrices = await db.configurationMatrices.toArray();
-
+  useEffect(() => {
+    if (!variantCode) {
+      setResult(null);
+      return;
+    }
+    configurationMatrixRepository.list().then((matrices) => {
       for (const matrix of matrices) {
         const variant = matrix.variants.find((v) => v.variantCode === variantCode);
         if (variant) {
-          return { matrix, variant };
+          setResult({ matrix, variant });
+          return;
         }
       }
+      setResult(null);
+    }).catch(() => setResult(null));
+  }, [variantCode]);
 
-      return null;
-    },
-    [variantCode]
-  );
+  return result;
 }
 
 /**

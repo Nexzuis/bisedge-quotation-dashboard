@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useCommissionTiers, saveCommissionTiers } from '../../../hooks/usePricingConfig';
 import { validateCommissionTiers } from './validators';
 import { useAuth } from '../../auth/AuthContext';
-import type { StoredCommissionTier } from '../../../db/schema';
+import type { StoredCommissionTier } from '../../../db/interfaces';
 import { CheckCircle2, AlertCircle, Save, Plus, Trash2, RotateCcw } from 'lucide-react';
 
 const CommissionTiersEditor = () => {

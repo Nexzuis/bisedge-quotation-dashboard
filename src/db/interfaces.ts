@@ -298,3 +298,33 @@ export interface StoredNotification {
   isRead: boolean;
   createdAt: string;
 }
+
+// --- User and Configuration Types ---
+
+export interface StoredUser {
+  id?: string;
+  username: string;
+  role: string;
+  fullName: string;
+  email: string;
+  isActive: boolean;
+  createdAt: string;
+  permissionOverrides: string;
+}
+
+export interface StoredCommissionTier {
+  id?: number;
+  minMargin: number;
+  maxMargin: number;
+  commissionRate: number;
+}
+
+export interface StoredResidualCurve {
+  id?: string;
+  chemistry: string;
+  term36: number;
+  term48: number;
+  term60: number;
+  term72: number;
+  term84: number;
+}

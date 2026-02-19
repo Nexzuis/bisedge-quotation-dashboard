@@ -1,4 +1,4 @@
-import { db } from './schema';
+import { supabase } from '../lib/supabase';
 import type {
   StoredConfigurationMatrix,
   StoredConfigurationVariant,
@@ -6,18 +6,46 @@ import type {
   IConfigurationMatrixRepository,
 } from './interfaces';
 
+// Snake_case <-> camelCase mapping helpers
+function dbToMatrix(row: any): StoredConfigurationMatrix {
+  return {
+    id: row.id,
+    baseModelFamily: row.base_model_family,
+    variants: typeof row.variants === 'string' ? JSON.parse(row.variants) : (row.variants || []),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function matrixToDb(matrix: StoredConfigurationMatrix): Record<string, any> {
+  return {
+    id: matrix.id,
+    base_model_family: matrix.baseModelFamily,
+    variants: JSON.stringify(matrix.variants),
+    created_at: matrix.createdAt,
+    updated_at: matrix.updatedAt,
+  };
+}
+
 export class ConfigurationMatrixRepository implements IConfigurationMatrixRepository {
   /**
    * Get configuration matrix by base model family (e.g., "EG16", "E20")
    */
   async getMatrixByModelFamily(family: string): Promise<StoredConfigurationMatrix | null> {
     try {
-      const matrix = await db.configurationMatrices
-        .where('baseModelFamily')
-        .equals(family)
-        .first();
+      const { data, error } = await supabase
+        .from('configuration_matrices')
+        .select('*')
+        .eq('base_model_family', family)
+        .limit(1)
+        .maybeSingle();
 
-      return matrix || null;
+      if (error) {
+        console.error(`Error fetching matrix for family ${family}:`, error);
+        return null;
+      }
+
+      return data ? dbToMatrix(data) : null;
     } catch (error) {
       console.error(`Error fetching matrix for family ${family}:`, error);
       return null;
@@ -29,9 +57,14 @@ export class ConfigurationMatrixRepository implements IConfigurationMatrixReposi
    */
   async getVariantByCode(variantCode: string): Promise<StoredConfigurationVariant | null> {
     try {
-      const matrices = await db.configurationMatrices.toArray();
+      const { data, error } = await supabase
+        .from('configuration_matrices')
+        .select('*');
 
-      for (const matrix of matrices) {
+      if (error || !data) return null;
+
+      for (const row of data) {
+        const matrix = dbToMatrix(row);
         const variant = matrix.variants.find((v) => v.variantCode === variantCode);
         if (variant) {
           return variant;
@@ -55,16 +88,23 @@ export class ConfigurationMatrixRepository implements IConfigurationMatrixReposi
       const now = new Date().toISOString();
 
       // Check if matrix exists
-      const existing = await db.configurationMatrices.get(matrix.id);
+      const { data: existing } = await supabase
+        .from('configuration_matrices')
+        .select('created_at')
+        .eq('id', matrix.id)
+        .maybeSingle();
 
       const toSave: StoredConfigurationMatrix = {
         ...matrix,
-        createdAt: existing?.createdAt || now,
+        createdAt: existing?.created_at || now,
         updatedAt: now,
       };
 
-      await db.configurationMatrices.put(toSave);
+      const { error } = await supabase
+        .from('configuration_matrices')
+        .upsert(matrixToDb(toSave), { onConflict: 'id' });
 
+      if (error) throw new Error(error.message);
       return toSave.id;
     } catch (error) {
       console.error('Error saving configuration matrix:', error);
@@ -83,11 +123,17 @@ export class ConfigurationMatrixRepository implements IConfigurationMatrixReposi
     updates: Partial<StoredConfigurationOption>
   ): Promise<void> {
     try {
-      const matrix = await db.configurationMatrices.get(matrixId);
+      const { data, error } = await supabase
+        .from('configuration_matrices')
+        .select('*')
+        .eq('id', matrixId)
+        .single();
 
-      if (!matrix) {
+      if (error || !data) {
         throw new Error(`Matrix ${matrixId} not found`);
       }
+
+      const matrix = dbToMatrix(data);
 
       // Find the variant
       const variant = matrix.variants.find((v) => v.variantCode === variantCode);
@@ -110,10 +156,12 @@ export class ConfigurationMatrixRepository implements IConfigurationMatrixReposi
       Object.assign(option, updates);
 
       // Save the updated matrix
-      await db.configurationMatrices.put({
-        ...matrix,
-        updatedAt: new Date().toISOString(),
-      });
+      matrix.updatedAt = new Date().toISOString();
+      const { error: saveError } = await supabase
+        .from('configuration_matrices')
+        .upsert(matrixToDb(matrix), { onConflict: 'id' });
+
+      if (saveError) throw new Error(saveError.message);
     } catch (error) {
       console.error('Error updating option:', error);
       throw error;
@@ -125,7 +173,16 @@ export class ConfigurationMatrixRepository implements IConfigurationMatrixReposi
    */
   async list(): Promise<StoredConfigurationMatrix[]> {
     try {
-      return await db.configurationMatrices.toArray();
+      const { data, error } = await supabase
+        .from('configuration_matrices')
+        .select('*');
+
+      if (error) {
+        console.error('Error listing configuration matrices:', error);
+        return [];
+      }
+
+      return (data || []).map(dbToMatrix);
     } catch (error) {
       console.error('Error listing configuration matrices:', error);
       return [];
@@ -137,7 +194,12 @@ export class ConfigurationMatrixRepository implements IConfigurationMatrixReposi
    */
   async delete(id: string): Promise<void> {
     try {
-      await db.configurationMatrices.delete(id);
+      const { error } = await supabase
+        .from('configuration_matrices')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw new Error(error.message);
     } catch (error) {
       console.error(`Error deleting matrix ${id}:`, error);
       throw new Error('Failed to delete configuration matrix');
@@ -178,7 +240,7 @@ export class ConfigurationMatrixRepository implements IConfigurationMatrixReposi
 
   /**
    * Calculate total configuration cost from selected options
-   * FIXED: Only counts non-standard options (availability > 1)
+   * Only counts non-standard options (availability > 1)
    */
   calculateConfigurationCost(
     variant: StoredConfigurationVariant,
@@ -190,7 +252,6 @@ export class ConfigurationMatrixRepository implements IConfigurationMatrixReposi
       const specGroup = variant.specifications.find((s) => s.groupCode === specCode);
       if (specGroup) {
         const option = specGroup.options.find((o) => o.optionCode === optionCode);
-        // FIXED: Only count non-standard options (availability > 1)
         if (option && option.availability > 1) {
           totalCost += option.eurCostDelta;
         }
@@ -209,16 +270,13 @@ export class ConfigurationMatrixRepository implements IConfigurationMatrixReposi
   ): string[] {
     const summary: string[] = [];
 
-    // Add variant name
     summary.push(`${variant.variantName} (${variant.variantCode})`);
 
-    // Add selected options (only non-standard ones with cost)
     Object.entries(selections).forEach(([specCode, optionCode]) => {
       const specGroup = variant.specifications.find((s) => s.groupCode === specCode);
       if (specGroup) {
         const option = specGroup.options.find((o) => o.optionCode === optionCode);
         if (option && option.availability > 1) {
-          // Only show optional (2) and non-standard (3) items
           const costStr = option.eurCostDelta > 0 ? ` (+€${option.eurCostDelta.toLocaleString()})` : '';
           summary.push(`${option.description}${costStr}`);
         }

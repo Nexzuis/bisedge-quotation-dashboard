@@ -7,7 +7,8 @@
 
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
-import { supabase, isCloudMode, FEATURES, CONFIG } from '../lib/supabase';
+import { supabase, FEATURES, CONFIG } from '../lib/supabase';
+import { logger } from '../utils/logger';
 
 export interface Viewer {
   userId: string;
@@ -28,7 +29,7 @@ export function usePresence(quoteId: string, enabled: boolean = true) {
   const [isTracking, setIsTracking] = useState(false);
 
   useEffect(() => {
-    if (!user || !enabled || !isCloudMode() || !FEATURES.presence) {
+    if (!user || !enabled || !FEATURES.presence) {
       return;
     }
 
@@ -47,7 +48,7 @@ export function usePresence(quoteId: string, enabled: boolean = true) {
             last_seen_at: new Date().toISOString(),
           });
         } catch (error) {
-          console.error('Failed to update presence:', error);
+          logger.error('Failed to update presence:', error);
         }
       };
 
@@ -81,7 +82,7 @@ export function usePresence(quoteId: string, enabled: boolean = true) {
         })
         .subscribe(async (status) => {
           if (status === 'SUBSCRIBED') {
-            console.log('✅ Presence tracking active for quote:', quoteId);
+            logger.debug('Presence tracking active for quote:', quoteId);
 
             // Track our own presence
             await channel.track({
@@ -116,8 +117,8 @@ export function usePresence(quoteId: string, enabled: boolean = true) {
         .delete()
         .eq('quote_id', quoteId)
         .eq('user_id', user.id)
-        .then(() => console.log('🔌 Presence removed'))
-        .catch((err) => console.error('Failed to remove presence:', err));
+        .then(() => logger.debug('Presence removed'))
+        .catch((err) => logger.error('Failed to remove presence:', err));
     };
   }, [quoteId, user, enabled]);
 

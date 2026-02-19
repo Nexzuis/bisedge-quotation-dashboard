@@ -84,7 +84,7 @@ export default function QuotesListPage() {
 
       let items = result.items;
 
-      // Role-based filtering for local mode
+      // Role-based filtering
       if (!isManager) {
         items = items.filter(
           (q: any) => q.createdBy === user.id || q.assignedTo === user.id

@@ -150,11 +150,9 @@ export async function calcResidualValueFromDB(
   leaseTermMonths: LeaseTermMonths
 ): Promise<ZAR> {
   try {
-    const { db } = await import('../db/schema');
-    const curve = await db.residualCurves
-      .where('chemistry')
-      .equals(batteryChemistry)
-      .first();
+    const { getDb } = await import('../db/DatabaseAdapter');
+    const curves = await getDb().getResidualCurves();
+    const curve = curves.find((c: any) => c.chemistry === batteryChemistry);
 
     if (!curve) return 0;
 

@@ -6,7 +6,7 @@ import { defaultTermsTemplate } from './templates/defaultTerms';
 import { formatDate, formatDateFilename } from '../engine/formatters';
 import type { QuoteState } from '../types/quote';
 import type { PdfQuoteData } from './types';
-import { db } from '../db/schema';
+import { getDb } from '../db/DatabaseAdapter';
 
 /**
  * PDF Generation Options
@@ -45,7 +45,7 @@ export async function generateQuotePDF(
     // Load terms template from database
     let termsTemplate = defaultTermsTemplate;
     if (pdfOptions.termsTemplateId) {
-      const template = await db.templates.get(pdfOptions.termsTemplateId);
+      const template = await getDb().getTemplate(pdfOptions.termsTemplateId);
       if (template && template.content && typeof template.content === 'object') {
         termsTemplate = template.content as typeof defaultTermsTemplate;
       }

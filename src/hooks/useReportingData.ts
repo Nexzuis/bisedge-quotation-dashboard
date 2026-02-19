@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import { db } from '../db/schema';
-import type { StoredCompany, StoredActivity, StoredUser } from '../db/schema';
+import { getDb } from '../db/DatabaseAdapter';
+import type { StoredCompany, StoredActivity, StoredUser } from '../db/interfaces';
 import type { PipelineStage, ActivityType } from '../types/crm';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -300,9 +300,9 @@ export function useReportingData(): UseReportingDataResult {
 
     try {
       const [companies, activities, users] = await Promise.all([
-        db.companies.toArray(),
-        db.activities.toArray(),
-        db.users.toArray(),
+        getDb().listCompanies(),
+        getDb().listAllActivities(),
+        getDb().listUsers(),
       ]);
 
       const funnel = computeFunnel(companies);

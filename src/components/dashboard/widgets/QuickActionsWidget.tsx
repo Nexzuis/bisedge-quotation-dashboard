@@ -6,6 +6,7 @@ import { Button } from '../../ui/Button';
 import { LoadQuoteModal } from '../../shared/LoadQuoteModal';
 import { staggerContainer, fadeInUp } from '../../crm/shared/motionVariants';
 import { ROLE_HIERARCHY, type Role } from '../../../auth/permissions';
+import { useQuoteDB } from '../../../hooks/useQuoteDB';
 
 interface QuickActionsWidgetProps {
   role: Role;
@@ -13,9 +14,15 @@ interface QuickActionsWidgetProps {
 
 export function QuickActionsWidget({ role }: QuickActionsWidgetProps) {
   const navigate = useNavigate();
+  const { createNewQuote } = useQuoteDB();
   const [showLoadModal, setShowLoadModal] = useState(false);
   const isManager = (ROLE_HIERARCHY[role] || 0) >= 2;
   const isAdmin = role === 'system_admin';
+
+  const handleNewQuote = async () => {
+    await createNewQuote();
+    navigate('/builder');
+  };
 
   return (
     <>
@@ -26,7 +33,7 @@ export function QuickActionsWidget({ role }: QuickActionsWidgetProps) {
         animate="visible"
       >
         <motion.div variants={fadeInUp} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-          <Button variant="primary" icon={FilePlus} onClick={() => navigate('/builder')}>
+          <Button variant="primary" icon={FilePlus} onClick={handleNewQuote}>
             New Quote
           </Button>
         </motion.div>

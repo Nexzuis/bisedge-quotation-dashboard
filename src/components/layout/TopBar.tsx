@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { FileText, Save, Download, FilePlus, FolderOpen, Settings, Wand2 } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { FileText, Save, Download, FilePlus, FolderOpen, Settings, Wand2, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useQuoteStore } from '../../store/useQuoteStore';
 import { Button } from '../ui/Button';
@@ -15,6 +16,7 @@ import { useAuth } from '../auth/AuthContext';
 export function TopBar() {
   const [isExporting, setIsExporting] = useState(false);
   const [showLoadModal, setShowLoadModal] = useState(false);
+  const [showNewQuoteModal, setShowNewQuoteModal] = useState(false);
 
   const quote = useQuoteStore((state) => state);
   const quoteRef = useQuoteStore((state) => state.quoteRef);
@@ -88,10 +90,32 @@ export function TopBar() {
     }
   };
 
-  const handleNewQuote = async () => {
-    if (confirm('Create a new quote? Any unsaved changes will be lost.')) {
-      await createNewQuote();
+  const updatedAt = useQuoteStore((state) => state.updatedAt);
+  const hasUnsavedChanges = !!(lastSavedAt && updatedAt > lastSavedAt);
+
+  const handleNewQuote = () => {
+    if (hasUnsavedChanges) {
+      setShowNewQuoteModal(true);
+    } else {
+      createNewQuote();
     }
+  };
+
+  const handleSaveAndNew = async () => {
+    setShowNewQuoteModal(false);
+    try {
+      await saveNow();
+      toast.success('Quote saved');
+    } catch {
+      toast.error('Failed to save quote');
+      return;
+    }
+    await createNewQuote();
+  };
+
+  const handleDiscardAndNew = async () => {
+    setShowNewQuoteModal(false);
+    await createNewQuote();
   };
 
   const getSaveStatusText = () => {
@@ -196,6 +220,59 @@ export function TopBar() {
           // Modal will close itself, just refresh if needed
         }}
       />
+
+      {/* Unsaved Changes Modal */}
+      {showNewQuoteModal && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="new-quote-dialog-title"
+          onKeyDown={(e) => e.key === 'Escape' && setShowNewQuoteModal(false)}
+        >
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            aria-hidden="true"
+            onClick={() => setShowNewQuoteModal(false)}
+          />
+          <div className="relative bg-slate-900 border border-surface-600/50 rounded-2xl shadow-2xl w-full max-w-md p-6 mx-4">
+            <div className="flex items-start gap-4">
+              <div className="p-3 rounded-lg bg-yellow-500/20 border border-yellow-500/50">
+                <AlertTriangle className="w-6 h-6 text-yellow-400" />
+              </div>
+              <div className="flex-1">
+                <h3 id="new-quote-dialog-title" className="text-xl font-bold text-surface-100 mb-2">
+                  Unsaved Changes
+                </h3>
+                <p className="text-surface-100/60">
+                  You have unsaved changes. What would you like to do?
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowNewQuoteModal(false)}
+                className="px-4 py-2 bg-surface-800/40 hover:bg-surface-700/50 border border-surface-700/50 rounded-lg text-surface-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDiscardAndNew}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-surface-100 rounded-lg transition-colors"
+              >
+                Discard &amp; New
+              </button>
+              <button
+                onClick={handleSaveAndNew}
+                className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-surface-100 rounded-lg transition-colors"
+              >
+                Save &amp; New
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

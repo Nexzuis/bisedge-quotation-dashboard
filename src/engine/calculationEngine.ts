@@ -16,6 +16,10 @@ export function pmt(
   presentValue: number,
   futureValue: number = 0
 ): number {
+  if (!isFinite(nPeriods) || nPeriods <= 0) {
+    return 0;
+  }
+
   if (monthlyRate === 0) {
     return -(presentValue + futureValue) / nPeriods;
   }
@@ -439,7 +443,7 @@ export function calcSlotPricingFull(
   const sellingPriceZAR = calcSellingPrice(landedCostZAR, slot.markupPct);
 
   // 5. Margin
-  const margin = calcMargin(sellingPriceZAR, factoryCostZAR);
+  const margin = calcMargin(sellingPriceZAR, landedCostZAR);
 
   // 6. Residual value
   const residualValue = calcResidualValueFromPct(sellingPriceZAR, slot.residualValueTruckPct);

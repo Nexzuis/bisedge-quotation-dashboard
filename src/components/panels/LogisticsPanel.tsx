@@ -3,25 +3,19 @@ import { Package, Truck, ChevronDown, ChevronUp, AlertTriangle, Info, DollarSign
 import { Panel } from '../ui/Panel';
 import { CardHeader } from '../ui/Card';
 import { useQuoteStore } from '../../store/useQuoteStore';
-import type { UnitSlot } from '../../types/quote';
+import type { ShippingEntry, UnitSlot } from '../../types/quote';
 import { useContainerMapping } from '../../hooks/usePriceList';
 import { formatZAR, formatEUR } from '../../engine/formatters';
 
-interface ContainerEntry {
-  description: string;
-  containerType: string;
-  quantity: number;
-  costZAR: number;
-}
-
 export function LogisticsPanel() {
   const slots = useQuoteStore((state) => state.slots);
+  const shippingEntries = useQuoteStore((state) => state.shippingEntries);
+  const addShippingEntry = useQuoteStore((state) => state.addShippingEntry);
+  const updateShippingEntry = useQuoteStore((state) => state.updateShippingEntry);
+  const removeShippingEntry = useQuoteStore((state) => state.removeShippingEntry);
   const factoryROE = useQuoteStore((state) => state.factoryROE);
   const activeSlots = slots.filter((s) => !s.isEmpty && s.modelCode !== '0');
 
-  const [containers, setContainers] = useState<ContainerEntry[]>([
-    { description: '', containerType: "40' standard", quantity: 1, costZAR: 0 },
-  ]);
   const [showReference, setShowReference] = useState(true);
 
   if (activeSlots.length === 0) {
@@ -43,21 +37,24 @@ export function LogisticsPanel() {
 
   // Calculate totals
   const totalUnits = activeSlots.reduce((sum, s) => sum + s.quantity, 0);
-  const totalContainers = containers.reduce((sum, c) => sum + c.quantity, 0);
-  const totalShippingCost = containers.reduce((sum, c) => sum + c.costZAR * c.quantity, 0);
+  const totalContainers = shippingEntries.reduce((sum, c) => sum + c.quantity, 0);
+  const totalShippingCost = shippingEntries.reduce((sum, c) => sum + c.costZAR * c.quantity, 0);
   const costPerUnit = totalUnits > 0 ? totalShippingCost / totalUnits : 0;
 
   const addContainer = () => {
-    setContainers([...containers, { description: '', containerType: "40' standard", quantity: 1, costZAR: 0 }]);
+    addShippingEntry();
   };
 
-  const removeContainer = (index: number) => {
-    if (containers.length <= 1) return;
-    setContainers(containers.filter((_, i) => i !== index));
+  const removeContainer = (id: string) => {
+    removeShippingEntry(id);
   };
 
-  const updateContainer = (index: number, field: keyof ContainerEntry, value: string | number) => {
-    setContainers(containers.map((c, i) => (i === index ? { ...c, [field]: value } : c)));
+  const updateContainer = (
+    id: string,
+    field: keyof Omit<ShippingEntry, 'id'>,
+    value: string | number
+  ) => {
+    updateShippingEntry(id, { [field]: value } as Partial<ShippingEntry>);
   };
 
   return (
@@ -124,16 +121,16 @@ export function LogisticsPanel() {
           </div>
 
           <div className="space-y-2">
-            {containers.map((container, idx) => (
-              <div key={idx} className="glass rounded-lg p-3 space-y-2">
+            {shippingEntries.map((container, idx) => (
+              <div key={container.id} className="glass rounded-lg p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Package className="w-4 h-4 text-brand-400" />
                     <span className="text-xs font-semibold text-surface-200">Container {idx + 1}</span>
                   </div>
-                  {containers.length > 1 && (
+                  {shippingEntries.length > 1 && (
                     <button
-                      onClick={() => removeContainer(idx)}
+                      onClick={() => removeContainer(container.id)}
                       className="text-xs text-red-400 hover:text-red-300 transition-colors"
                     >
                       Remove
@@ -148,7 +145,7 @@ export function LogisticsPanel() {
                     <input
                       type="text"
                       value={container.description}
-                      onChange={(e) => updateContainer(idx, 'description', e.target.value)}
+                      onChange={(e) => updateContainer(container.id, 'description', e.target.value)}
                       placeholder="e.g., Main fleet shipment"
                       className="w-full bg-surface-800 border border-surface-600 rounded px-2 py-1.5 text-xs text-surface-100 placeholder:text-surface-500 focus:outline-none focus:border-brand-500"
                     />
@@ -159,7 +156,7 @@ export function LogisticsPanel() {
                     <label className="block text-xs text-surface-400 mb-1">Container Type</label>
                     <select
                       value={container.containerType}
-                      onChange={(e) => updateContainer(idx, 'containerType', e.target.value)}
+                      onChange={(e) => updateContainer(container.id, 'containerType', e.target.value)}
                       className="w-full bg-surface-800 border border-surface-600 rounded px-2 py-1.5 text-xs text-surface-100 focus:outline-none focus:border-brand-500"
                     >
                       <option value="20' standard">20' Standard</option>
@@ -178,7 +175,11 @@ export function LogisticsPanel() {
                       min={1}
                       max={50}
                       value={container.quantity}
-                      onChange={(e) => updateContainer(idx, 'quantity', Math.max(1, parseInt(e.target.value) || 1))}
+                      onChange={(e) => updateContainer(
+                        container.id,
+                        'quantity',
+                        Math.max(1, parseInt(e.target.value, 10) || 1)
+                      )}
                       className="w-full bg-surface-800 border border-surface-600 rounded px-2 py-1.5 text-xs text-surface-100 focus:outline-none focus:border-brand-500"
                     />
                   </div>
@@ -191,7 +192,11 @@ export function LogisticsPanel() {
                       min={0}
                       step={1000}
                       value={container.costZAR || ''}
-                      onChange={(e) => updateContainer(idx, 'costZAR', Math.max(0, parseFloat(e.target.value) || 0))}
+                      onChange={(e) => updateContainer(
+                        container.id,
+                        'costZAR',
+                        Math.max(0, parseFloat(e.target.value) || 0)
+                      )}
                       placeholder="Enter shipping quote cost"
                       className="w-full bg-surface-800 border border-surface-600 rounded px-2 py-1.5 text-xs text-surface-100 placeholder:text-surface-500 focus:outline-none focus:border-brand-500"
                     />
@@ -211,7 +216,7 @@ export function LogisticsPanel() {
         </div>
 
         {/* Fit Check Warnings */}
-        <FitCheckWarnings activeSlots={activeSlots} containers={containers} />
+        <FitCheckWarnings activeSlots={activeSlots} containers={shippingEntries} />
 
         {/* Cost Summary */}
         <div className="glass-brand rounded-lg p-3">
@@ -283,7 +288,7 @@ function FitCheckWarnings({
   containers,
 }: {
   activeSlots: UnitSlot[];
-  containers: ContainerEntry[];
+  containers: ShippingEntry[];
 }) {
   const warnings: string[] = [];
 

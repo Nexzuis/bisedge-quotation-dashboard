@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import type { PipelineMetrics } from '../../../types/crm';
 import type { PipelineStage } from '../../../types/crm';
@@ -8,6 +9,8 @@ interface PipelineOverviewBarProps {
 }
 
 export function PipelineOverviewBar({ metrics }: PipelineOverviewBarProps) {
+  const navigate = useNavigate();
+
   if (!metrics) return null;
 
   const activeStages = PIPELINE_STAGES.filter((s) => s.key !== 'won' && s.key !== 'lost');
@@ -46,8 +49,9 @@ export function PipelineOverviewBar({ metrics }: PipelineOverviewBarProps) {
               animate={{ width: `${pct}%` }}
               transition={{ duration: 0.6, ease: 'easeOut' }}
               whileHover={{ filter: 'brightness(1.2)' }}
-              className={`${barColors[stage.key] || 'bg-surface-600'} flex items-center justify-center text-xs font-medium text-white min-w-[40px] transition-[filter] duration-200`}
-              title={`${stage.label}: ${count}`}
+              onClick={() => navigate('/customers', { state: { filterStage: stage.key } })}
+              className={`${barColors[stage.key] || 'bg-surface-600'} flex items-center justify-center text-xs font-medium text-white min-w-[40px] transition-[filter] duration-200 cursor-pointer`}
+              title={`${stage.label}: ${count} — Click to filter`}
             >
               {pct > 10 ? count : ''}
             </motion.div>
@@ -58,16 +62,17 @@ export function PipelineOverviewBar({ metrics }: PipelineOverviewBarProps) {
         {activeStages.map((stage) => {
           const count = metrics.countByStage[stage.key] || 0;
           return (
-            <motion.div
+            <motion.button
               key={stage.key}
               className="flex items-center gap-1.5 text-xs"
               whileHover={{ scale: 1.05, opacity: 1 }}
               style={{ opacity: 0.8 }}
+              onClick={() => navigate('/customers', { state: { filterStage: stage.key } })}
             >
               <div className={`w-2.5 h-2.5 rounded-full ${barColors[stage.key] || 'bg-surface-600'}`} />
               <span className="text-surface-400">{stage.label}</span>
               <span className="text-surface-200 font-medium">{count}</span>
-            </motion.div>
+            </motion.button>
           );
         })}
       </div>

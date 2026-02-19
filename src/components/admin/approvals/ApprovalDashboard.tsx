@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   CheckCircle,
   XCircle,
@@ -7,6 +8,7 @@ import {
   User as UserIcon,
   Loader2,
   FileText,
+  Eye,
 } from 'lucide-react';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { getDb } from '../../../db/DatabaseAdapter';
@@ -210,6 +212,7 @@ export function ApprovalDashboard() {
 }
 
 function ApprovalCard({ quote, onRefresh }: { quote: PendingQuote; onRefresh: () => void }) {
+  const navigate = useNavigate();
   const { user } = useAuthStore();
   const [modalAction, setModalAction] = useState<'approve' | 'reject' | 'escalate' | 'return' | 'comment' | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -318,8 +321,11 @@ function ApprovalCard({ quote, onRefresh }: { quote: PendingQuote; onRefresh: ()
         <div>
           <div className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-brand-400" />
-            <h3 className="text-lg font-semibold text-surface-100">
-              Quote {quote.quoteRef}
+            <h3
+              className="text-lg font-semibold text-brand-400 hover:text-brand-300 cursor-pointer transition-colors font-mono"
+              onClick={() => navigate(`/quote?id=${quote.id}`)}
+            >
+              {quote.quoteRef}
             </h3>
           </div>
           <p className="text-surface-100/60 text-sm mt-1">{quote.clientName}</p>
@@ -370,6 +376,13 @@ function ApprovalCard({ quote, onRefresh }: { quote: PendingQuote; onRefresh: ()
       {/* Action buttons */}
       {actions.length > 0 && (
         <div className="flex gap-2 pt-3 border-t border-surface-600/30">
+          <button
+            onClick={() => navigate(`/quote?id=${quote.id}`)}
+            className="flex items-center justify-center gap-1.5 px-4 py-2 bg-surface-600 hover:bg-surface-500 text-surface-100 rounded-lg text-sm font-medium transition-colors"
+          >
+            <Eye className="w-4 h-4" />
+            Open Quote
+          </button>
           {actions.includes('approve') && (
             <button
               onClick={() => setModalAction('approve')}

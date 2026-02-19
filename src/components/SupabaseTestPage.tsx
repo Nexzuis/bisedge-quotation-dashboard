@@ -151,10 +151,10 @@ export default function SupabaseTestPage() {
                       If connection failed: Check your <code>.env.local</code> file has correct credentials
                     </li>
                     <li>
-                      If schema failed: Run <code>SUPABASE_SCHEMA.sql</code> in Supabase SQL Editor
+                      If schema failed: Apply the schema section from <code>Project documentation/SUPABASE_MASTER_CURRENT_STATE.sql</code>
                     </li>
                     <li>
-                      If RLS warning: Run <code>SUPABASE_RLS_POLICIES.sql</code> in Supabase SQL Editor
+                      If RLS warning: Apply/verify the policy sections in <code>Project documentation/SUPABASE_MASTER_CURRENT_STATE.sql</code>
                     </li>
                     <li>
                       Make sure to restart your dev server after changing <code>.env.local</code>
@@ -170,8 +170,7 @@ export default function SupabaseTestPage() {
             <div className="bg-gray-50 border-2 border-gray-300 rounded-lg p-4 mt-6">
               <h3 className="font-semibold mb-2">📝 Before Running Tests</h3>
               <ol className="list-decimal list-inside space-y-1 text-sm">
-                <li>Ensure you've run <code>SUPABASE_SCHEMA.sql</code> in Supabase SQL Editor</li>
-                <li>Ensure you've run <code>SUPABASE_RLS_POLICIES.sql</code> in Supabase SQL Editor</li>
+                <li>Ensure you have applied the required sections from <code>Project documentation/SUPABASE_MASTER_CURRENT_STATE.sql</code></li>
                 <li>Update <code>.env.local</code> with your Supabase credentials</li>
                 <li>Restart your dev server: <code>npm run dev</code></li>
                 <li>Click the button above to run tests</li>

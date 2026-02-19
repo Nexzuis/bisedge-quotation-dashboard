@@ -45,7 +45,7 @@ describe('pmt', () => {
   it('handles zero-period edge case', () => {
     // 0 periods → division by zero guard (Infinity or NaN)
     const result = pmt(0.01, 0, -100_000, 0);
-    expect(isFinite(result)).toBe(false);
+    expect(result).toBe(0);
   });
 });
 

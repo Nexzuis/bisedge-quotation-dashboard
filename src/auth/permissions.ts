@@ -174,19 +174,23 @@ export const hasPermission = (
   action: 'read' | 'create' | 'update' | 'delete',
   overrides?: PermissionOverrides
 ): boolean => {
+  const resourceMatches = (candidate: string, target: string) =>
+    candidate === target || candidate === target.split(':')[0];
+
   // Check overrides first
   if (overrides) {
     for (const [key, mapping] of Object.entries(OVERRIDE_TO_RESOURCE)) {
-      if (mapping && overrides[key as PermissionOverrideKey] === true) {
-        if ((mapping.resource === resource || mapping.resource === resource.split(':')[0]) &&
+      if (mapping && overrides[key as PermissionOverrideKey] === false) {
+        if (resourceMatches(mapping.resource, resource) &&
             (mapping.action === action || mapping.action === '*')) {
-          return true;
+          return false;
         }
       }
-      // Explicit deny via override
-      if (mapping && overrides[key as PermissionOverrideKey] === false) {
-        if (mapping.resource === resource && (mapping.action === action || mapping.action === '*')) {
-          // Don't return false yet — the role-based check may still grant it
+
+      if (mapping && overrides[key as PermissionOverrideKey] === true) {
+        if (resourceMatches(mapping.resource, resource) &&
+            (mapping.action === action || mapping.action === '*')) {
+          return true;
         }
       }
     }
@@ -195,7 +199,7 @@ export const hasPermission = (
   // Then check role-based permissions
   const permissions = ROLE_PERMISSIONS[role];
   return permissions.some(
-    p => (p.resource === resource || p.resource === resource.split(':')[0]) &&
+    p => resourceMatches(p.resource, resource) &&
          (p.action === action || p.action === '*')
   );
 };
@@ -235,3 +239,4 @@ export const ROLE_MIGRATION_MAP: Record<string, Role> = {
   sales: 'sales_rep',
   viewer: 'sales_rep',
 };
+

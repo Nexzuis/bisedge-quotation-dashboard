@@ -7,7 +7,7 @@ import { Badge } from '../ui/Badge';
 import { toast } from '../ui/Toast';
 import { formatDate } from '../../engine/formatters';
 import { generateQuotePDF } from '../../pdf/generatePDF';
-import { useAutoSave } from '../../hooks/useAutoSave';
+import { useAutoSaveContext } from '../../hooks/AutoSaveContext';
 import { useQuoteDB } from '../../hooks/useQuoteDB';
 import { LoadQuoteModal } from '../shared/LoadQuoteModal';
 import { useAuth } from '../auth/AuthContext';
@@ -25,7 +25,7 @@ export function TopBar() {
   const getSlotPricing = useQuoteStore((state) => state.getSlotPricing);
 
   // Auto-save hook
-  const { status: saveStatus, lastSavedAt, saveNow } = useAutoSave();
+  const { status: saveStatus, lastSavedAt, saveNow } = useAutoSaveContext();
 
   // Quote DB operations
   const { createNewQuote } = useQuoteDB();

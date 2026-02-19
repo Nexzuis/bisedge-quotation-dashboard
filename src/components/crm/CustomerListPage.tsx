@@ -29,6 +29,7 @@ export default function CustomerListPage() {
   const [userNameMap, setUserNameMap] = useState<Record<string, string>>({});
 
   const { user } = useAuth();
+  const isRestrictedRole = user?.role === 'sales_rep' || user?.role === 'key_account';
   const viewMode = useCrmStore((s) => s.viewMode);
   const stageFilters = useCrmStore((s) => s.stageFilters);
   const searchQuery = useCrmStore((s) => s.searchQuery);
@@ -47,14 +48,26 @@ export default function CustomerListPage() {
     });
   }, []);
 
-  // Check if navigated with openNewLead state
+  // Check if navigated with openNewLead or filterStage state
   useEffect(() => {
-    if ((location.state as any)?.openNewLead) {
+    const state = location.state as any;
+    if (state?.openNewLead) {
       setShowNewForm(true);
-      // Clear the state so it doesn't re-trigger
+    }
+    if (state?.filterStage) {
+      useCrmStore.getState().setStageFilters([state.filterStage]);
+    }
+    // Clear the state so it doesn't re-trigger
+    if (state?.openNewLead || state?.filterStage) {
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
+
+  useEffect(() => {
+    if (isRestrictedRole) {
+      setShowMyAccounts(true);
+    }
+  }, [isRestrictedRole]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -103,7 +116,7 @@ export default function CustomerListPage() {
     stageFilters.length === 0
       ? companies
       : companies.filter((c) => stageFilters.includes(c.pipelineStage));
-  const filtered = showMyAccounts && user
+  const filtered = (isRestrictedRole || showMyAccounts) && user
     ? stageFiltered.filter((c) => c.assignedTo === user.id)
     : stageFiltered;
 
@@ -133,15 +146,16 @@ export default function CustomerListPage() {
           </div>
           <ViewToggle />
           <button
+            disabled={isRestrictedRole}
             onClick={() => setShowMyAccounts((v) => !v)}
             className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
-              showMyAccounts
+              (isRestrictedRole || showMyAccounts)
                 ? 'bg-brand-600/30 text-surface-100 border-teal-500/50'
                 : 'text-surface-100/60 hover:text-surface-100 hover:bg-surface-800/40 border-surface-600/50'
-            }`}
+            } ${isRestrictedRole ? 'cursor-not-allowed opacity-70' : ''}`}
           >
             <Users className="w-4 h-4" />
-            {showMyAccounts ? 'All Accounts' : 'My Accounts'}
+            {isRestrictedRole ? 'My Accounts' : showMyAccounts ? 'All Accounts' : 'My Accounts'}
           </button>
           <Button variant="ghost" icon={Download} onClick={handleExport} disabled={filtered.length === 0}>
             Export

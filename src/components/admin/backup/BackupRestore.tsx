@@ -6,6 +6,8 @@ import { toast } from '../../ui/Toast';
 
 interface BackupData {
   version: string;
+  schemaVersion: number;
+  appVersion: string;
   timestamp: string;
   tables: {
     quotes: any[];
@@ -19,6 +21,13 @@ interface BackupData {
     commissionTiers: any[];
     residualCurves: any[];
     configurationMatrices: any[];
+    priceListSeries: any[];
+    forkliftModels: any[];
+    batteryModels: any[];
+    containerMappings: any[];
+    telematicsPackages: any[];
+    attachments: any[];
+    notifications: any[];
     users: any[];
     settings: any[];
   };
@@ -36,9 +45,38 @@ interface ImportPreview {
   commissionTiers: number;
   residualCurves: number;
   configurationMatrices: number;
+  priceListSeries: number;
+  forkliftModels: number;
+  batteryModels: number;
+  containerMappings: number;
+  telematicsPackages: number;
+  attachments: number;
+  notifications: number;
   users: number;
   settings: number;
 }
+
+const BACKUP_VERSION = '2.0.0';
+const REQUIRED_TABLES: Array<keyof BackupData['tables']> = [
+  'quotes',
+  'companies',
+  'contacts',
+  'activities',
+  'templates',
+  'auditLog',
+  'approvalTiers',
+  'commissionTiers',
+  'residualCurves',
+  'configurationMatrices',
+  'priceListSeries',
+  'forkliftModels',
+  'batteryModels',
+  'containerMappings',
+  'telematicsPackages',
+  'attachments',
+  'settings',
+  'notifications',
+];
 
 const BackupRestore = () => {
   const [exporting, setExporting] = useState(false);
@@ -68,6 +106,13 @@ const BackupRestore = () => {
       const commissionTiers = await db.commissionTiers.toArray();
       const residualCurves = await db.residualCurves.toArray();
       const configurationMatrices = await db.configurationMatrices.toArray();
+      const priceListSeries = await db.priceListSeries.toArray();
+      const forkliftModels = await db.table('forkliftModels').toArray();
+      const batteryModels = await db.batteryModels.toArray();
+      const containerMappings = await db.containerMappings.toArray();
+      const telematicsPackages = await db.telematicsPackages.toArray();
+      const attachments = await db.table('attachments').toArray();
+      const notifications = await db.notifications.toArray();
       const settings = await db.settings.toArray();
 
       // Get users but exclude passwords
@@ -78,7 +123,9 @@ const BackupRestore = () => {
       }));
 
       const backupData: BackupData = {
-        version: '1.0.0',
+        version: BACKUP_VERSION,
+        schemaVersion: db.verno,
+        appVersion: import.meta.env.VITE_APP_VERSION || 'dev',
         timestamp: new Date().toISOString(),
         tables: {
           quotes,
@@ -92,6 +139,13 @@ const BackupRestore = () => {
           commissionTiers,
           residualCurves,
           configurationMatrices,
+          priceListSeries,
+          forkliftModels,
+          batteryModels,
+          containerMappings,
+          telematicsPackages,
+          attachments,
+          notifications,
           users,
           settings,
         },
@@ -144,15 +198,16 @@ const BackupRestore = () => {
       }
 
       // Required tables
-      const requiredTables = [
-        'quotes', 'customers', 'templates',
-        'commissionTiers', 'residualCurves'
-      ];
-
-      for (const table of requiredTables) {
-        if (!data.tables[table as keyof BackupData['tables']]) {
+      for (const table of REQUIRED_TABLES) {
+        if (!data.tables[table]) {
           throw new Error(`Missing required table: ${table}`);
         }
+      }
+
+      if (data.schemaVersion && data.schemaVersion > db.verno) {
+        throw new Error(
+          `Backup schema v${data.schemaVersion} is newer than this app schema v${db.verno}. Update app first.`
+        );
       }
 
       // Create preview
@@ -168,6 +223,13 @@ const BackupRestore = () => {
         commissionTiers: data.tables.commissionTiers?.length || 0,
         residualCurves: data.tables.residualCurves?.length || 0,
         configurationMatrices: data.tables.configurationMatrices?.length || 0,
+        priceListSeries: data.tables.priceListSeries?.length || 0,
+        forkliftModels: data.tables.forkliftModels?.length || 0,
+        batteryModels: data.tables.batteryModels?.length || 0,
+        containerMappings: data.tables.containerMappings?.length || 0,
+        telematicsPackages: data.tables.telematicsPackages?.length || 0,
+        attachments: data.tables.attachments?.length || 0,
+        notifications: data.tables.notifications?.length || 0,
         users: data.tables.users?.length || 0,
         settings: data.tables.settings?.length || 0,
       };
@@ -210,6 +272,13 @@ const BackupRestore = () => {
         await db.commissionTiers.clear();
         await db.residualCurves.clear();
         await db.configurationMatrices.clear();
+        await db.priceListSeries.clear();
+        await db.table('forkliftModels').clear();
+        await db.batteryModels.clear();
+        await db.containerMappings.clear();
+        await db.telematicsPackages.clear();
+        await db.table('attachments').clear();
+        await db.notifications.clear();
         await db.settings.clear();
         // Note: Don't clear users table in replace mode for safety
       }
@@ -247,6 +316,27 @@ const BackupRestore = () => {
       }
       if (importData.tables.configurationMatrices?.length > 0) {
         await db.configurationMatrices.bulkPut(importData.tables.configurationMatrices);
+      }
+      if (importData.tables.priceListSeries?.length > 0) {
+        await db.priceListSeries.bulkPut(importData.tables.priceListSeries);
+      }
+      if (importData.tables.forkliftModels?.length > 0) {
+        await db.table('forkliftModels').bulkPut(importData.tables.forkliftModels);
+      }
+      if (importData.tables.batteryModels?.length > 0) {
+        await db.batteryModels.bulkPut(importData.tables.batteryModels);
+      }
+      if (importData.tables.containerMappings?.length > 0) {
+        await db.containerMappings.bulkPut(importData.tables.containerMappings);
+      }
+      if (importData.tables.telematicsPackages?.length > 0) {
+        await db.telematicsPackages.bulkPut(importData.tables.telematicsPackages);
+      }
+      if (importData.tables.attachments?.length > 0) {
+        await db.table('attachments').bulkPut(importData.tables.attachments);
+      }
+      if (importData.tables.notifications?.length > 0) {
+        await db.notifications.bulkPut(importData.tables.notifications);
       }
       if (importData.tables.settings?.length > 0) {
         await db.settings.bulkPut(importData.tables.settings);
@@ -458,6 +548,34 @@ const BackupRestore = () => {
               <div className="bg-surface-800/40 border border-surface-700/50 rounded-lg p-3">
                 <div className="text-xs text-surface-100/60 mb-1">Audit Logs</div>
                 <div className="text-lg font-bold text-surface-100">{importPreview.auditLog}</div>
+              </div>
+              <div className="bg-surface-800/40 border border-surface-700/50 rounded-lg p-3">
+                <div className="text-xs text-surface-100/60 mb-1">Price List Series</div>
+                <div className="text-lg font-bold text-surface-100">{importPreview.priceListSeries}</div>
+              </div>
+              <div className="bg-surface-800/40 border border-surface-700/50 rounded-lg p-3">
+                <div className="text-xs text-surface-100/60 mb-1">Forklift Models</div>
+                <div className="text-lg font-bold text-surface-100">{importPreview.forkliftModels}</div>
+              </div>
+              <div className="bg-surface-800/40 border border-surface-700/50 rounded-lg p-3">
+                <div className="text-xs text-surface-100/60 mb-1">Battery Models</div>
+                <div className="text-lg font-bold text-surface-100">{importPreview.batteryModels}</div>
+              </div>
+              <div className="bg-surface-800/40 border border-surface-700/50 rounded-lg p-3">
+                <div className="text-xs text-surface-100/60 mb-1">Container Mappings</div>
+                <div className="text-lg font-bold text-surface-100">{importPreview.containerMappings}</div>
+              </div>
+              <div className="bg-surface-800/40 border border-surface-700/50 rounded-lg p-3">
+                <div className="text-xs text-surface-100/60 mb-1">Telematics Packages</div>
+                <div className="text-lg font-bold text-surface-100">{importPreview.telematicsPackages}</div>
+              </div>
+              <div className="bg-surface-800/40 border border-surface-700/50 rounded-lg p-3">
+                <div className="text-xs text-surface-100/60 mb-1">Attachments</div>
+                <div className="text-lg font-bold text-surface-100">{importPreview.attachments}</div>
+              </div>
+              <div className="bg-surface-800/40 border border-surface-700/50 rounded-lg p-3">
+                <div className="text-xs text-surface-100/60 mb-1">Notifications</div>
+                <div className="text-lg font-bold text-surface-100">{importPreview.notifications}</div>
               </div>
             </div>
 

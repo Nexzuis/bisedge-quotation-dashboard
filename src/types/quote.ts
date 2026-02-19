@@ -74,6 +74,14 @@ export interface LocalCosts {
   extras: ZAR;
 }
 
+export interface ShippingEntry {
+  id: string;
+  description: string;
+  containerType: string;
+  quantity: number;
+  costZAR: ZAR;
+}
+
 // Unit Slot Configuration
 export interface UnitSlot {
   slotIndex: SlotIndex;
@@ -214,6 +222,7 @@ export interface QuoteState {
 
   // Fleet Configuration (6 slots)
   slots: UnitSlot[];
+  shippingEntries: ShippingEntry[];
 
   // Approval Workflow (legacy fields kept for migration compat)
   approvalTier: number;

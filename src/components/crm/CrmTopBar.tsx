@@ -1,26 +1,58 @@
 import { useRef, useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Users, FileText, Wand2, Settings, User, LogOut, ChevronDown, BarChart3 } from 'lucide-react';
+import { Home, Users, FileText, Wand2, Settings, User, LogOut, ChevronDown, BarChart3, ClipboardCheck, List } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../auth/AuthContext';
 import { Badge } from '../ui/Badge';
 import { NotificationBell } from '../notifications/NotificationBell';
-
-const NAV_ITEMS = [
-  { path: '/', label: 'Home', icon: Home },
-  { path: '/customers', label: 'Customers', icon: Users },
-  { path: '/crm/reports', label: 'Reports', icon: BarChart3 },
-  { path: '/quote', label: 'Quote Dashboard', icon: FileText },
-  { path: '/builder', label: 'Quote Builder', icon: Wand2 },
-];
+import { ROLE_HIERARCHY, type Role } from '../../auth/permissions';
+import { getDb } from '../../db/DatabaseAdapter';
 
 export function CrmTopBar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
   const userMenuRef = useRef<HTMLDivElement>(null);
+
+  const roleLevel = ROLE_HIERARCHY[(user?.role || 'sales_rep') as Role] || 0;
+  const isManager = roleLevel >= 2;
   const isAdmin = user?.role === 'system_admin' || user?.role === 'sales_manager' || user?.role === 'local_leader' || user?.role === 'ceo';
+
+  // Load pending approval count for managers
+  useEffect(() => {
+    if (!user || !isManager) return;
+    loadApprovalCount();
+    // Refresh every 30 seconds
+    const interval = setInterval(loadApprovalCount, 30000);
+    return () => clearInterval(interval);
+  }, [user, isManager]);
+
+  const loadApprovalCount = async () => {
+    if (!user) return;
+    try {
+      const db = getDb();
+      const [pendingResult, reviewResult] = await Promise.all([
+        db.listQuotes(
+          { page: 1, pageSize: 100, sortBy: 'createdAt', sortOrder: 'asc' },
+          { status: 'pending-approval' }
+        ),
+        db.listQuotes(
+          { page: 1, pageSize: 100, sortBy: 'createdAt', sortOrder: 'asc' },
+          { status: 'in-review' as any }
+        ),
+      ]);
+      const all = [...pendingResult.items, ...reviewResult.items];
+      const assigned = all.filter((q: any) => {
+        if (user.role === 'system_admin') return true;
+        return q.currentAssigneeId === user.id;
+      });
+      setPendingApprovalCount(assigned.length);
+    } catch {
+      // Non-critical
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -56,10 +88,22 @@ export function CrmTopBar() {
     return location.pathname.startsWith(path);
   };
 
-  const allNavItems = [
-    ...NAV_ITEMS,
+  // Build nav items based on role
+  const navItems = [
+    { path: '/', label: 'Home', icon: Home },
+    { path: '/quotes', label: 'Quotes', icon: List },
+    { path: '/customers', label: 'Customers', icon: Users },
+    { path: '/crm/reports', label: 'Reports', icon: BarChart3 },
+    { path: '/builder', label: 'New Quote', icon: Wand2 },
+  ];
+
+  // Manager+ gets Approvals with badge
+  // Admin gets Admin panel link
+  const extraNavItems = [
     ...(isAdmin ? [{ path: '/admin', label: 'Admin', icon: Settings }] : []),
   ];
+
+  const allNavItems = [...navItems, ...extraNavItems];
 
   return (
     <div className="glass rounded-xl p-3 mb-4 relative z-30">
@@ -92,6 +136,36 @@ export function CrmTopBar() {
               </motion.button>
             );
           })}
+
+          {/* Approvals nav with badge — Manager+ only */}
+          {isManager && (
+            <motion.button
+              onClick={() => navigate('/admin/approvals')}
+              whileHover={{ scale: 1.02 }}
+              className={`relative flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isActive('/admin/approvals')
+                  ? 'text-brand-400'
+                  : 'text-surface-400 hover:text-surface-100 hover:bg-surface-700/50'
+              }`}
+            >
+              {isActive('/admin/approvals') && (
+                <motion.div
+                  layoutId="nav-active"
+                  className="absolute inset-0 bg-brand-600/20 rounded-lg"
+                  transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                />
+              )}
+              <div className="relative z-10">
+                <ClipboardCheck className="w-4 h-4" />
+                {pendingApprovalCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-amber-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center animate-pulse">
+                    {pendingApprovalCount > 9 ? '9+' : pendingApprovalCount}
+                  </span>
+                )}
+              </div>
+              <span className="hidden sm:inline relative z-10">Approvals</span>
+            </motion.button>
+          )}
         </div>
 
         {/* Right — Notification Bell + User Menu */}

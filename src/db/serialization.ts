@@ -1,4 +1,4 @@
-import type { QuoteState, SlotIndex, UnitSlot } from '../types/quote';
+import type { QuoteState, ShippingEntry, SlotIndex, UnitSlot } from '../types/quote';
 import type { StoredQuote } from './interfaces';
 
 /**
@@ -98,6 +98,18 @@ function createEmptySlot(index: SlotIndex): UnitSlot {
   };
 }
 
+function createDefaultShippingEntries(): ShippingEntry[] {
+  return [
+    {
+      id: crypto.randomUUID(),
+      description: '',
+      containerType: "40' standard",
+      quantity: 1,
+      costZAR: 0,
+    },
+  ];
+}
+
 /**
  * Convert runtime QuoteState (with Date objects) to StoredQuote (with ISO strings)
  */
@@ -130,6 +142,7 @@ export function quoteToStored(state: QuoteState): StoredQuote {
 
     // Fleet Configuration (serialize slots to JSON)
     slots: JSON.stringify(state.slots),
+    shippingEntries: JSON.stringify(state.shippingEntries ?? createDefaultShippingEntries()),
 
     // Approval Workflow
     approvalTier: state.approvalTier,
@@ -208,6 +221,25 @@ export function storedToQuote(stored: StoredQuote): QuoteState {
         console.error('Failed to parse slots JSON:', error);
         // Return 6 empty slots as fallback
         return Array.from({ length: 6 }, (_, i) => createEmptySlot(i as SlotIndex));
+      }
+    })(),
+    shippingEntries: (() => {
+      try {
+        if (!stored.shippingEntries) return createDefaultShippingEntries();
+        const parsed = JSON.parse(stored.shippingEntries);
+        if (!Array.isArray(parsed) || parsed.length === 0) {
+          return createDefaultShippingEntries();
+        }
+        return parsed.map((entry: any) => ({
+          id: typeof entry.id === 'string' && entry.id ? entry.id : crypto.randomUUID(),
+          description: typeof entry.description === 'string' ? entry.description : '',
+          containerType: typeof entry.containerType === 'string' && entry.containerType ? entry.containerType : "40' standard",
+          quantity: Number.isFinite(entry.quantity) && entry.quantity > 0 ? Math.floor(entry.quantity) : 1,
+          costZAR: Number.isFinite(entry.costZAR) && entry.costZAR >= 0 ? entry.costZAR : 0,
+        })) as ShippingEntry[];
+      } catch (error) {
+        console.error('Failed to parse shippingEntries JSON:', error);
+        return createDefaultShippingEntries();
       }
     })(),
 

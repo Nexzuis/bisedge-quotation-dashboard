@@ -35,11 +35,11 @@ export async function generateQuotePDF(
     const pdfOptions: Required<PdfGenerationOptions> = {
       includeSpecs: options.includeSpecs ?? true,
       includeMarketing: options.includeMarketing ?? true,
-      quoteType: options.quoteType ?? 'rental',
+      quoteType: options.quoteType ?? quoteState.quoteType,
       customNotes: options.customNotes ?? '',
       termsTemplateId: options.termsTemplateId ?? '',
-      signatoryName: options.signatoryName ?? 'John Smith',
-      signatoryTitle: options.signatoryTitle ?? 'Sales Manager',
+      signatoryName: options.signatoryName ?? '',
+      signatoryTitle: options.signatoryTitle ?? '',
     };
 
     // Load terms template from database
@@ -81,9 +81,9 @@ export async function generateQuotePDF(
         leaseTerm: slot.leaseTermMonths,
         monthlyLeaseRate: pricing.leaseRate,
         additionalCosts: {
-          maintenance: slot.maintenanceCostPerMonth,
-          fleetManagement: slot.fleetMgmtCostPerMonth,
-          telematics: slot.telematicsCostPerMonth,
+          maintenance: pricing.maintenanceMonthly,
+          fleetManagement: slot.operatorPricePerMonth,
+          telematics: slot.telematicsSubscriptionSellingPerMonth,
         },
         totalMonthly: pricing.totalMonthly,
       };

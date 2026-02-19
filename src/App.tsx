@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './components/auth/AuthContext';
 import LoginPage from './components/auth/LoginPage';
 import Dashboard from './Dashboard';
@@ -7,11 +7,13 @@ import { lazy, Suspense } from 'react';
 
 const AdminLayout = lazy(() => import('./components/admin/AdminLayout'));
 const QuoteBuilder = lazy(() => import('./components/builder/QuoteBuilder'));
+const HomeDashboard = lazy(() => import('./components/dashboard/HomeDashboard'));
 const CrmDashboardPage = lazy(() => import('./components/crm/CrmDashboardPage'));
 const CustomerListPage = lazy(() => import('./components/crm/CustomerListPage'));
 const CustomerDetailPage = lazy(() => import('./components/crm/CustomerDetailPage'));
 const ReportsPage = lazy(() => import('./components/crm/reporting/ReportsPage'));
 const NotificationsPage = lazy(() => import('./components/notifications/NotificationsPage'));
+const QuotesListPage = lazy(() => import('./components/quotes/QuotesListPage'));
 
 import SupabaseTestPage from './components/SupabaseTestPage';
 import { ToastProvider } from './components/ui/Toast';
@@ -23,6 +25,7 @@ import { useQuoteDB } from './hooks/useQuoteDB';
 import { useConfigStore } from './store/useConfigStore';
 import { useUnsavedChanges } from './hooks/useUnsavedChanges';
 import { useAutoSave } from './hooks/useAutoSave';
+import { AutoSaveContextProvider } from './hooks/AutoSaveContext';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { Loader2 } from 'lucide-react';
 
@@ -60,18 +63,20 @@ function AppContent() {
   const [initError, setInitError] = useState<string | null>(null);
   const { loadMostRecent } = useQuoteDB();
   const { isAuthenticated } = useAuth();
+  const location = useLocation();
   const seededRef = useRef(false);
-
-  // Enable unsaved changes warning
-  useUnsavedChanges();
+  const initialQuoteLoadRef = useRef(false);
 
   // Expose saveNow for the keyboard shortcut so Ctrl+S reuses the same
   // save path as the auto-save debounce (handles version locking, toasts, etc.).
-  const { saveNow } = useAutoSave();
+  const autoSave = useAutoSave();
+
+  // Enable unsaved changes warning
+  useUnsavedChanges(autoSave.lastSavedAt);
 
   // Global keyboard shortcuts: Ctrl+S (save), Ctrl+N (new quote), Ctrl+P (PDF)
   // Ctrl+K is intentionally excluded — GlobalSearch.tsx owns that shortcut.
-  useKeyboardShortcuts({ onSave: saveNow });
+  useKeyboardShortcuts({ onSave: autoSave.saveNow });
 
   // One-time database seed + config load
   useEffect(() => {
@@ -95,7 +100,15 @@ function AppContent() {
 
   // Auth-dependent quote load with cancellation
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      initialQuoteLoadRef.current = false;
+      return;
+    }
+    if (initialQuoteLoadRef.current) return;
+    initialQuoteLoadRef.current = true;
+
+    // /quote route performs id-aware loading in Dashboard.tsx
+    if (location.pathname === '/quote') return;
     let cancelled = false;
 
     const loadQuote = async () => {
@@ -113,7 +126,7 @@ function AppContent() {
 
     loadQuote();
     return () => { cancelled = true; };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, location.pathname, loadMostRecent]);
 
   if (isInitializing) {
     return (
@@ -150,7 +163,8 @@ function AppContent() {
   }
 
   return (
-    <Routes>
+    <AutoSaveContextProvider value={autoSave}>
+      <Routes>
       <Route path="/login" element={<LoginPage />} />
 
       {/* Supabase Connection Test Page */}
@@ -158,11 +172,29 @@ function AppContent() {
         <RequireAuth><RequireAdmin><SupabaseTestPage /></RequireAdmin></RequireAuth>
       } />
 
-      {/* CRM Dashboard — new landing page */}
+      {/* Home Dashboard — role-aware landing page */}
       <Route path="/" element={
+        <RequireAuth>
+          <Suspense fallback={<LazyFallback label="Loading Dashboard..." />}>
+            <HomeDashboard />
+          </Suspense>
+        </RequireAuth>
+      } />
+
+      {/* CRM Dashboard — legacy route */}
+      <Route path="/crm" element={
         <RequireAuth>
           <Suspense fallback={<LazyFallback label="Loading CRM Dashboard..." />}>
             <CrmDashboardPage />
+          </Suspense>
+        </RequireAuth>
+      } />
+
+      {/* Quotes List */}
+      <Route path="/quotes" element={
+        <RequireAuth>
+          <Suspense fallback={<LazyFallback label="Loading Quotes..." />}>
+            <QuotesListPage />
           </Suspense>
         </RequireAuth>
       } />
@@ -229,8 +261,9 @@ function AppContent() {
       } />
 
       {/* 404 catch-all */}
-      <Route path="*" element={<NotFoundPage />} />
-    </Routes>
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </AutoSaveContextProvider>
   );
 }
 

@@ -16,12 +16,12 @@ export function QuoteGeneratorPanel() {
   // PDF Options State
   const [includeSpecs, setIncludeSpecs] = useState(true);
   const [includeMarketing, setIncludeMarketing] = useState(true);
-  const [quoteType, setQuoteType] = useState<'rental' | 'rent-to-own' | 'dual'>('rental');
   const [customNotes, setCustomNotes] = useState('');
-  const [signatoryName, setSignatoryName] = useState('John Smith');
-  const [signatoryTitle, setSignatoryTitle] = useState('Sales Manager');
+  const [signatoryName, setSignatoryName] = useState('');
+  const [signatoryTitle, setSignatoryTitle] = useState('');
 
   const quote = useQuoteStore((state) => state);
+  const setQuoteType = useQuoteStore((state) => state.setQuoteType);
   const setValidityDays = useQuoteStore((state) => state.setValidityDays);
   const getQuoteTotals = useQuoteStore((state) => state.getQuoteTotals);
   const getSlotPricing = useQuoteStore((state) => state.getSlotPricing);
@@ -67,7 +67,7 @@ export function QuoteGeneratorPanel() {
       const pdfOptions: PdfGenerationOptions = {
         includeSpecs,
         includeMarketing,
-        quoteType,
+        quoteType: quote.quoteType,
         customNotes: customNotes.trim() || undefined,
         signatoryName,
         signatoryTitle,
@@ -151,8 +151,8 @@ export function QuoteGeneratorPanel() {
             <div>
               <label className="text-xs text-surface-400 mb-1 block">Quote Type</label>
               <select
-                value={quoteType}
-                onChange={(e) => setQuoteType(e.target.value as any)}
+                value={quote.quoteType}
+                onChange={(e) => setQuoteType(e.target.value as 'rental' | 'rent-to-own' | 'dual')}
                 className="w-full px-3 py-1.5 text-xs bg-surface-900 border border-surface-700 rounded text-surface-200 focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
               >
                 <option value="rental">Standard Rental</option>

@@ -135,7 +135,7 @@ export async function testDatabaseSchema(): Promise<ConnectionTestResult> {
       success: allTablesExist,
       message: allTablesExist
         ? 'All required tables exist'
-        : 'Some tables are missing - did you run SUPABASE_SCHEMA.sql?',
+        : 'Some tables are missing - check schema sections in Project documentation/SUPABASE_MASTER_CURRENT_STATE.sql',
       details: results,
     };
   } catch (error) {
@@ -174,7 +174,7 @@ export async function testRLSPolicies(): Promise<ConnectionTestResult> {
         console.warn('⚠️ Unauthenticated user can access data - RLS might not be configured');
         return {
           success: false,
-          message: 'RLS policies may not be configured - run SUPABASE_RLS_POLICIES.sql',
+          message: 'RLS policies may not be configured - review policy sections in Project documentation/SUPABASE_MASTER_CURRENT_STATE.sql',
         };
       }
     }

@@ -45,14 +45,7 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
     if (quoteRef === '0000.0') {
       try {
         const nextRef = await repository.getNextQuoteRef();
-        const store = useQuoteStore.getState();
-        store.loadQuote({
-          ...store,
-          quoteRef: nextRef,
-          id: store.id || crypto.randomUUID(),
-          createdAt: store.createdAt || new Date(),
-          updatedAt: new Date(),
-        });
+        useQuoteStore.getState().setQuoteRef(nextRef);
       } catch (err) {
         console.error('Failed to assign quote ref:', err);
         return;
@@ -74,10 +67,7 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
         lastUpdatedAtRef.current = quote.updatedAt;
 
         // Update version in store to prevent version conflicts
-        useQuoteStore.getState().loadQuote({
-          ...quote,
-          version: result.version,
-        });
+        useQuoteStore.getState().setVersion(result.version);
 
         // Reset to idle after 3 seconds
         setTimeout(() => {

@@ -59,6 +59,51 @@ async function trySupabaseLogin(email: string, password: string) {
   }
 }
 
+interface LoginAttemptState {
+  failedCount: number;
+  lockUntil: number | null;
+}
+
+const LOGIN_ATTEMPTS = new Map<string, LoginAttemptState>();
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 10 * 60 * 1000;
+const MAX_DELAY_MS = 4000;
+
+function normalizeLoginKey(emailOrUsername: string): string {
+  return emailOrUsername.trim().toLowerCase();
+}
+
+function getProgressiveDelayMs(failedCount: number): number {
+  if (failedCount <= 1) return 0;
+  return Math.min(500 * Math.pow(2, failedCount - 2), MAX_DELAY_MS);
+}
+
+async function sleep(ms: number): Promise<void> {
+  if (ms <= 0) return;
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function logAuthSecurityEvent(
+  action: 'login_failed' | 'lockout',
+  identifier: string
+): Promise<void> {
+  try {
+    const { db } = await import('../db/schema');
+    await db.auditLog.add({
+      timestamp: new Date().toISOString(),
+      userId: 'system',
+      userName: identifier,
+      action,
+      entityType: 'user',
+      entityId: identifier,
+      changes: { identifier },
+      notes: action === 'lockout' ? 'Temporary lockout triggered by failed login attempts' : undefined,
+    });
+  } catch {
+    // Non-critical
+  }
+}
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -67,11 +112,42 @@ export const useAuthStore = create<AuthState>()(
 
       login: async (emailOrUsername: string, password: string) => {
         const appMode = import.meta.env.VITE_APP_MODE || 'local';
+        const loginKey = normalizeLoginKey(emailOrUsername);
+        const existingAttempt = LOGIN_ATTEMPTS.get(loginKey);
+        const now = Date.now();
+
+        if (existingAttempt?.lockUntil && now < existingAttempt.lockUntil) {
+          await logAuthSecurityEvent('lockout', loginKey);
+          return false;
+        }
+
+        await sleep(getProgressiveDelayMs(existingAttempt?.failedCount ?? 0));
+
+        const registerFailedAttempt = async () => {
+          const current = LOGIN_ATTEMPTS.get(loginKey) || { failedCount: 0, lockUntil: null };
+          const nextFailedCount = current.failedCount + 1;
+          const shouldLock = nextFailedCount >= MAX_FAILED_ATTEMPTS;
+          const nextState: LoginAttemptState = {
+            failedCount: nextFailedCount,
+            lockUntil: shouldLock ? Date.now() + LOCKOUT_DURATION_MS : null,
+          };
+          LOGIN_ATTEMPTS.set(loginKey, nextState);
+          await logAuthSecurityEvent('login_failed', loginKey);
+          if (shouldLock) {
+            await logAuthSecurityEvent('lockout', loginKey);
+          }
+          return false;
+        };
+
+        const clearFailedAttempts = () => {
+          LOGIN_ATTEMPTS.delete(loginKey);
+        };
 
         // In hybrid or cloud mode, try Supabase Auth first
         if (appMode === 'hybrid' || appMode === 'cloud') {
           const supaUser = await trySupabaseLogin(emailOrUsername, password);
           if (supaUser) {
+            clearFailedAttempts();
             // Parse permission overrides
             let permissionOverrides: PermissionOverrides = {};
             try {
@@ -167,11 +243,11 @@ export const useAuthStore = create<AuthState>()(
             .first();
         }
 
-        if (!user) return false;
-        if (!user.isActive) return false;
+        if (!user) return await registerFailedAttempt();
+        if (!user.isActive) return await registerFailedAttempt();
 
         const isValid = await bcrypt.compare(password, user.passwordHash);
-        if (!isValid) return false;
+        if (!isValid) return await registerFailedAttempt();
 
         // In hybrid mode, also sign into Supabase Auth so the session
         // exists for sync queue operations (RLS requires authenticated session)
@@ -218,11 +294,12 @@ export const useAuthStore = create<AuthState>()(
           changes: {},
         });
 
+        clearFailedAttempts();
         return true;
       },
 
       logout: async () => {
-        // Sign out of Supabase too
+        // 1. Sign out of Supabase
         const appMode = import.meta.env.VITE_APP_MODE || 'local';
         if (appMode === 'hybrid' || appMode === 'cloud') {
           try {
@@ -232,6 +309,39 @@ export const useAuthStore = create<AuthState>()(
             // Non-critical
           }
         }
+
+        // 2. Clear user-specific IndexedDB tables (keep config/seed data)
+        try {
+          const { db } = await import('../db/schema');
+          await Promise.all([
+            db.quotes.clear(),
+            db.companies.clear(),
+            db.contacts.clear(),
+            db.activities.clear(),
+            db.notifications.clear(),
+            db.auditLog.clear(),
+          ]);
+        } catch {
+          // Non-critical — DB may not be open yet
+        }
+
+        // 3. Clear sync queue from localStorage
+        try {
+          localStorage.removeItem('bisedge_sync_queue');
+          localStorage.removeItem('bisedge_sync_permanent_failures');
+        } catch {
+          // Non-critical
+        }
+
+        // 4. Reset quote store to prevent stale data in memory
+        try {
+          const { useQuoteStore } = await import('./useQuoteStore');
+          useQuoteStore.getState().resetAll();
+        } catch {
+          // Non-critical
+        }
+
+        // 5. Clear auth state
         set({ user: null, isAuthenticated: false });
       },
 

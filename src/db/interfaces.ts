@@ -30,6 +30,7 @@ export interface StoredQuote {
 
   // Fleet Configuration (serialized)
   slots: string; // JSON stringified slots array
+  shippingEntries?: string; // JSON stringified shipping entries
 
   // Approval Workflow
   approvalTier: number;
@@ -152,7 +153,7 @@ export interface AuditLogEntry {
   timestamp: string;
   userId: string;
   userName?: string;
-  action: 'create' | 'update' | 'delete' | 'approve' | 'reject' | 'submit' | 'login' | 'logout' | 'escalate' | 'return' | 'comment' | 'edit_review';
+  action: 'create' | 'update' | 'delete' | 'approve' | 'reject' | 'submit' | 'login' | 'logout' | 'escalate' | 'return' | 'comment' | 'edit_review' | 'login_failed' | 'lockout';
   entityType: 'quote' | 'customer' | 'template' | 'user' | 'approvalTiers' | 'commissionTiers' | 'residualCurves' | 'settings' | 'forkliftModel' | 'batteryModel' | 'attachment' | 'company' | 'contact';
   entityId: string;
   changes: Record<string, any>;

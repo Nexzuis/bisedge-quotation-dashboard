@@ -1,12 +1,10 @@
 import { useEffect } from 'react';
 import { useQuoteStore } from '../store/useQuoteStore';
-import { useAutoSave } from './useAutoSave';
 
 /**
  * Hook to warn users about unsaved changes before they leave the page
  */
-export const useUnsavedChanges = () => {
-  const { lastSavedAt } = useAutoSave();
+export const useUnsavedChanges = (lastSavedAt: Date | null) => {
   const updatedAt = useQuoteStore((state) => state.updatedAt);
 
   useEffect(() => {

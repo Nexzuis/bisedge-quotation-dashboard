@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { DollarSign, Users, FileText, Trophy } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { formatZAR } from '../../../engine/formatters';
@@ -20,6 +21,8 @@ function AnimatedMetricValue({ value, isCurrency }: { value: number; isCurrency?
 }
 
 export function MetricCards({ metrics, userMetrics, loading }: MetricCardsProps) {
+  const navigate = useNavigate();
+
   const cards = [
     {
       label: 'Pipeline Value',
@@ -29,6 +32,7 @@ export function MetricCards({ metrics, userMetrics, loading }: MetricCardsProps)
       color: 'text-brand-400',
       bg: 'bg-brand-500/10',
       isCurrency: true,
+      onClick: () => navigate('/customers'),
     },
     {
       label: 'Active Leads',
@@ -38,6 +42,7 @@ export function MetricCards({ metrics, userMetrics, loading }: MetricCardsProps)
       color: 'text-blue-400',
       bg: 'bg-blue-500/10',
       isCurrency: false,
+      onClick: () => navigate('/customers', { state: { filterStage: 'lead' } }),
     },
     {
       label: 'Quotes This Month',
@@ -47,6 +52,7 @@ export function MetricCards({ metrics, userMetrics, loading }: MetricCardsProps)
       color: 'text-purple-400',
       bg: 'bg-purple-500/10',
       isCurrency: false,
+      onClick: () => navigate('/quotes', { state: { filterThisMonth: true } }),
     },
     {
       label: 'Won This Month',
@@ -56,6 +62,7 @@ export function MetricCards({ metrics, userMetrics, loading }: MetricCardsProps)
       color: 'text-green-400',
       bg: 'bg-green-500/10',
       isCurrency: false,
+      onClick: () => navigate('/customers', { state: { filterStage: 'won' } }),
     },
   ];
 
@@ -73,7 +80,9 @@ export function MetricCards({ metrics, userMetrics, loading }: MetricCardsProps)
             key={card.label}
             variants={fadeInUp}
             whileHover={{ scale: 1.03, boxShadow: '0 8px 32px rgba(0, 212, 255, 0.12)' }}
-            className="glass rounded-xl p-4 glow-brand-hover cursor-default"
+            whileTap={{ scale: 0.97 }}
+            onClick={card.onClick}
+            className="glass rounded-xl p-4 glow-brand-hover cursor-pointer"
           >
             <div className="flex items-center gap-3">
               <div className={`p-2.5 rounded-lg ${card.bg}`}>

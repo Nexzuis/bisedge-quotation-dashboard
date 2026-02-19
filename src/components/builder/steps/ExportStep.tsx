@@ -1,28 +1,25 @@
 import { useState, useEffect } from 'react';
-import { Download, Save, Send, FileText, CheckCircle, Home } from 'lucide-react';
+import { Download, Save, Send, CheckCircle, Home } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useQuoteStore } from '../../../store/useQuoteStore';
-import { useQuoteDB } from '../../../hooks/useQuoteDB';
-import { useAutoSave } from '../../../hooks/useAutoSave';
+import { useAutoSaveContext } from '../../../hooks/AutoSaveContext';
 import { generateQuotePDF } from '../../../pdf/generatePDF';
 import { useBuilder } from '../BuilderContext';
 import { StepHeader } from '../shared/StepHeader';
 import { Button } from '../../ui/Button';
 import { toast } from '../../ui/Toast';
-import { useAuth } from '../../auth/AuthContext';
 import { useApprovalActions } from '../../../hooks/useApprovalActions';
 import { ApprovalActionModal } from '../../shared/ApprovalActionModal';
 import { getDb } from '../../../db/DatabaseAdapter';
-import { ROLE_DISPLAY_NAMES, type Role } from '../../../auth/permissions';
+import { ROLE_DISPLAY_NAMES } from '../../../auth/permissions';
 
 export function ExportStep() {
   const quote = useQuoteStore((s) => s);
   const getQuoteTotals = useQuoteStore((s) => s.getQuoteTotals);
   const getSlotPricing = useQuoteStore((s) => s.getSlotPricing);
 
-  const { saveNow, status: saveStatus } = useAutoSave();
+  const { saveNow } = useAutoSaveContext();
   const navigate = useNavigate();
-  const { user } = useAuth();
   const { setCanProceed } = useBuilder();
   const { submit, isProcessing, targetRoles } = useApprovalActions();
 

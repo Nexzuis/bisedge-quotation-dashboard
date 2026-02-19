@@ -2,72 +2,101 @@ import { useCallback } from 'react';
 import { getCompanyRepository } from '../db/repositories';
 import type { StoredCompany } from '../db/interfaces';
 import type { PipelineStage } from '../types/crm';
+import { useAuth } from '../components/auth/AuthContext';
 
 export function useCompanies() {
   const repo = getCompanyRepository();
+  const { user } = useAuth();
+  const isRestrictedRole = user?.role === 'sales_rep' || user?.role === 'key_account';
+  const canAccessCompany = useCallback(
+    (company: StoredCompany) => {
+      if (!isRestrictedRole || !user) return true;
+      return company.assignedTo === user.id;
+    },
+    [isRestrictedRole, user]
+  );
 
   const listCompanies = useCallback(async (): Promise<StoredCompany[]> => {
     try {
-      return await repo.list();
+      const companies = await repo.list();
+      return companies.filter(canAccessCompany);
     } catch (error) {
       console.error('Failed to list companies:', error);
       return [];
     }
-  }, [repo]);
+  }, [repo, canAccessCompany]);
 
   const searchCompanies = useCallback(
     async (query: string): Promise<StoredCompany[]> => {
       try {
-        if (!query.trim()) return await repo.list();
-        return await repo.search(query);
+        const companies = !query.trim() ? await repo.list() : await repo.search(query);
+        return companies.filter(canAccessCompany);
       } catch (error) {
         console.error('Failed to search companies:', error);
         return [];
       }
     },
-    [repo]
+    [repo, canAccessCompany]
   );
 
   const getById = useCallback(
     async (id: string): Promise<StoredCompany | null> => {
       try {
-        return await repo.getById(id);
+        const company = await repo.getById(id);
+        if (!company) return null;
+        return canAccessCompany(company) ? company : null;
       } catch (error) {
         console.error('Failed to get company:', error);
         return null;
       }
     },
-    [repo]
+    [repo, canAccessCompany]
   );
 
   const saveCompany = useCallback(
     async (
       company: Omit<StoredCompany, 'id' | 'createdAt' | 'updatedAt'>
     ): Promise<string> => {
-      return await repo.save(company);
+      const payload = { ...company };
+      if (isRestrictedRole && user && !payload.assignedTo) {
+        payload.assignedTo = user.id;
+      }
+      return await repo.save(payload);
     },
-    [repo]
+    [repo, isRestrictedRole, user]
   );
 
   const updateCompany = useCallback(
     async (id: string, updates: Partial<StoredCompany>): Promise<void> => {
+      if (isRestrictedRole) {
+        const existing = await repo.getById(id);
+        if (!existing || !canAccessCompany(existing)) return;
+      }
       await repo.update(id, updates);
     },
-    [repo]
+    [repo, isRestrictedRole, canAccessCompany]
   );
 
   const updateStage = useCallback(
     async (id: string, stage: PipelineStage): Promise<void> => {
+      if (isRestrictedRole) {
+        const existing = await repo.getById(id);
+        if (!existing || !canAccessCompany(existing)) return;
+      }
       await repo.updateStage(id, stage);
     },
-    [repo]
+    [repo, isRestrictedRole, canAccessCompany]
   );
 
   const deleteCompany = useCallback(
     async (id: string): Promise<void> => {
+      if (isRestrictedRole) {
+        const existing = await repo.getById(id);
+        if (!existing || !canAccessCompany(existing)) return;
+      }
       await repo.delete(id);
     },
-    [repo]
+    [repo, isRestrictedRole, canAccessCompany]
   );
 
   return {

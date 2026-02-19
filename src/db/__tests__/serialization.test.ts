@@ -81,6 +81,15 @@ function createTestQuoteState(): QuoteState {
       mastType: '',
       selectedVariant: '',
     })),
+    shippingEntries: [
+      {
+        id: 'ship-1',
+        description: 'Main shipment',
+        containerType: "40' standard",
+        quantity: 2,
+        costZAR: 85000,
+      },
+    ],
 
     approvalTier: 0,
     approvalStatus: 'draft',
@@ -127,6 +136,16 @@ describe('quoteToStored', () => {
     const parsed = JSON.parse(stored.slots);
     expect(Array.isArray(parsed)).toBe(true);
     expect(parsed).toHaveLength(6);
+  });
+
+  it('serializes shipping entries to JSON string', () => {
+    const state = createTestQuoteState();
+    const stored = quoteToStored(state);
+
+    expect(typeof stored.shippingEntries).toBe('string');
+    const parsed = JSON.parse(stored.shippingEntries as string);
+    expect(Array.isArray(parsed)).toBe(true);
+    expect(parsed).toHaveLength(1);
   });
 
   it('serializes approvalChain to JSON string', () => {
@@ -186,6 +205,16 @@ describe('storedToQuote', () => {
     expect(restored.slots[0].eurCost).toBe(15000);
   });
 
+  it('deserializes shipping entries from JSON string', () => {
+    const state = createTestQuoteState();
+    const stored = quoteToStored(state);
+    const restored = storedToQuote(stored);
+
+    expect(Array.isArray(restored.shippingEntries)).toBe(true);
+    expect(restored.shippingEntries).toHaveLength(1);
+    expect(restored.shippingEntries[0].description).toBe('Main shipment');
+  });
+
   it('handles null submittedAt/approvedAt/lockedAt', () => {
     const state = createTestQuoteState();
     const stored = quoteToStored(state);
@@ -235,6 +264,7 @@ describe('serialization roundtrip', () => {
 
     // CRM
     expect(restored.companyId).toBe(original.companyId);
+    expect(restored.shippingEntries).toEqual(original.shippingEntries);
 
     // Approval
     expect(restored.approvalChain).toEqual(original.approvalChain);

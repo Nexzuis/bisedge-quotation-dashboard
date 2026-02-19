@@ -11,6 +11,7 @@ import type {
   QuoteTotals,
   ClearingCharges,
   LocalCosts,
+  ShippingEntry,
 } from '../types/quote';
 import {
   calcMargin,
@@ -131,6 +132,16 @@ function createEmptySlot(index: SlotIndex): UnitSlot {
   };
 }
 
+function createDefaultShippingEntry(): ShippingEntry {
+  return {
+    id: crypto.randomUUID(),
+    description: '',
+    containerType: "40' standard",
+    quantity: 1,
+    costZAR: 0,
+  };
+}
+
 // Helper to calculate attachment costs from database
 export async function calculateAttachmentCost(attachmentIds: string[]): Promise<number> {
   if (!attachmentIds || attachmentIds.length === 0) return 0;
@@ -182,6 +193,9 @@ interface QuoteStore extends QuoteState {
   setLocalCost: (slotIndex: SlotIndex, field: keyof LocalCosts, value: number) => void;
   setCommercialField: (slotIndex: SlotIndex, field: CommercialField, value: number) => void;
   setManualContainerCost: (slotIndex: SlotIndex, cost: number) => void;
+  addShippingEntry: () => void;
+  updateShippingEntry: (id: string, updates: Partial<ShippingEntry>) => void;
+  removeShippingEntry: (id: string) => void;
 
   // Actions - Configuration (legacy compat)
   setConfiguration: (
@@ -226,6 +240,9 @@ interface QuoteStore extends QuoteState {
 
   // Actions - Reset
   resetQuote: () => void;
+  resetAll: () => void;
+  setQuoteRef: (quoteRef: string) => void;
+  setVersion: (version: number) => void;
   loadQuote: (quote: QuoteState) => void;
 }
 
@@ -258,6 +275,7 @@ function createInitialState(): QuoteState {
       createEmptySlot(4),
       createEmptySlot(5),
     ],
+    shippingEntries: [createDefaultShippingEntry()],
     approvalTier: 1,
     approvalStatus: 'draft',
     approvalNotes: '',
@@ -493,8 +511,36 @@ export const useQuoteStore = create<QuoteStore>()(
       }),
 
     setManualContainerCost: (_slotIndex, _cost) => {
-      console.warn('setManualContainerCost is not implemented — container cost is managed at quote level in LogisticsPanel');
+      console.warn('setManualContainerCost is not implemented � container cost is managed at quote level in LogisticsPanel');
     },
+
+    addShippingEntry: () =>
+      set((state) => {
+        state.shippingEntries.push(createDefaultShippingEntry());
+        state.updatedAt = new Date();
+      }),
+
+    updateShippingEntry: (id, updates) =>
+      set((state) => {
+        const entry = state.shippingEntries.find((line) => line.id === id);
+        if (!entry) return;
+
+        Object.assign(entry, updates);
+        if (!isFinite(entry.quantity) || entry.quantity < 1) {
+          entry.quantity = 1;
+        }
+        if (!isFinite(entry.costZAR) || entry.costZAR < 0) {
+          entry.costZAR = 0;
+        }
+        state.updatedAt = new Date();
+      }),
+
+    removeShippingEntry: (id) =>
+      set((state) => {
+        if (state.shippingEntries.length <= 1) return;
+        state.shippingEntries = state.shippingEntries.filter((line) => line.id !== id);
+        state.updatedAt = new Date();
+      }),
 
     // Configuration Actions (legacy compat)
     setConfiguration: (slotIndex, config) =>
@@ -606,8 +652,8 @@ export const useQuoteStore = create<QuoteStore>()(
       // 6. Selling price = landed cost × (1 + markup%)
       const sellingPriceZAR = landedCostZAR * (1 + slot.markupPct / 100);
 
-      // 7. Margin
-      const margin = calcMargin(sellingPriceZAR, factoryCostZAR);
+      // 7. Margin (landed-cost basis for go-live financial correctness)
+      const margin = calcMargin(sellingPriceZAR, landedCostZAR);
 
       // 8. Residual value using per-slot residual percentages
       const residualValue = sellingPriceZAR * (slot.residualValueTruckPct / 100);
@@ -682,6 +728,7 @@ export const useQuoteStore = create<QuoteStore>()(
 
       let totalSalesPrice = 0;
       let totalFactoryCost = 0;
+      let totalLandedCost = 0;
       let totalLeaseRate = 0;
       let totalMonthly = 0;
       let totalContractValue = 0;
@@ -694,6 +741,7 @@ export const useQuoteStore = create<QuoteStore>()(
         if (pricing) {
           totalSalesPrice += pricing.salesPrice * slot.quantity;
           totalFactoryCost += pricing.factoryCost * slot.quantity;
+          totalLandedCost += pricing.landedCostZAR * slot.quantity;
           totalLeaseRate += pricing.leaseRate * slot.quantity;
           totalMonthly += pricing.totalMonthly * slot.quantity;
           totalContractValue += pricing.totalContractValue;
@@ -710,7 +758,7 @@ export const useQuoteStore = create<QuoteStore>()(
       );
 
       const cashFlows = generateCashFlows(
-        totalFactoryCost,
+        totalLandedCost,
         totalLeaseRate,
         totalMonthlyCosts,
         avgTerm,
@@ -834,9 +882,22 @@ export const useQuoteStore = create<QuoteStore>()(
     // Reset Actions
     resetQuote: () => set(createInitialState()),
 
+    resetAll: () => set(createInitialState()),
+
+    setQuoteRef: (quoteRef) =>
+      set((state) => {
+        state.quoteRef = quoteRef;
+      }),
+
+    setVersion: (version) =>
+      set((state) => {
+        state.version = version;
+      }),
+
     loadQuote: (quote) =>
       set(() => {
         return { ...createInitialState(), ...quote };
       }),
   }))
 );
+

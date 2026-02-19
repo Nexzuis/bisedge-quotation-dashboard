@@ -90,6 +90,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         battery_chemistry_lock: quote.batteryChemistryLock,
         quote_type: quote.quoteType,
         slots: JSON.stringify(quote.slots),
+        shipping_entries: JSON.stringify(quote.shippingEntries ?? []),
         approval_tier: quote.approvalTier ?? null,
         approval_status: quote.approvalStatus || null,
         approval_notes: quote.approvalNotes || null,
@@ -1099,6 +1100,25 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       batteryChemistryLock: dbQuote.battery_chemistry_lock,
       quoteType: dbQuote.quote_type,
       slots: JSON.parse(dbQuote.slots || '[]'),
+      shippingEntries: (() => {
+        const defaultEntry = [{
+          id: crypto.randomUUID(),
+          description: '',
+          containerType: "40' standard",
+          quantity: 1,
+          costZAR: 0,
+        }];
+        try {
+          const raw = dbQuote.shipping_entries;
+          if (Array.isArray(raw)) {
+            return raw.length > 0 ? raw : defaultEntry;
+          }
+          const parsed = raw ? JSON.parse(raw) : [];
+          return Array.isArray(parsed) && parsed.length > 0 ? parsed : defaultEntry;
+        } catch {
+          return defaultEntry;
+        }
+      })(),
 
       // Approval Workflow
       approvalTier: dbQuote.approval_tier || undefined,

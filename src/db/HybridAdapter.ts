@@ -58,22 +58,41 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
     this.cloudAdapter = new SupabaseDatabaseAdapter();
   }
 
-  /**
-   * Resolve a local user ID to a valid Supabase UUID.
-   * Non-UUID values (e.g. 'default-admin' from local seed) are replaced
-   * with the current Supabase auth user's UUID to avoid FK violations.
-   */
-  private async resolveSupabaseUserId(localId: string | null | undefined): Promise<string | null> {
-    if (!localId) return null;
-    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(localId)) {
-      return localId;
-    }
+  private isUuid(value: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+  }
+
+  private parseQuoteBaseRef(quoteRef: string | null | undefined): number | null {
+    if (!quoteRef) return null;
+    const basePart = String(quoteRef).split('.')[0];
+    const parsed = Number.parseInt(basePart, 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  private async getCurrentSessionUserId(): Promise<string | null> {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       return session?.user?.id ?? null;
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Resolve a local user ID to a valid Supabase UUID.
+   * Non-UUID values (e.g. 'default-admin' from local seed) are replaced
+   * with the current Supabase auth user's UUID to avoid FK violations.
+   */
+  private async resolveSupabaseUserId(
+    localId: string | null | undefined,
+    opts?: { fallbackToSession?: boolean; sessionUserId?: string | null }
+  ): Promise<string | null> {
+    if (localId && this.isUuid(localId)) {
+      return localId;
+    }
+    if (!localId && !opts?.fallbackToSession) return null;
+    if (opts?.sessionUserId) return opts.sessionUserId;
+    return this.getCurrentSessionUserId();
   }
 
   // ===== Quote Operations =====
@@ -101,7 +120,7 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
     const localResult = await this.localAdapter.saveQuote(quote);
 
     if (!localResult.success) {
-      console.warn('⚠️ Quote local save failed:', localResult.error);
+      console.warn('Quote local save failed:', localResult.error);
       return localResult;
     }
 
@@ -124,6 +143,12 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
     // the version-incremented data (same pattern as saveCompany)
     if (navigator.onLine) {
       try {
+        const sessionUserId = await this.getCurrentSessionUserId();
+        if (!sessionUserId) {
+          console.warn('Skipping quote sync enqueue: no authenticated Supabase session');
+          return localResult;
+        }
+
         const saved = await this.localAdapter.loadQuote(quote.id);
         if (saved) {
           // Ensure referenced company is enqueued first (FK dependency)
@@ -141,14 +166,20 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
             } catch { /* company sync is best-effort here */ }
           }
 
+          const quotePayload = await this.prepareQuoteForSupabase(saved, sessionUserId);
+          if (!quotePayload.created_by) {
+            console.warn('Skipping quote sync enqueue: created_by is missing for quote', quote.id);
+            return localResult;
+          }
+
           await syncQueue.enqueue({
             type: isNew ? 'create' : 'update',
             entity: 'quote',
             entityId: quote.id,
-            data: await this.prepareQuoteForSupabase(saved),
+            data: quotePayload,
           });
         } else {
-          console.warn('⚠️ Quote saved locally but could not re-fetch for sync:', quote.id);
+          console.warn('Quote saved locally but could not re-fetch for sync:', quote.id);
         }
       } catch (error) {
         console.warn('Failed to queue quote sync, will retry later:', error);
@@ -168,7 +199,7 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
     const localQuote = await this.localAdapter.loadQuote(id);
 
     if (localQuote) {
-      console.log('📦 Quote loaded from local cache:', id);
+      console.log('Quote loaded from local cache:', id);
 
       // Background: Check cloud for updates if online
       if (navigator.onLine) {
@@ -182,7 +213,7 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
 
     // Step 2: Not in cache, fetch from cloud
     if (navigator.onLine) {
-      console.log('☁️  Quote not in cache, fetching from cloud:', id);
+      console.log('Quote not in cache, fetching from cloud:', id);
       const cloudQuote = await this.cloudAdapter.loadQuote(id);
 
       if (cloudQuote) {
@@ -253,6 +284,10 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
     const result = await this.localAdapter.duplicateQuote(id);
 
     if (result.success && navigator.onLine) {
+      const sessionUserId = await this.getCurrentSessionUserId();
+      if (!sessionUserId) {
+        console.warn('Skipping duplicate quote sync enqueue: no authenticated Supabase session');
+      } else {
       // Queue for cloud sync
       const newQuote = await this.localAdapter.loadQuote(result.id);
       if (newQuote) {
@@ -260,8 +295,9 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
           type: 'create',
           entity: 'quote',
           entityId: result.id,
-          data: await this.prepareQuoteForSupabase(newQuote),
+          data: await this.prepareQuoteForSupabase(newQuote, sessionUserId),
         });
+      }
       }
     }
 
@@ -292,6 +328,10 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
     const result = await this.localAdapter.createRevision(id);
 
     if (result.success && navigator.onLine) {
+      const sessionUserId = await this.getCurrentSessionUserId();
+      if (!sessionUserId) {
+        console.warn('Skipping revision sync enqueue: no authenticated Supabase session');
+      } else {
       // Queue for cloud sync
       const newQuote = await this.localAdapter.loadQuote(result.id);
       if (newQuote) {
@@ -299,8 +339,9 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
           type: 'create',
           entity: 'quote',
           entityId: result.id,
-          data: await this.prepareQuoteForSupabase(newQuote),
+          data: await this.prepareQuoteForSupabase(newQuote, sessionUserId),
         });
+      }
       }
     }
 
@@ -344,9 +385,25 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
    * Get next quote reference
    */
   async getNextQuoteRef(): Promise<string> {
-    // Always use local adapter for quote ref generation
-    // This ensures offline capability
-    return this.localAdapter.getNextQuoteRef();
+    const localNextRef = await this.localAdapter.getNextQuoteRef();
+    const localBase = this.parseQuoteBaseRef(localNextRef);
+    if (!navigator.onLine) return localNextRef;
+
+    const sessionUserId = await this.getCurrentSessionUserId();
+    if (!sessionUserId) return localNextRef;
+
+    try {
+      const cloudNextRef = await this.cloudAdapter.getNextQuoteRef();
+      const cloudBase = this.parseQuoteBaseRef(cloudNextRef);
+      if (localBase === null && cloudBase === null) {
+        return localNextRef;
+      }
+      const winningBase = Math.max(localBase ?? Number.NEGATIVE_INFINITY, cloudBase ?? Number.NEGATIVE_INFINITY);
+      return `${winningBase}.0`;
+    } catch (error) {
+      console.warn('Cloud quote reference lookup failed, falling back to local sequence:', error);
+      return localNextRef;
+    }
   }
 
   /**
@@ -824,6 +881,12 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
    * from entities that were previously blocked by FK violations.
    */
   async repairStuckSyncs(): Promise<number> {
+    const sessionUserId = await this.getCurrentSessionUserId();
+    if (!sessionUserId) {
+      console.warn('Skipping sync repair: no authenticated Supabase session');
+      return 0;
+    }
+
     syncQueue.clearPermanentFailures();
     syncQueue.clearQueue();
 
@@ -863,7 +926,7 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
             type: 'update',
             entity: 'quote',
             entityId: quote.id,
-            data: await this.prepareQuoteForSupabase(quote),
+            data: await this.prepareQuoteForSupabase(quote, sessionUserId),
           });
           enqueued++;
         }
@@ -897,7 +960,7 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
 
       // Check for conflicts
       if (localQuote.version !== cloudQuote.version) {
-        console.log('⚠️  Version mismatch detected - resolving conflict');
+        console.log('Version mismatch detected - resolving conflict');
         const resolution = resolveQuoteConflict(localQuote, cloudQuote);
 
         // Update local cache with resolved version
@@ -966,13 +1029,21 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
   /**
    * Prepare quote for Supabase (convert formats, resolve user IDs)
    */
-  private async prepareQuoteForSupabase(quote: QuoteState): Promise<any> {
+  private async prepareQuoteForSupabase(quote: QuoteState, sessionUserId?: string | null): Promise<any> {
+    const createdBy = await this.resolveSupabaseUserId(quote.createdBy, {
+      fallbackToSession: true,
+      sessionUserId,
+    });
+    if (!createdBy) {
+      throw new Error(`Missing created_by for quote ${quote.id}; deferring sync until authenticated session is available`);
+    }
+
     return {
       id: quote.id,
       quote_ref: quote.quoteRef,
       version: quote.version,
       status: quote.status,
-      created_by: await this.resolveSupabaseUserId(quote.createdBy),
+      created_by: createdBy,
       assigned_to: await this.resolveSupabaseUserId(quote.assignedTo),
       company_id: quote.companyId || null,
       client_name: quote.clientName,
@@ -1005,7 +1076,7 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
   }
 
   /**
-   * Prepare company for Supabase (camelCase → snake_case, resolve user IDs)
+   * Prepare company for Supabase (camelCase to snake_case, resolve user IDs)
    */
   private async prepareCompanyForSupabase(company: StoredCompany): Promise<any> {
     return {
@@ -1036,7 +1107,7 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
   }
 
   /**
-   * Prepare contact for Supabase (camelCase → snake_case)
+   * Prepare contact for Supabase (camelCase to snake_case)
    */
   private prepareContactForSupabase(contact: StoredContact): any {
     return {
@@ -1054,7 +1125,7 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
   }
 
   /**
-   * Prepare activity for Supabase (camelCase → snake_case, resolve user IDs)
+   * Prepare activity for Supabase (camelCase to snake_case, resolve user IDs)
    */
   private async prepareActivityForSupabase(activity: StoredActivity): Promise<any> {
     return {
@@ -1072,7 +1143,7 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
   }
 
   /**
-   * Prepare notification for Supabase (camelCase → snake_case, resolve user IDs)
+   * Prepare notification for Supabase (camelCase to snake_case, resolve user IDs)
    */
   private async prepareNotificationForSupabase(notification: StoredNotification): Promise<any> {
     return {
@@ -1088,3 +1159,4 @@ export class HybridDatabaseAdapter implements IDatabaseAdapter {
     };
   }
 }
+

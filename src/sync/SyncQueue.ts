@@ -35,7 +35,7 @@ const ENTITY_PRIORITY: Record<string, number> = {
 // Postgres error codes that are permanent — retrying won't fix them
 // NOTE: 23503 (FK violation) is NOT here — FK errors are usually ordering
 // problems (parent not synced yet) and resolve on retry after the parent syncs.
-const PERMANENT_PG_CODES = new Set(['23505', '42703', '42P01']);
+const PERMANENT_PG_CODES = new Set(['42703', '42P01']);
 
 export interface SyncStatus {
   pendingOperations: number;
@@ -70,6 +70,37 @@ export class SyncQueue {
 
   private entityKey(entity: string, entityId: string): string {
     return `${entity}:${entityId}`;
+  }
+
+  /**
+   * Regenerate quote_ref after a unique-conflict error and update both queue payload and local cache.
+   */
+  private async remediateQuoteRefConflict(op: SyncOperation): Promise<string | null> {
+    try {
+      const { getDb } = await import('../db/DatabaseAdapter');
+      const nextRef = await getDb().getNextQuoteRef();
+      if (!nextRef) return null;
+
+      op.data = {
+        ...op.data,
+        quote_ref: nextRef,
+        updated_at: new Date().toISOString(),
+      };
+
+      try {
+        await db.quotes.update(op.entityId, {
+          quoteRef: nextRef,
+          updatedAt: new Date().toISOString(),
+        } as any);
+      } catch (localErr) {
+        console.warn('Quote ref remediation updated queue payload but failed local quote update:', localErr);
+      }
+
+      return nextRef;
+    } catch (error) {
+      console.warn('Failed to remediate quote_ref conflict:', error);
+      return null;
+    }
   }
 
   /**
@@ -193,6 +224,23 @@ export class SyncQueue {
         const pgCode = error?.code;
         const isPermanent = PERMANENT_PG_CODES.has(pgCode);
         const isFkViolation = pgCode === '23503';
+        const isQuoteRefConflict = pgCode === '23505' && op.entity === 'quote';
+
+        if (isQuoteRefConflict) {
+          const remediatedRef = await this.remediateQuoteRefConflict(op);
+          op.retries++;
+          op.lastError = error instanceof Error ? error.message : String(error);
+          console.warn(
+            `⚠️ Quote reference conflict for ${op.type} quote ${op.entityId} (quote_ref: ${op.data?.quote_ref || 'unknown'}, remediated_to: ${remediatedRef || 'none'}, retry ${op.retries}/10)`
+          );
+          if (op.retries > 10) {
+            console.error(`💀 Quote reference conflict persisted after ${op.retries} retries, removing from queue`);
+            queue.splice(i, 1);
+            i--;
+            failedCount++;
+          }
+          continue;
+        }
 
         if (isPermanent) {
           const failKey = this.entityKey(op.entity, op.entityId);

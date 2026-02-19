@@ -53,6 +53,7 @@ const LoginPage = () => {
               type={isCloud ? 'email' : 'text'}
               value={emailOrUsername}
               onChange={(e) => setEmailOrUsername(e.target.value)}
+              autoComplete="username"
               className="input w-full py-3"
               placeholder={isCloud ? 'Enter email' : 'Enter username'}
               required
@@ -67,6 +68,7 @@ const LoginPage = () => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
               className="input w-full py-3"
               placeholder="Enter password"
               required

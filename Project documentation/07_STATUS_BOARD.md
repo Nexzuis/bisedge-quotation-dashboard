@@ -19,6 +19,8 @@ Status: In Progress (major blockers addressed)
 - CRM low-role visibility: restricted to assigned accounts in hook and list UX
 - Backup coverage: expanded table manifest + metadata compatibility checks
 - Login throttling: progressive delay + temporary lockout + audit events
+- Hybrid sync hardening: `created_by` fallback enforcement, quote `23505` retry classification, cloud-aware quote ref generation, and pre-auth autosave/session guards
+- Hybrid follow-up hardening: duplicate/revision/repair quote sync session guards and quote-ref conflict remediation before retry
 
 ## Frontend Remediation Status (2026-02-19)
 
@@ -57,6 +59,12 @@ Status: Active
 - Sync queue implemented with serialized processing
 - Entity priority ordering implemented for parent-child dependencies
 - Retry and permanent-failure handling implemented
+- Quote `23505` conflicts are retried (not permanently blocklisted)
+- Quote `23505` conflicts are remediated with regenerated `quote_ref` before retry
+- Hybrid quote sync enqueue now requires authenticated Supabase session
+- Hybrid duplicate/revision/repair quote enqueue paths also require authenticated session
+- Hybrid quote payload generation enforces non-null `created_by` with session fallback
+- Hybrid quote reference generation is cloud-aware when online/authenticated
 - Supabase connectivity and RLS testing utility route available (`/test-supabase`)
 
 ## Auth and Authorization

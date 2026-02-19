@@ -20,6 +20,7 @@ export interface UseAutoSaveResult {
  * Only subscribes to updatedAt and quoteRef to avoid re-renders on every keystroke.
  */
 export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
+  const appMode = import.meta.env.VITE_APP_MODE || 'local';
   const [status, setStatus] = useState<SaveStatus>('idle');
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +33,7 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastUpdatedAtRef = useRef<Date>(updatedAt);
   const isSavingRef = useRef(false);
+  const preAuthWarnedRef = useRef(false);
 
   const repository = getQuoteRepository();
 
@@ -40,6 +42,24 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
    */
   const saveNow = useCallback(async () => {
     if (isSavingRef.current) return;
+
+    if (appMode === 'hybrid' || appMode === 'cloud') {
+      try {
+        const { supabase } = await import('../lib/supabase');
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          if (!preAuthWarnedRef.current) {
+            console.warn('Autosave paused: waiting for authenticated Supabase session');
+            preAuthWarnedRef.current = true;
+          }
+          return;
+        }
+        preAuthWarnedRef.current = false;
+      } catch (err) {
+        console.warn('Autosave paused: failed to check Supabase session', err);
+        return;
+      }
+    }
 
     // If quote still has default ref, auto-assign a real one before saving
     if (quoteRef === '0000.0') {
@@ -91,7 +111,7 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
     } finally {
       isSavingRef.current = false;
     }
-  }, [quoteRef, repository]);
+  }, [appMode, quoteRef, repository]);
 
   /**
    * Watch for changes and trigger debounced save

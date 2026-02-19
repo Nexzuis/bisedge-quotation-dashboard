@@ -65,6 +65,9 @@ The canonical master SQL has been aligned to the current Supabase state you prov
 `hybrid` mode:
 - Save locally first, queue cloud sync in background
 - Reads prioritize local cache with cloud refresh patterns depending on method
+- Quote autosave/save queueing is deferred until an authenticated Supabase session exists
+- Quote payload preparation enforces non-null `created_by` (falls back to current Supabase session user)
+- Quote duplicate/revision enqueue paths and sync-repair enqueue paths also require authenticated Supabase session
 
 Quotes shipping sync detail:
 - `src/db/SupabaseAdapter.ts` now reads and writes `quotes.shipping_entries`.
@@ -91,8 +94,15 @@ Entity priority (parent first):
 Retry/error behavior:
 - FK violation (`23503`): retried up to 10 attempts
 - transient failures: retried up to 5 attempts
-- permanent error code blocklist: `23505`, `42703`, `42P01`
+- quote duplicate-ref conflict (`23505` on `quotes`): treated as recoverable/retriable (not permanent blocklist)
+- quote duplicate-ref conflict remediation: queue regenerates `quote_ref` and updates local quote before retry
+- permanent error code blocklist: `42703`, `42P01`
 - permanent failures are blocklisted from re-enqueue until cleared
+
+Quote reference generation (`hybrid` mode):
+- Local ref generation is always available for offline operation
+- When online and authenticated, next quote ref is cloud-aware (compares local/cloud next refs and uses the higher sequence)
+- If cloud upsert returns quote-ref conflict, the queue requests a fresh next ref and retries with updated payload
 
 ## Supabase Table Surface Used in Code
 

@@ -36,6 +36,7 @@ Local seed behavior:
 Cloud/hybrid notes:
 - Supabase session availability affects sync queue execution
 - `/test-supabase` route can be used by admin for environment and policy checks
+- In hybrid mode, quote sync enqueue is skipped until a Supabase session exists (local save still succeeds)
 
 ## Daily Operator Flow
 
@@ -67,6 +68,23 @@ When updating cloud schema/policies:
 3. Check browser console for Supabase/auth/sync errors
 4. Inspect sync status and pending queue behavior
 5. Confirm DB seed/config load completed on startup
+
+## Known Sync Error Playbook
+
+1. Error: `null value in column "created_by" ... violates not-null constraint` (`23502`)
+- Meaning: quote payload reached cloud path without resolved creator identity
+- Current expected behavior: queue should defer quote enqueue until authenticated session and inject session user as `created_by`
+- Action: verify user is logged in and session is active; then trigger sync repair if needed
+
+2. Error: `duplicate key value violates unique constraint "quotes_quote_ref_key"` (`23505`)
+- Meaning: quote reference collision between local/cloud sequences
+- Current expected behavior: treated as recoverable retry (not permanent blocklist), with automatic `quote_ref` regeneration before retry
+- Action: verify hybrid quote ref generation is cloud-aware and allow retry loop; repair queue if legacy blocked entries exist
+
+3. Warning: `Skipping sync — no authenticated Supabase session`
+- Meaning: queue processor running before/without cloud auth
+- Current expected behavior: no cloud sync attempted until session exists
+- Action: complete login and recheck queue processing; duplicate/revision/repair enqueue paths should also remain deferred until session exists
 
 ## Documentation Operations
 

@@ -16,6 +16,7 @@ npm run lint
 ```
 
 Expected suite scope (current):
+- `src/auth/__tests__/permissions.test.ts`
 - `src/db/__tests__/serialization.test.ts`
 - `src/engine/__tests__/calculationEngine.test.ts`
 - `src/engine/__tests__/formatters.test.ts`
@@ -80,6 +81,12 @@ Before tagging/releasing:
 | Negative numbers clamped in QuoteSettingsStep | Manual | Enter -5 in ROE field, should clamp to 0 |
 | LoadQuoteModal reopens with clean state | Manual | Close and reopen, search/filter should be reset |
 | Most modals close on Escape and backdrop click | Manual | Test each modal; New Lead modal on CustomerListPage now included |
+| Hybrid quote autosave does not enqueue before auth session | Manual | Open quote unauthenticated in hybrid mode; no quote sync enqueue should occur |
+| Quote sync payload always has `created_by` | Manual | In hybrid mode after login, save quote and confirm no `23502 created_by null` |
+| Quote `23505` is retried and not permanently blocklisted | Manual | Force quote_ref collision and confirm it is treated as retryable |
+| Quote `23505` remediation changes payload `quote_ref` before retry | Manual | Confirm conflict logs show remediated ref and next attempt uses new `quote_ref` |
+| Duplicate/Revision/Repair queue paths defer until session exists | Manual | In hybrid mode without session, these paths should not enqueue quote cloud payloads |
+| Login password field has `autocomplete=\"current-password\"` | Manual | Inspect login form DOM attributes |
 
 ## Validation Basis
 

@@ -164,6 +164,51 @@ Append one entry per implementation session using this format:
   - FEF-P1-8 (hash navigation) and FEF-P2-4 (button standardization) deferred intentionally.
   - Admin route guards use `hasPermission()` from existing permission system; no new auth mechanism introduced.
 
+### 2026-02-19 (Hybrid Sync Hardening: created_by, quote_ref, pre-auth autosave)
+- Date: 2026-02-19
+- Summary: Implemented targeted hybrid/cloud sync hardening to resolve login-time quote sync failures and noisy pre-auth queue behavior. Added non-null `created_by` enforcement with session fallback, changed quote `23505` handling from permanent to retryable, made hybrid quote reference generation cloud-aware when online/authenticated, guarded autosave before session creation, and added login autocomplete attributes.
+- Changed Files:
+  - `src/db/HybridAdapter.ts`
+  - `src/sync/SyncQueue.ts`
+  - `src/hooks/useAutoSave.ts`
+  - `src/components/auth/LoginPage.tsx`
+  - `Project documentation/03_SUPABASE_AND_SYNC.md`
+  - `Project documentation/04_OPERATIONS_RUNBOOK.md`
+  - `Project documentation/05_TESTING_AND_RELEASE_CHECKLIST.md`
+  - `Project documentation/06_SESSION_LOG.md`
+  - `Project documentation/07_STATUS_BOARD.md`
+- Validation Run:
+  - `npm run typecheck` (pass)
+  - `npm run test` (pass; 96/96)
+  - `npm run build` (pass; existing Vite dynamic/static import warnings remain non-blocking)
+- Documentation Updated:
+  - Sync semantics and error handling updated in canonical docs
+  - Operations runbook includes concrete error playbook for `23502` and `23505`
+  - Release checklist expanded with hybrid sync regression checks
+- Notes/Risks:
+  - Existing queue entries created before this patch may still contain legacy bad payloads and may need one-time repair/clear via existing sync tools.
+
+### 2026-02-19 (Hybrid Sync Hardening Follow-up: session guards + conflict remediation)
+- Date: 2026-02-19
+- Summary: Closed remaining hybrid sync gaps by adding session guards to duplicate/revision/repair quote queue paths, implementing actionable quote `23505` remediation (regenerate `quote_ref` before retry), and removing hardcoded fallback assumptions in cloud-aware quote reference merge logic.
+- Changed Files:
+  - `src/db/HybridAdapter.ts`
+  - `src/sync/SyncQueue.ts`
+  - `Project documentation/03_SUPABASE_AND_SYNC.md`
+  - `Project documentation/04_OPERATIONS_RUNBOOK.md`
+  - `Project documentation/05_TESTING_AND_RELEASE_CHECKLIST.md`
+  - `Project documentation/06_SESSION_LOG.md`
+  - `Project documentation/07_STATUS_BOARD.md`
+- Validation Run:
+  - `npm run typecheck` (pass)
+  - `npm run test` (pass; 96/96)
+  - `npm run build` (pass; existing Vite dynamic/static import warnings remain non-blocking)
+- Documentation Updated:
+  - Sync behavior and queue remediation flow documented in canonical sync docs and runbook.
+  - Release checklist expanded with explicit quote conflict remediation checks.
+- Notes/Risks:
+  - Legacy queue entries with stale payloads may still need one-time repair via existing queue clear/repair controls.
+
 ## Validation Basis
 
 Session entries are based on actual file operations and command outputs executed in this workspace.

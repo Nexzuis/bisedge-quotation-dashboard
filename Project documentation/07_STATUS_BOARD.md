@@ -150,6 +150,27 @@ Status: Complete
 - Old quotes without new fields auto-default safely on hydration
 - Data parity verification script: `scripts/verify-parity.mjs`
 
+## QA Round 1 Fixes (2026-02-20)
+
+Status: Complete
+
+10 bugs fixed from Opus browser QA audit. 4 false positives rejected after code analysis.
+
+| Bug | Fix | Priority |
+|-----|-----|----------|
+| BUG-005/006/007 | UserManagement snake_case→camelCase mapping | P0 |
+| BUG-004 | Minimum margin validation gate (blocks 0% markup) | P0 |
+| BUG-003 | SpecsViewerPanel multi-strategy model lookup | P1 |
+| BUG-008 | AuditLogViewer user name resolution | P1 |
+| BUG-013 | Cost field max-value constraints (R5M cap) | P1 |
+| BUG-002 | Reduced polling/page sizes | P1 |
+| BUG-016 | Kanban empty state renders columns | P2 |
+| BUG-019 | Sent/Expired status action buttons on ExportStep | P2 |
+| BUG-014/015 | Page title + favicon | P3 |
+| BUG-001 | getTableCounts HEAD request fallback | P2 |
+
+False positives rejected: BUG-009 (revision numbering), BUG-010 (bell works), BUG-012 (RLS enforces roles), BUG-020 (sync queue deleted)
+
 ## TypeScript Strict-Mode Cleanup (2026-02-19)
 
 Status: Complete (0 errors)

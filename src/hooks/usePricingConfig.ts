@@ -67,7 +67,7 @@ export const saveDefaultValues = async (values: Record<string, string>, userId: 
 
 export const getResidualCurveImpact = async (chemistry: string): Promise<number> => {
   try {
-    const result = await getDb().listQuotes({ page: 1, pageSize: 10000, sortBy: 'createdAt', sortOrder: 'desc' });
+    const result = await getDb().listQuotes({ page: 1, pageSize: 100, sortBy: 'createdAt', sortOrder: 'desc' });
     const allQuotes = result.items;
 
     let count = 0;

@@ -46,7 +46,7 @@ export function QuoteStatsWidget({ userOnly = false }: QuoteStatsWidgetProps) {
     try {
       const db = getDb();
       const result = await db.listQuotes(
-        { page: 1, pageSize: 1000, sortBy: 'updatedAt', sortOrder: 'desc' },
+        { page: 1, pageSize: 200, sortBy: 'updatedAt', sortOrder: 'desc' },
         {}
       );
 

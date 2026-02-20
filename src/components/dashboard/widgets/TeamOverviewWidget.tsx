@@ -37,7 +37,7 @@ export function TeamOverviewWidget() {
 
       // Get all quotes
       const quotesResult = await db.listQuotes(
-        { page: 1, pageSize: 1000, sortBy: 'updatedAt', sortOrder: 'desc' },
+        { page: 1, pageSize: 100, sortBy: 'updatedAt', sortOrder: 'desc' },
         {}
       );
 

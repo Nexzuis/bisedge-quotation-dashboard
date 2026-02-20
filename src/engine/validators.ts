@@ -141,6 +141,20 @@ export async function validateQuote(
         severity: 'warning',
       });
     }
+
+    if (slot.eurCost > 0 && slot.markupPct <= 0) {
+      errors.push({
+        field: `slot${slot.slotIndex}_margin`,
+        message: `Unit ${slot.slotIndex + 1} (${slot.modelName || 'unnamed'}): Markup is ${slot.markupPct}% — must be positive to proceed`,
+        severity: 'error',
+      });
+    } else if (slot.eurCost > 0 && slot.markupPct < 5) {
+      errors.push({
+        field: `slot${slot.slotIndex}_margin`,
+        message: `Unit ${slot.slotIndex + 1} (${slot.modelName || 'unnamed'}): Low markup of ${slot.markupPct}% — review pricing`,
+        severity: 'warning',
+      });
+    }
   });
 
   return errors;
@@ -249,6 +263,20 @@ export function validateQuoteSync(
       errors.push({
         field: `slot${slot.slotIndex}`,
         message: `Unit ${slot.slotIndex + 1}: Operating hours (${slot.operatingHoursPerMonth}) exceeds maximum hours in a month (720)`,
+        severity: 'warning',
+      });
+    }
+
+    if (slot.eurCost > 0 && slot.markupPct <= 0) {
+      errors.push({
+        field: `slot${slot.slotIndex}_margin`,
+        message: `Unit ${slot.slotIndex + 1} (${slot.modelName || 'unnamed'}): Markup is ${slot.markupPct}% — must be positive to proceed`,
+        severity: 'error',
+      });
+    } else if (slot.eurCost > 0 && slot.markupPct < 5) {
+      errors.push({
+        field: `slot${slot.slotIndex}_margin`,
+        message: `Unit ${slot.slotIndex + 1} (${slot.modelName || 'unnamed'}): Low markup of ${slot.markupPct}% — review pricing`,
         severity: 'warning',
       });
     }

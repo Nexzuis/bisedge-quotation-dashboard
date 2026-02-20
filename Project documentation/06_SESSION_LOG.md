@@ -320,6 +320,40 @@ Completed full migration from three-mode (local/hybrid/cloud) architecture to Su
   - NavigationGuard uses hashchange event listener (required because app uses HashRouter, not data router — useBlocker unavailable)
   - The quoteRef-change detection in useAutoSave also fires on initial mount; this is harmless (sets lastSavedAt baseline)
 
+### 2026-02-20 (QA Round 1 Bug Fixes)
+- Date: 2026-02-20
+- Summary: Fixed 10 bugs identified by Opus browser QA audit (Round 1). 4 false positives rejected after codebase cross-reference. Key fixes: (1) UserManagement snake_case→camelCase mapping — resolved BUG-005/006/007 (Invalid Date, all users Inactive, blank names — all same root cause: raw Supabase rows cast without column mapping). (2) Minimum margin validation gate — blocks 0% markup quotes with hard error, warns on <5%. (3) SpecsViewerPanel model lookup — tries modelCode, modelName, and materialNumber as fallbacks. (4) AuditLogViewer — builds user name map on load, resolves UUIDs to display names. (5) Cost field max-value constraints (R5M cap). (6) Reduced API polling/page sizes (notifications 30→60s, removed 1000/10000 page sizes). (7) Kanban empty state renders columns even when empty. (8) Wired markAsSentToCustomer/markAsExpired buttons on ExportStep. (9) Page title "BIS Edge — Quotation Dashboard" and emoji favicon. (10) getTableCounts HEAD request fallback.
+- Changed Files:
+  - `src/components/admin/users/UserManagement.tsx` (Fix 1: dbRowToStoredUser mapping)
+  - `src/engine/validators.ts` (Fix 2: margin validation in both validateQuote and validateQuoteSync)
+  - `src/components/panels/SpecsViewerPanel.tsx` (Fix 3: multi-strategy model lookup)
+  - `src/components/admin/audit/AuditLogViewer.tsx` (Fix 4: user name map + display)
+  - `src/components/builder/steps/CostsStep.tsx` (Fix 5: max={5000000} + clamp)
+  - `src/components/dashboard/widgets/QuoteStatsWidget.tsx` (Fix 6: pageSize 1000→200)
+  - `src/components/dashboard/widgets/TeamOverviewWidget.tsx` (Fix 6: pageSize 1000→100)
+  - `src/hooks/usePricingConfig.ts` (Fix 6: pageSize 10000→100)
+  - `src/hooks/useNotifications.ts` (Fix 6: poll 30s→60s)
+  - `src/components/crm/CustomerListPage.tsx` (Fix 7: kanban rendered before empty check)
+  - `src/components/builder/steps/ExportStep.tsx` (Fix 8: sent/expired action buttons)
+  - `index.html` (Fix 9: title + favicon)
+  - `src/db/SupabaseAdapter.ts` (Fix 10: getTableCounts HEAD fallback)
+  - `Project documentation/06_SESSION_LOG.md`
+  - `Project documentation/07_STATUS_BOARD.md`
+  - `Project documentation/05_TESTING_AND_RELEASE_CHECKLIST.md`
+- Validation Run:
+  - `npx tsc --noEmit -p tsconfig.app.json` (pass, 0 errors)
+  - `npx vitest run` (pass, 122/122 tests)
+  - `npx vite build` (pass, clean)
+- False Positives Rejected:
+  - BUG-009: `.0` is intentional revision numbering
+  - BUG-010: NotificationBell fully wired (onClick, dropdown, outside-click-close)
+  - BUG-012: Roles server-fetched, RLS enforces via users.role subqueries
+  - BUG-020: Sync queue deleted during Supabase-only migration, localStorage data is orphaned
+- Notes/Risks:
+  - Margin validation uses `markupPct` as proxy (0% markup = 0% margin). Full margin calculation would require duplicating the calculation engine.
+  - SpecsViewerPanel model lookup is best-effort fallback — the real fix would be to align the `modelCode` stored in quotes with the actual model codes in `models.json`.
+  - Cost field caps are frontend-only; database has no CHECK constraints on these values.
+
 ### 2026-02-19 (Shipping Auto-Suggestion Engine + Data Parity Verification)
 - Date: 2026-02-19
 - Summary: Implemented shipping auto-suggestion engine with data parity verification. Extended ShippingEntry type with `source`, `seriesCodes`, `suggestedAt` fields. Created pure `generateShippingSuggestion()` function. Rewrote LogisticsPanel with suggestion UI, stale detection, per-series fit warnings, and config-driven logistics warnings. Added `matchSeriesCode()` pure prefix-matcher and `useContainerMappings()` batch hook. Created parity verification script. Updated serialization and hydration paths for new fields.

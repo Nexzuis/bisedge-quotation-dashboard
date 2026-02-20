@@ -46,9 +46,10 @@ function UnitCostsPanel({ slotIndex }: { slotIndex: SlotIndex }) {
           <input
             type="number"
             min="0"
+            max={5000000}
             step="500"
             value={slot.localBatteryCostZAR || ''}
-            onChange={(e) => setLocalBatteryCost(slotIndex, parseFloat(e.target.value) || 0, slot.localBatteryDescription)}
+            onChange={(e) => setLocalBatteryCost(slotIndex, Math.min(parseFloat(e.target.value) || 0, 5000000), slot.localBatteryDescription)}
             placeholder="0"
             className="input w-full text-sm"
           />
@@ -77,9 +78,10 @@ function UnitCostsPanel({ slotIndex }: { slotIndex: SlotIndex }) {
           <input
             type="number"
             min="0"
+            max={5000000}
             step="500"
             value={slot.localAttachmentCostZAR || ''}
-            onChange={(e) => updateSlot(slotIndex, { localAttachmentCostZAR: parseFloat(e.target.value) || 0 })}
+            onChange={(e) => updateSlot(slotIndex, { localAttachmentCostZAR: Math.min(parseFloat(e.target.value) || 0, 5000000) })}
             placeholder="0"
             className="input w-full text-sm"
           />

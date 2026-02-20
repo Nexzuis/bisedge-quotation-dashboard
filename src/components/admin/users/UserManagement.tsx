@@ -20,6 +20,21 @@ import {
   type PermissionOverrideKey,
 } from '../../../auth/permissions';
 
+function dbRowToStoredUser(row: Record<string, unknown>): StoredUser {
+  return {
+    id: (row.id as string) || undefined,
+    username: (row.username as string) || (row.email as string) || '',
+    fullName: (row.full_name as string) || '',
+    email: (row.email as string) || '',
+    role: (row.role as string) || 'sales_rep',
+    isActive: (row.is_active as boolean) ?? true,
+    createdAt: (row.created_at as string) || '',
+    permissionOverrides: typeof row.permission_overrides === 'string'
+      ? row.permission_overrides
+      : JSON.stringify(row.permission_overrides || '{}'),
+  };
+}
+
 interface UserFormData {
   username: string;
   fullName: string;
@@ -66,7 +81,7 @@ const UserManagement = () => {
       setLoading(true);
       const { data, error } = await supabase.from('users').select('*').order('full_name');
       if (error) throw error;
-      setUsers((data ?? []) as unknown as StoredUser[]);
+      setUsers((data ?? []).map(dbRowToStoredUser));
     } catch (error) {
       console.error('Failed to load users:', error);
       toast.error('Failed to load users');

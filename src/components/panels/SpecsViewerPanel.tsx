@@ -35,7 +35,11 @@ export function SpecsViewerPanel() {
     );
   }
 
-  const model = models.find((m) => m.modelCode === selectedSlot.modelCode);
+  const model = models.find(
+    (m) => m.modelCode === selectedSlot.modelCode
+      || m.modelName === selectedSlot.modelCode
+      || m.modelCode === selectedSlot.modelMaterialNumber
+  );
   const battery = allBatteries.find((b) => b.id === selectedSlot.batteryId);
 
   if (!model) {
@@ -43,7 +47,7 @@ export function SpecsViewerPanel() {
       <Panel accent="none">
         <CardHeader icon={FileText} title="Specifications" />
         <div className="text-center py-8 text-surface-400 text-sm">
-          Model data not found
+          Model data not found for: {selectedSlot.modelCode}
         </div>
       </Panel>
     );

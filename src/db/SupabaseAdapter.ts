@@ -1254,9 +1254,17 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       const tables = ['quotes', 'companies', 'contacts', 'activities', 'users', 'notifications'] as const;
       const results = await Promise.all(
         tables.map(async (table) => {
-          const { count, error } = await supabase
+          let { count, error } = await supabase
             .from(table)
-            .select('id', { count: 'exact', head: true });
+            .select('*', { count: 'exact', head: true });
+          if (error) {
+            const fallback = await supabase
+              .from(table)
+              .select('id', { count: 'exact' })
+              .limit(1);
+            count = fallback.count;
+            error = fallback.error;
+          }
           return { table, count: error ? 0 : (count || 0) };
         })
       );

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Download, Save, Send, CheckCircle, Home } from 'lucide-react';
+import { Download, Save, Send, CheckCircle, Home, Mail, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useQuoteStore } from '../../../store/useQuoteStore';
 import { useAutoSaveContext } from '../../../hooks/AutoSaveContext';
@@ -28,6 +28,8 @@ export function ExportStep() {
   const [exported, setExported] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const markAsSentToCustomer = useQuoteStore((s) => s.markAsSentToCustomer);
+  const markAsExpired = useQuoteStore((s) => s.markAsExpired);
   const [targetUsers, setTargetUsers] = useState<{ id: string; fullName: string; role: string }[]>([]);
 
   useEffect(() => {
@@ -187,6 +189,52 @@ export function ExportStep() {
             {quote.status === 'pending-approval' ? 'Pending Approval' : 'Submit'}
           </Button>
         </div>
+
+        {/* Mark as Sent to Customer — only when approved */}
+        {quote.status === 'approved' && (
+          <div className="glass rounded-xl p-5 border border-surface-700/30">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center">
+                <Mail className="w-5 h-5 text-green-500" />
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-surface-200">Send to Customer</div>
+                <div className="text-xs text-surface-400">Mark this quote as sent to the customer</div>
+              </div>
+            </div>
+            <Button
+              variant="primary"
+              icon={Mail}
+              onClick={() => { markAsSentToCustomer(); toast.success('Quote marked as sent to customer'); }}
+              className="w-full"
+            >
+              Mark as Sent
+            </Button>
+          </div>
+        )}
+
+        {/* Mark as Expired — when sent or approved */}
+        {(quote.status === 'approved' || quote.status === 'sent-to-customer') && (
+          <div className="glass rounded-xl p-5 border border-surface-700/30">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center">
+                <Clock className="w-5 h-5 text-red-500" />
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-surface-200">Mark Expired</div>
+                <div className="text-xs text-surface-400">Mark this quote as expired</div>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              icon={Clock}
+              onClick={() => { markAsExpired(); toast.success('Quote marked as expired'); }}
+              className="w-full text-red-400 hover:text-red-300"
+            >
+              Mark as Expired
+            </Button>
+          </div>
+        )}
 
         {/* Back to Quote */}
         <div className="glass rounded-xl p-5 border border-surface-700/30">

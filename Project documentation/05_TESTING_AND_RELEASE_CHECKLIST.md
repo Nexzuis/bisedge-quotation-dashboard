@@ -104,6 +104,22 @@ Update this file when changing:
 - route map in `src/App.tsx`
 - release criteria used by team
 
+## QA Round 1 Regression Checks (2026-02-20)
+
+- [ ] Admin → Users: shows full names, Active/Inactive status correct, valid dates
+- [ ] Quote with 0% markup: blocked at Review step with red error message
+- [ ] Quote with <5% markup: shows warning but allows proceed
+- [ ] Specs panel: shows model data for configured units (or helpful error with model code)
+- [ ] Admin → Audit Log: shows user names, not raw UUIDs
+- [ ] Cost fields: values clamp at R5,000,000 max
+- [ ] Dashboard: reduced network calls (check network tab — no 1000/10000 page sizes)
+- [ ] Notifications: poll interval is 60s (not 30s)
+- [ ] CRM → Kanban: empty columns render with stage headers
+- [ ] Quote Export (approved): "Send to Customer" button visible and functional
+- [ ] Quote Export (approved/sent): "Mark Expired" button visible and functional
+- [ ] Browser tab: shows "BIS Edge — Quotation Dashboard" title
+- [ ] getTableCounts: no 503 errors (HEAD fallback active)
+
 ## Related Docs
 
 - `01_PROJECT_CONTEXT.md`

@@ -11,7 +11,7 @@ import { useAuth } from '../components/auth/AuthContext';
 import { getDb } from '../db/DatabaseAdapter';
 import type { StoredNotification } from '../types/notifications';
 
-const REFRESH_INTERVAL_MS = 30_000;
+const REFRESH_INTERVAL_MS = 60000;
 const MAX_RECENT = 20; // notifications shown in the dropdown
 
 export function useNotifications() {

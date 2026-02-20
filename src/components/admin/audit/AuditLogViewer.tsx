@@ -26,6 +26,7 @@ const AuditLogViewer = () => {
 
   // Available users for filter
   const [users, setUsers] = useState<string[]>([]);
+  const [userNameMap, setUserNameMap] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     loadLogs();
@@ -48,7 +49,11 @@ const AuditLogViewer = () => {
   const loadUsers = async () => {
     try {
       const allUsers = await getDb().listUsers();
-      setUsers(allUsers.map(u => u.id).filter((id): id is string => id !== undefined));
+      const ids = allUsers.map(u => u.id).filter((id): id is string => !!id);
+      setUsers(ids);
+      const map = new Map<string, string>();
+      allUsers.forEach(u => { if (u.id) map.set(u.id, u.fullName || u.email || u.id); });
+      setUserNameMap(map);
     } catch (error) {
       console.error('Failed to load users:', error);
     }
@@ -66,7 +71,7 @@ const AuditLogViewer = () => {
     // Prepare data for Excel
     const exportData = filteredLogs.map(log => ({
       Timestamp: new Date(log.timestamp).toLocaleString(),
-      User: log.userId,
+      User: userNameMap.get(log.userId) || log.userId,
       Action: log.action,
       EntityType: log.entityType,
       EntityID: log.entityId,
@@ -342,10 +347,7 @@ const AuditLogViewer = () => {
                     {new Date(log.timestamp).toLocaleString()}
                   </td>
                   <td className="px-4 py-3 text-sm text-surface-100/80">
-                    <div>{(log as any).userName || log.userId}</div>
-                    {(log as any).userName && (
-                      <div className="text-xs text-surface-100/40">{log.userId}</div>
-                    )}
+                    {userNameMap.get(log.userId) || log.userId}
                   </td>
                   <td className="px-4 py-3 text-sm">
                     <Badge variant={getActionBadgeVariant(log.action)}>

@@ -216,6 +216,8 @@ export default function CustomerListPage() {
                 </div>
               </div>
             )
+          ) : viewMode === 'kanban' ? (
+            <KanbanBoard companies={filtered} onRefresh={loadData} />
           ) : filtered.length === 0 ? (
             <div className="glass rounded-xl p-12 text-center">
               <Building2 className="w-12 h-12 text-surface-500 mx-auto mb-4" />
@@ -227,8 +229,6 @@ export default function CustomerListPage() {
                 Add your first company
               </Button>
             </div>
-          ) : viewMode === 'kanban' ? (
-            <KanbanBoard companies={filtered} onRefresh={loadData} />
           ) : (
             <CustomerTable companies={filtered} selectedIds={selectedIds} onSelectionChange={setSelectedIds} userNameMap={userNameMap} />
           )}

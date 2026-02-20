@@ -1,5 +1,6 @@
 import type { QuoteState, QuoteStatus, BatteryChemistry } from '../types/quote';
 import type { Company, Contact, Activity } from '../types/crm';
+import type { Lead, LeadFilter, LeadPaginationOptions, LeadStats } from '../types/leads';
 
 // Stored Quote - runtime state with Date objects converted to ISO strings
 export interface StoredQuote {
@@ -154,7 +155,7 @@ export interface AuditLogEntry {
   userId: string;
   userName?: string;
   action: 'create' | 'update' | 'delete' | 'approve' | 'reject' | 'submit' | 'login' | 'logout' | 'escalate' | 'return' | 'comment' | 'edit_review' | 'login_failed' | 'lockout';
-  entityType: 'quote' | 'customer' | 'template' | 'user' | 'approvalTiers' | 'commissionTiers' | 'residualCurves' | 'settings' | 'forkliftModel' | 'batteryModel' | 'attachment' | 'company' | 'contact';
+  entityType: 'quote' | 'customer' | 'template' | 'user' | 'approvalTiers' | 'commissionTiers' | 'residualCurves' | 'settings' | 'forkliftModel' | 'batteryModel' | 'attachment' | 'company' | 'contact' | 'lead';
   entityId: string;
   changes: Record<string, any>;
   oldValues?: any;
@@ -327,4 +328,21 @@ export interface StoredResidualCurve {
   term60: number;
   term72: number;
   term84: number;
+}
+
+// --- Leads (v7) ---
+
+// StoredLead is the same shape as Lead (all strings/numbers, no Date objects)
+export type StoredLead = Lead;
+
+// Lead Repository Interface
+export interface ILeadRepository {
+  save(lead: Omit<StoredLead, 'id' | 'createdAt' | 'updatedAt'>): Promise<string>;
+  update(id: string, updates: Partial<StoredLead>): Promise<void>;
+  getById(id: string): Promise<StoredLead | null>;
+  list(options: LeadPaginationOptions, filters?: LeadFilter): Promise<PaginatedResult<StoredLead>>;
+  search(query: string): Promise<StoredLead[]>;
+  delete(id: string): Promise<void>;
+  getStats(): Promise<LeadStats>;
+  bulkUpdateStatus(ids: string[], status: StoredLead['qualificationStatus']): Promise<void>;
 }

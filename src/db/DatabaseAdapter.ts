@@ -18,8 +18,10 @@ import type {
   StoredContact,
   StoredActivity,
   StoredNotification,
+  StoredLead,
   AuditLogEntry,
 } from './interfaces';
+import type { LeadFilter, LeadPaginationOptions, LeadStats } from '../types/leads';
 
 /**
  * Unified database adapter interface
@@ -99,6 +101,16 @@ export interface IDatabaseAdapter {
   getNotifications(userId: string, limit?: number): Promise<StoredNotification[]>;
   markNotificationRead(id: string): Promise<void>;
   markAllNotificationsRead(userId: string): Promise<void>;
+
+  // ===== Lead Operations =====
+  saveLead(lead: Omit<StoredLead, 'id' | 'createdAt' | 'updatedAt'>): Promise<string>;
+  updateLead(id: string, updates: Partial<StoredLead>): Promise<void>;
+  getLead(id: string): Promise<StoredLead | null>;
+  listLeads(options: LeadPaginationOptions, filters?: LeadFilter): Promise<PaginatedResult<StoredLead>>;
+  searchLeads(query: string): Promise<StoredLead[]>;
+  deleteLead(id: string): Promise<void>;
+  getLeadStats(): Promise<LeadStats>;
+  bulkUpdateLeadStatus(ids: string[], status: StoredLead['qualificationStatus']): Promise<void>;
 
   // ===== Aggregate Operations =====
   getTableCounts(): Promise<Record<string, number>>;

@@ -14,6 +14,10 @@ const CustomerDetailPage = lazy(() => import('./components/crm/CustomerDetailPag
 const ReportsPage = lazy(() => import('./components/crm/reporting/ReportsPage'));
 const NotificationsPage = lazy(() => import('./components/notifications/NotificationsPage'));
 const QuotesListPage = lazy(() => import('./components/quotes/QuotesListPage'));
+const LeadExplorerPage = lazy(() => import('./components/leads/LeadExplorerPage'));
+const LeadDetailPage = lazy(() => import('./components/leads/LeadDetailPage'));
+const LeadDashboardPage = lazy(() => import('./components/leads/LeadDashboardPage'));
+const HotLeadsPage = lazy(() => import('./components/leads/HotLeadsPage'));
 
 import { ToastProvider } from './components/ui/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -215,6 +219,42 @@ function AppContent() {
         <RequireAuth>
           <Suspense fallback={<LazyFallback label="Loading Reports..." />}>
             <ReportsPage />
+          </Suspense>
+        </RequireAuth>
+      } />
+
+      {/* Lead Dashboard — must come before /leads/:id */}
+      <Route path="/leads/dashboard" element={
+        <RequireAuth>
+          <Suspense fallback={<LazyFallback label="Loading Lead Dashboard..." />}>
+            <LeadDashboardPage />
+          </Suspense>
+        </RequireAuth>
+      } />
+
+      {/* Hot Leads — must come before /leads/:id */}
+      <Route path="/leads/hot" element={
+        <RequireAuth>
+          <Suspense fallback={<LazyFallback label="Loading Hot Leads..." />}>
+            <HotLeadsPage />
+          </Suspense>
+        </RequireAuth>
+      } />
+
+      {/* Lead Explorer */}
+      <Route path="/leads" element={
+        <RequireAuth>
+          <Suspense fallback={<LazyFallback label="Loading Leads..." />}>
+            <LeadExplorerPage />
+          </Suspense>
+        </RequireAuth>
+      } />
+
+      {/* Lead Detail */}
+      <Route path="/leads/:id" element={
+        <RequireAuth>
+          <Suspense fallback={<LazyFallback label="Loading Lead..." />}>
+            <LeadDetailPage />
           </Suspense>
         </RequireAuth>
       } />

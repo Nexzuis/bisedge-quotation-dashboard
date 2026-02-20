@@ -20,8 +20,10 @@ import type {
   StoredContact,
   StoredActivity,
   StoredNotification,
+  StoredLead,
   AuditLogEntry,
 } from './interfaces';
+import type { LeadFilter, LeadPaginationOptions, LeadStats, QualificationStatus } from '../types/leads';
 import type { IDatabaseAdapter } from './DatabaseAdapter';
 import { sanitizePostgrestValue } from '../utils/sanitize';
 
@@ -1431,6 +1433,297 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
     }
   }
 
+  // ===== Lead Operations =====
+  async saveLead(lead: Omit<StoredLead, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+    try {
+      const id = crypto.randomUUID();
+      const now = new Date().toISOString();
+
+      const { error } = await supabase.from('leads').insert({
+        id,
+        company_name: lead.companyName,
+        trading_name: lead.tradingName || '',
+        industry: lead.industry || '',
+        website: lead.website || '',
+        company_size: lead.companySize || '',
+        annual_revenue_estimate: lead.annualRevenueEstimate || '',
+        address: lead.address || '',
+        city: lead.city || '',
+        province: lead.province || '',
+        country: lead.country || 'South Africa',
+        decision_maker_name: lead.decisionMakerName || '',
+        decision_maker_title: lead.decisionMakerTitle || '',
+        decision_maker_email: lead.decisionMakerEmail || '',
+        decision_maker_phone: lead.decisionMakerPhone || '',
+        decision_maker_linkedin: lead.decisionMakerLinkedin || '',
+        source_name: lead.sourceName || 'manual',
+        source_url: lead.sourceUrl || '',
+        ai_confidence: lead.aiConfidence || 0,
+        ai_reasoning: lead.aiReasoning || '',
+        scraped_at: lead.scrapedAt || null,
+        buy_probability: lead.buyProbability || 5,
+        qualification_status: lead.qualificationStatus || 'new',
+        qualified_by: lead.qualifiedBy || null,
+        qualified_at: lead.qualifiedAt || null,
+        rejection_reason: lead.rejectionReason || '',
+        converted_company_id: lead.convertedCompanyId || null,
+        converted_contact_id: lead.convertedContactId || null,
+        converted_at: lead.convertedAt || null,
+        converted_by: lead.convertedBy || null,
+        tags: lead.tags || [],
+        notes: lead.notes || '',
+        assigned_to: lead.assignedTo || null,
+        created_by: lead.createdBy || null,
+        created_at: now,
+        updated_at: now,
+      });
+
+      if (error) throw new Error(error.message);
+      return id;
+    } catch (error) {
+      console.error('Error saving lead:', error);
+      throw error;
+    }
+  }
+
+  async updateLead(id: string, updates: Partial<StoredLead>): Promise<void> {
+    try {
+      const dbUpdates: Record<string, any> = { updated_at: new Date().toISOString() };
+      if (updates.companyName !== undefined) dbUpdates.company_name = updates.companyName;
+      if (updates.tradingName !== undefined) dbUpdates.trading_name = updates.tradingName;
+      if (updates.industry !== undefined) dbUpdates.industry = updates.industry;
+      if (updates.website !== undefined) dbUpdates.website = updates.website;
+      if (updates.companySize !== undefined) dbUpdates.company_size = updates.companySize;
+      if (updates.annualRevenueEstimate !== undefined) dbUpdates.annual_revenue_estimate = updates.annualRevenueEstimate;
+      if (updates.address !== undefined) dbUpdates.address = updates.address;
+      if (updates.city !== undefined) dbUpdates.city = updates.city;
+      if (updates.province !== undefined) dbUpdates.province = updates.province;
+      if (updates.country !== undefined) dbUpdates.country = updates.country;
+      if (updates.decisionMakerName !== undefined) dbUpdates.decision_maker_name = updates.decisionMakerName;
+      if (updates.decisionMakerTitle !== undefined) dbUpdates.decision_maker_title = updates.decisionMakerTitle;
+      if (updates.decisionMakerEmail !== undefined) dbUpdates.decision_maker_email = updates.decisionMakerEmail;
+      if (updates.decisionMakerPhone !== undefined) dbUpdates.decision_maker_phone = updates.decisionMakerPhone;
+      if (updates.decisionMakerLinkedin !== undefined) dbUpdates.decision_maker_linkedin = updates.decisionMakerLinkedin;
+      if (updates.sourceName !== undefined) dbUpdates.source_name = updates.sourceName;
+      if (updates.sourceUrl !== undefined) dbUpdates.source_url = updates.sourceUrl;
+      if (updates.aiConfidence !== undefined) dbUpdates.ai_confidence = updates.aiConfidence;
+      if (updates.aiReasoning !== undefined) dbUpdates.ai_reasoning = updates.aiReasoning;
+      if (updates.scrapedAt !== undefined) dbUpdates.scraped_at = updates.scrapedAt;
+      if (updates.buyProbability !== undefined) dbUpdates.buy_probability = updates.buyProbability;
+      if (updates.qualificationStatus !== undefined) dbUpdates.qualification_status = updates.qualificationStatus;
+      if (updates.qualifiedBy !== undefined) dbUpdates.qualified_by = updates.qualifiedBy || null;
+      if (updates.qualifiedAt !== undefined) dbUpdates.qualified_at = updates.qualifiedAt || null;
+      if (updates.rejectionReason !== undefined) dbUpdates.rejection_reason = updates.rejectionReason;
+      if (updates.convertedCompanyId !== undefined) dbUpdates.converted_company_id = updates.convertedCompanyId || null;
+      if (updates.convertedContactId !== undefined) dbUpdates.converted_contact_id = updates.convertedContactId || null;
+      if (updates.convertedAt !== undefined) dbUpdates.converted_at = updates.convertedAt || null;
+      if (updates.convertedBy !== undefined) dbUpdates.converted_by = updates.convertedBy || null;
+      if (updates.tags !== undefined) dbUpdates.tags = updates.tags;
+      if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+      if (updates.assignedTo !== undefined) dbUpdates.assigned_to = updates.assignedTo || null;
+
+      const { error } = await supabase.from('leads').update(dbUpdates).eq('id', id);
+      if (error) throw new Error(error.message);
+    } catch (error) {
+      console.error('Error updating lead:', error);
+      throw error;
+    }
+  }
+
+  async getLead(id: string): Promise<StoredLead | null> {
+    try {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error || !data) return null;
+      return this.dbLeadToStored(data);
+    } catch (error) {
+      console.error('Error getting lead:', error);
+      return null;
+    }
+  }
+
+  async listLeads(
+    options: LeadPaginationOptions,
+    filters?: LeadFilter
+  ): Promise<PaginatedResult<StoredLead>> {
+    try {
+      let query = supabase.from('leads').select('*', { count: 'exact' });
+
+      // Apply filters
+      if (filters?.status) {
+        query = query.eq('qualification_status', filters.status);
+      }
+      if (filters?.source) {
+        query = query.eq('source_name', filters.source);
+      }
+      if (filters?.province) {
+        query = query.eq('province', filters.province);
+      }
+      if (filters?.industry) {
+        query = query.ilike('industry', `%${sanitizePostgrestValue(filters.industry)}%`);
+      }
+      if (filters?.minScore) {
+        query = query.gte('buy_probability', filters.minScore);
+      }
+      if (filters?.assignedTo) {
+        query = query.eq('assigned_to', filters.assignedTo);
+      }
+      if (filters?.search) {
+        const term = `%${sanitizePostgrestValue(filters.search)}%`;
+        query = query.or(`company_name.ilike.${term},decision_maker_name.ilike.${term},decision_maker_email.ilike.${term},industry.ilike.${term},city.ilike.${term}`);
+      }
+
+      // Apply sorting
+      const SORT_COLUMN_MAP: Record<string, string> = {
+        createdAt: 'created_at',
+        updatedAt: 'updated_at',
+        buyProbability: 'buy_probability',
+        companyName: 'company_name',
+        aiConfidence: 'ai_confidence',
+      };
+      const rawSortBy = options.sortBy || 'createdAt';
+      const sortBy = SORT_COLUMN_MAP[rawSortBy] || rawSortBy;
+      const ascending = options.sortOrder === 'asc';
+      query = query.order(sortBy, { ascending });
+
+      // Apply pagination
+      const offset = (options.page - 1) * options.pageSize;
+      query = query.range(offset, offset + options.pageSize - 1);
+
+      const { data, count, error } = await query;
+
+      if (error) {
+        console.error('Error listing leads:', error);
+        return { items: [], total: 0, page: options.page, pageSize: options.pageSize, totalPages: 0 };
+      }
+
+      return {
+        items: (data || []).map(this.dbLeadToStored),
+        total: count || 0,
+        page: options.page,
+        pageSize: options.pageSize,
+        totalPages: Math.ceil((count || 0) / options.pageSize),
+      };
+    } catch (error) {
+      console.error('Error listing leads from Supabase:', error);
+      return { items: [], total: 0, page: options.page, pageSize: options.pageSize, totalPages: 0 };
+    }
+  }
+
+  async searchLeads(query: string): Promise<StoredLead[]> {
+    try {
+      const q = sanitizePostgrestValue(query);
+      const { data, error } = await supabase
+        .from('leads')
+        .select('*')
+        .or(`company_name.ilike.%${q}%,decision_maker_name.ilike.%${q}%,decision_maker_email.ilike.%${q}%,industry.ilike.%${q}%,city.ilike.%${q}%`)
+        .limit(50);
+
+      if (error) {
+        console.error('Error searching leads:', error);
+        return [];
+      }
+
+      return (data || []).map(this.dbLeadToStored);
+    } catch (error) {
+      console.error('Error searching leads from Supabase:', error);
+      return [];
+    }
+  }
+
+  async deleteLead(id: string): Promise<void> {
+    try {
+      const { error } = await supabase.from('leads').delete().eq('id', id);
+      if (error) throw new Error(error.message);
+    } catch (error) {
+      console.error('Error deleting lead:', error);
+      throw error;
+    }
+  }
+
+  async getLeadStats(): Promise<LeadStats> {
+    try {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('qualification_status, buy_probability, ai_confidence, source_name, industry, province');
+
+      if (error || !data) {
+        console.error('Error getting lead stats:', error);
+        return this.emptyLeadStats();
+      }
+
+      const allStatuses: QualificationStatus[] = ['new', 'reviewing', 'qualified', 'rejected', 'contacted', 'converted', 'stale'];
+      const byStatus = {} as Record<QualificationStatus, number>;
+      allStatuses.forEach((s) => { byStatus[s] = 0; });
+
+      const bySource: Record<string, number> = {};
+      const byIndustry: Record<string, number> = {};
+      const byProvince: Record<string, number> = {};
+      const scoreDistribution: Record<number, number> = {};
+      for (let i = 1; i <= 10; i++) scoreDistribution[i] = 0;
+
+      let totalScore = 0;
+      let totalConfidence = 0;
+      let hotLeads = 0;
+
+      for (const row of data) {
+        const status = row.qualification_status as QualificationStatus;
+        if (byStatus[status] !== undefined) byStatus[status]++;
+
+        const score = Number(row.buy_probability) || 0;
+        const confidence = Number(row.ai_confidence) || 0;
+        totalScore += score;
+        totalConfidence += confidence;
+
+        if (score >= 8) hotLeads++;
+        if (score >= 1 && score <= 10) scoreDistribution[score]++;
+
+        const src = row.source_name || 'unknown';
+        bySource[src] = (bySource[src] || 0) + 1;
+
+        const ind = row.industry || 'Unknown';
+        if (ind) byIndustry[ind] = (byIndustry[ind] || 0) + 1;
+
+        const prov = row.province || 'Unknown';
+        if (prov) byProvince[prov] = (byProvince[prov] || 0) + 1;
+      }
+
+      const total = data.length;
+      return {
+        total,
+        byStatus,
+        averageScore: total > 0 ? Math.round((totalScore / total) * 10) / 10 : 0,
+        averageConfidence: total > 0 ? Math.round(totalConfidence / total) : 0,
+        bySource,
+        byIndustry,
+        byProvince,
+        hotLeads,
+        scoreDistribution,
+      };
+    } catch (error) {
+      console.error('Error getting lead stats from Supabase:', error);
+      return this.emptyLeadStats();
+    }
+  }
+
+  async bulkUpdateLeadStatus(ids: string[], status: StoredLead['qualificationStatus']): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({ qualification_status: status, updated_at: new Date().toISOString() })
+        .in('id', ids);
+
+      if (error) throw new Error(error.message);
+    } catch (error) {
+      console.error('Error bulk updating lead status:', error);
+      throw error;
+    }
+  }
+
   // ===== Helper Methods =====
   /**
    * Convert database quote to QuoteState format
@@ -1654,5 +1947,55 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       targetUserId: row.target_user_id,
       targetUserName: row.target_user_name,
     };
+  }
+
+  private dbLeadToStored(row: any): StoredLead {
+    return {
+      id: row.id,
+      companyName: row.company_name || '',
+      tradingName: row.trading_name || '',
+      industry: row.industry || '',
+      website: row.website || '',
+      companySize: row.company_size || '',
+      annualRevenueEstimate: row.annual_revenue_estimate || '',
+      address: row.address || '',
+      city: row.city || '',
+      province: row.province || '',
+      country: row.country || 'South Africa',
+      decisionMakerName: row.decision_maker_name || '',
+      decisionMakerTitle: row.decision_maker_title || '',
+      decisionMakerEmail: row.decision_maker_email || '',
+      decisionMakerPhone: row.decision_maker_phone || '',
+      decisionMakerLinkedin: row.decision_maker_linkedin || '',
+      sourceName: row.source_name || 'manual',
+      sourceUrl: row.source_url || '',
+      aiConfidence: Number(row.ai_confidence) || 0,
+      aiReasoning: row.ai_reasoning || '',
+      scrapedAt: row.scraped_at || '',
+      buyProbability: Number(row.buy_probability) || 5,
+      qualificationStatus: row.qualification_status || 'new',
+      qualifiedBy: row.qualified_by || '',
+      qualifiedAt: row.qualified_at || '',
+      rejectionReason: row.rejection_reason || '',
+      convertedCompanyId: row.converted_company_id || '',
+      convertedContactId: row.converted_contact_id || '',
+      convertedAt: row.converted_at || '',
+      convertedBy: row.converted_by || '',
+      tags: row.tags || [],
+      notes: row.notes || '',
+      assignedTo: row.assigned_to || '',
+      createdBy: row.created_by || '',
+      createdAt: row.created_at || '',
+      updatedAt: row.updated_at || '',
+    };
+  }
+
+  private emptyLeadStats(): LeadStats {
+    const allStatuses: QualificationStatus[] = ['new', 'reviewing', 'qualified', 'rejected', 'contacted', 'converted', 'stale'];
+    const byStatus = {} as Record<QualificationStatus, number>;
+    allStatuses.forEach((s) => { byStatus[s] = 0; });
+    const scoreDistribution: Record<number, number> = {};
+    for (let i = 1; i <= 10; i++) scoreDistribution[i] = 0;
+    return { total: 0, byStatus, averageScore: 0, averageConfidence: 0, bySource: {}, byIndustry: {}, byProvince: {}, hotLeads: 0, scoreDistribution };
   }
 }

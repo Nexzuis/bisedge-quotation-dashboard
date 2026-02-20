@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Users, Wand2, Settings, User, LogOut, ChevronDown, BarChart3, ClipboardCheck, List } from 'lucide-react';
+import { Home, Users, Wand2, Settings, User, LogOut, ChevronDown, BarChart3, ClipboardCheck, List, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../auth/AuthContext';
 import { Badge } from '../ui/Badge';
@@ -60,6 +60,7 @@ export function CrmTopBar() {
     { path: '/', label: 'Home', icon: Home },
     { path: '/quotes', label: 'Quotes', icon: List },
     { path: '/customers', label: 'Customers', icon: Users },
+    { path: '/leads', label: 'Leads', icon: Zap },
     { path: '/crm/reports', label: 'Reports', icon: BarChart3 },
     { path: '/builder', label: 'New Quote', icon: Wand2 },
   ];

@@ -9,6 +9,7 @@ import { PipelineWidget } from './widgets/PipelineWidget';
 import { RecentActivityWidget } from './widgets/RecentActivityWidget';
 import { TeamOverviewWidget } from './widgets/TeamOverviewWidget';
 import { SystemHealthWidget } from './widgets/SystemHealthWidget';
+import { LeadStatsWidget } from './widgets/LeadStatsWidget';
 import { useAuth } from '../auth/AuthContext';
 import { ROLE_HIERARCHY, type Role } from '../../auth/permissions';
 import { staggerContainer } from '../crm/shared/motionVariants';
@@ -43,6 +44,9 @@ export default function HomeDashboard() {
 
         {/* MY QUOTES - for all roles */}
         <MyQuotesWidget />
+
+        {/* LEAD STATS */}
+        <LeadStatsWidget />
 
         {/* PIPELINE + ACTIVITY */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

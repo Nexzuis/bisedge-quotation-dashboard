@@ -6,13 +6,16 @@ import type {
   ICompanyRepository,
   IContactRepository,
   IActivityRepository,
+  ILeadRepository,
   StoredQuote,
+  StoredLead,
   SaveResult,
   QuoteFilter,
   PaginationOptions,
   PaginatedResult,
 } from './interfaces';
 import type { QuoteState } from '../types/quote';
+import type { LeadFilter, LeadPaginationOptions, LeadStats } from '../types/leads';
 import { getDb } from './DatabaseAdapter';
 
 // Singleton instances
@@ -23,6 +26,7 @@ let auditRepository: IAuditRepository | null = null;
 let companyRepository: ICompanyRepository | null = null;
 let contactRepository: IContactRepository | null = null;
 let activityRepository: IActivityRepository | null = null;
+let leadRepository: ILeadRepository | null = null;
 
 /**
  * Get Quote Repository singleton
@@ -147,4 +151,24 @@ export function getActivityRepository(): IActivityRepository {
     };
   }
   return activityRepository;
+}
+
+/**
+ * Get Lead Repository singleton
+ */
+export function getLeadRepository(): ILeadRepository {
+  if (!leadRepository) {
+    const db = getDb();
+    leadRepository = {
+      save: (lead) => db.saveLead(lead),
+      update: (id, updates) => db.updateLead(id, updates),
+      getById: (id) => db.getLead(id),
+      list: (options, filters?) => db.listLeads(options, filters),
+      search: (query) => db.searchLeads(query),
+      delete: (id) => db.deleteLead(id),
+      getStats: () => db.getLeadStats(),
+      bulkUpdateStatus: (ids, status) => db.bulkUpdateLeadStatus(ids, status),
+    };
+  }
+  return leadRepository;
 }

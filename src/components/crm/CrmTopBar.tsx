@@ -6,53 +6,20 @@ import { useAuth } from '../auth/AuthContext';
 import { Badge } from '../ui/Badge';
 import { NotificationBell } from '../notifications/NotificationBell';
 import { ROLE_HIERARCHY, type Role } from '../../auth/permissions';
-import { getDb } from '../../db/DatabaseAdapter';
+import { useApprovalCount } from '../../hooks/useApprovalCount';
 
 export function CrmTopBar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   const roleLevel = ROLE_HIERARCHY[(user?.role || 'sales_rep') as Role] || 0;
   const isManager = roleLevel >= 2;
   const isAdmin = user?.role === 'system_admin' || user?.role === 'sales_manager' || user?.role === 'local_leader' || user?.role === 'ceo';
 
-  // Load pending approval count for managers
-  useEffect(() => {
-    if (!user || !isManager) return;
-    loadApprovalCount();
-    // Refresh every 30 seconds
-    const interval = setInterval(loadApprovalCount, 30000);
-    return () => clearInterval(interval);
-  }, [user, isManager]);
-
-  const loadApprovalCount = async () => {
-    if (!user) return;
-    try {
-      const db = getDb();
-      const [pendingResult, reviewResult] = await Promise.all([
-        db.listQuotes(
-          { page: 1, pageSize: 100, sortBy: 'createdAt', sortOrder: 'asc' },
-          { status: 'pending-approval' }
-        ),
-        db.listQuotes(
-          { page: 1, pageSize: 100, sortBy: 'createdAt', sortOrder: 'asc' },
-          { status: 'in-review' as any }
-        ),
-      ]);
-      const all = [...pendingResult.items, ...reviewResult.items];
-      const assigned = all.filter((q: any) => {
-        if (user.role === 'system_admin') return true;
-        return q.currentAssigneeId === user.id;
-      });
-      setPendingApprovalCount(assigned.length);
-    } catch {
-      // Non-critical
-    }
-  };
+  const { count: pendingApprovalCount } = useApprovalCount();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

@@ -35,6 +35,7 @@ export function usePresence(quoteId: string, enabled: boolean = true) {
 
     let heartbeatInterval: NodeJS.Timeout | null = null;
     let channel: any = null;
+    let handleVisibility: (() => void) | null = null;
 
     const startPresence = async () => {
       setIsTracking(true);
@@ -57,6 +58,20 @@ export function usePresence(quoteId: string, enabled: boolean = true) {
 
       // Set up heartbeat (update every 30 seconds)
       heartbeatInterval = setInterval(updatePresence, CONFIG.presenceHeartbeatMs);
+
+      // Pause heartbeat when tab is hidden, resume on return
+      handleVisibility = () => {
+        if (document.hidden) {
+          if (heartbeatInterval) {
+            clearInterval(heartbeatInterval);
+            heartbeatInterval = null;
+          }
+        } else {
+          updatePresence();
+          heartbeatInterval = setInterval(updatePresence, CONFIG.presenceHeartbeatMs);
+        }
+      };
+      document.addEventListener('visibilitychange', handleVisibility);
 
       // Subscribe to presence changes via real-time channel
       channel = supabase.channel(`quote-presence:${quoteId}`)
@@ -100,6 +115,11 @@ export function usePresence(quoteId: string, enabled: boolean = true) {
     // Cleanup on unmount
     return () => {
       setIsTracking(false);
+
+      // Remove visibility listener
+      if (handleVisibility) {
+        document.removeEventListener('visibilitychange', handleVisibility);
+      }
 
       // Clear heartbeat
       if (heartbeatInterval) {

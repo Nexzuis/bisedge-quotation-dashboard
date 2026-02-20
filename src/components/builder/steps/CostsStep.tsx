@@ -81,7 +81,7 @@ function UnitCostsPanel({ slotIndex }: { slotIndex: SlotIndex }) {
             max={5000000}
             step="500"
             value={slot.localAttachmentCostZAR || ''}
-            onChange={(e) => updateSlot(slotIndex, { localAttachmentCostZAR: Math.min(parseFloat(e.target.value) || 0, 5000000) })}
+            onChange={(e) => updateSlot(slotIndex, { localAttachmentCostZAR: Math.min(Math.max(parseFloat(e.target.value) || 0, 0), 5_000_000) })}
             placeholder="0"
             className="input w-full text-sm"
           />
@@ -106,6 +106,7 @@ function UnitCostsPanel({ slotIndex }: { slotIndex: SlotIndex }) {
           label,
           value: slot.clearingCharges[key],
           onChange: (val: number) => setClearingCharge(slotIndex, key, val),
+          max: 2_000_000,
         }))}
       />
 
@@ -125,6 +126,7 @@ function UnitCostsPanel({ slotIndex }: { slotIndex: SlotIndex }) {
           label,
           value: slot.localCosts[key],
           onChange: (val: number) => setLocalCost(slotIndex, key, val),
+          max: 2_000_000,
         }))}
       />
     </div>

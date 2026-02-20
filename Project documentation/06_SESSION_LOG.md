@@ -320,6 +320,30 @@ Completed full migration from three-mode (local/hybrid/cloud) architecture to Su
   - NavigationGuard uses hashchange event listener (required because app uses HashRouter, not data router — useBlocker unavailable)
   - The quoteRef-change detection in useAutoSave also fires on initial mount; this is harmless (sets lastSavedAt baseline)
 
+### 2026-02-20 (QA Round 1.5 — Full Close: BUG-013 Cost Clamps + BUG-002 Polling/Dedup)
+- Date: 2026-02-20
+- Summary: Fully closed BUG-013 and BUG-002 after Codex flagged Round 1 fixes as incomplete. BUG-013: Added defense-in-depth clamping at TWO layers — UI components (CostFieldGroup max prop, CommercialStep numField max param) and store setters (per-field max map in setCommercialField, ceiling in setClearingCharge/setLocalCost). All 23+ numeric input fields now have max clamps and Number.isFinite guards. FleetBuilderPanel's 11 unclamped setCommercialField calls are automatically protected by the store-level defense. BUG-002: Added visibility-aware polling (document.visibilitychange) to all 3 interval-based hooks (useNotifications, usePresence, CrmTopBar approval count). Extracted shared useApprovalCount hook to deduplicate CrmTopBar's inline polling with PendingApprovalsWidget. All intervals pause when tab is hidden and resume with immediate fetch on tab return.
+- Changed Files:
+  - `src/components/builder/shared/CostFieldGroup.tsx` (optional max prop, isFinite + clamp in onChange)
+  - `src/components/builder/steps/CostsStep.tsx` (max: 2M for clearing/local, floor fix on localAttachmentCostZAR)
+  - `src/components/builder/steps/CommercialStep.tsx` (max param on numField, per-field max values)
+  - `src/store/useQuoteStore.ts` (COMMERCIAL_MAX map + isFinite in setCommercialField, ceiling in setClearingCharge/setLocalCost)
+  - `src/hooks/useNotifications.ts` (visibility-aware polling, fixed stale doc comment)
+  - `src/hooks/useApprovalCount.ts` (NEW — shared approval count hook with visibility pause)
+  - `src/components/crm/CrmTopBar.tsx` (replaced inline polling with useApprovalCount)
+  - `src/hooks/usePresence.ts` (visibility-aware heartbeat)
+  - `Project documentation/06_SESSION_LOG.md`
+  - `Project documentation/07_STATUS_BOARD.md`
+  - `Project documentation/05_TESTING_AND_RELEASE_CHECKLIST.md`
+- Validation Run:
+  - `npx tsc --noEmit -p tsconfig.app.json` (pass, 0 errors)
+  - `npx vitest run` (pass, 122/122 tests)
+  - `npx vite build` (pass, clean)
+- Notes/Risks:
+  - Cost clamp max values are conservative (R5M general, R2M clearing/local, 200% markup, 100% residual/finance, R10K/hr rates, R100K/mo telematics, R500K/mo operator). All well above real-world usage.
+  - Clamps apply on user INPUT only, not on store hydration from Supabase — existing saved quotes with any values load correctly.
+  - FleetBuilderPanel NOT modified — its 11 setCommercialField calls protected by store-level defense-in-depth.
+
 ### 2026-02-20 (QA Round 1 Bug Fixes)
 - Date: 2026-02-20
 - Summary: Fixed 10 bugs identified by Opus browser QA audit (Round 1). 4 false positives rejected after codebase cross-reference. Key fixes: (1) UserManagement snake_case→camelCase mapping — resolved BUG-005/006/007 (Invalid Date, all users Inactive, blank names — all same root cause: raw Supabase rows cast without column mapping). (2) Minimum margin validation gate — blocks 0% markup quotes with hard error, warns on <5%. (3) SpecsViewerPanel model lookup — tries modelCode, modelName, and materialNumber as fallbacks. (4) AuditLogViewer — builds user name map on load, resolves UUIDs to display names. (5) Cost field max-value constraints (R5M cap). (6) Reduced API polling/page sizes (notifications 30→60s, removed 1000/10000 page sizes). (7) Kanban empty state renders columns even when empty. (8) Wired markAsSentToCustomer/markAsExpired buttons on ExportStep. (9) Page title "BIS Edge — Quotation Dashboard" and emoji favicon. (10) getTableCounts HEAD request fallback.

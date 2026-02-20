@@ -494,21 +494,35 @@ export const useQuoteStore = create<QuoteStore>()(
     setClearingCharge: (slotIndex, field, value) =>
       set((state) => {
         const slot = state.slots[slotIndex];
-        slot.clearingCharges[field] = Math.max(0, value);
+        slot.clearingCharges[field] = Math.min(Math.max(0, value), 2_000_000);
         state.updatedAt = new Date();
       }),
 
     setLocalCost: (slotIndex, field, value) =>
       set((state) => {
         const slot = state.slots[slotIndex];
-        slot.localCosts[field] = Math.max(0, value);
+        slot.localCosts[field] = Math.min(Math.max(0, value), 2_000_000);
         state.updatedAt = new Date();
       }),
 
     setCommercialField: (slotIndex, field: CommercialField, value) =>
       set((state) => {
+        if (!Number.isFinite(value)) return;
+        const COMMERCIAL_MAX: Record<CommercialField, number> = {
+          markupPct: 200,
+          financeCostPct: 100,
+          residualValueTruckPct: 100,
+          residualValueBatteryPct: 100,
+          residualValueAttachmentPct: 100,
+          maintenanceRateTruckPerHr: 10_000,
+          maintenanceRateTiresPerHr: 10_000,
+          maintenanceRateAttachmentPerHr: 10_000,
+          telematicsSubscriptionCostPerMonth: 100_000,
+          telematicsSubscriptionSellingPerMonth: 100_000,
+          operatorPricePerMonth: 500_000,
+        };
         const slot = state.slots[slotIndex];
-        slot[field] = value;
+        slot[field] = Math.min(Math.max(0, value), COMMERCIAL_MAX[field]);
         state.updatedAt = new Date();
       }),
 

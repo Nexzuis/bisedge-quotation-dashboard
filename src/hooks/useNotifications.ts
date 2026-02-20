@@ -3,7 +3,7 @@
  *
  * Provides notification data and mutation helpers for the current user.
  * Reads/writes via the DatabaseAdapter.
- * Auto-refreshes every 30 seconds.
+ * Auto-refreshes every 60 seconds. Pauses when tab is hidden.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -53,10 +53,25 @@ export function useNotifications() {
 
     intervalRef.current = setInterval(fetchNotifications, REFRESH_INTERVAL_MS);
 
+    const handleVisibility = () => {
+      if (document.hidden) {
+        if (intervalRef.current !== null) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+      } else {
+        fetchNotifications();
+        intervalRef.current = setInterval(fetchNotifications, REFRESH_INTERVAL_MS);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+
     return () => {
       if (intervalRef.current !== null) {
         clearInterval(intervalRef.current);
       }
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [fetchNotifications]);
 

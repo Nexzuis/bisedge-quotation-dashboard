@@ -111,9 +111,13 @@ Update this file when changing:
 - [ ] Quote with <5% markup: shows warning but allows proceed
 - [ ] Specs panel: shows model data for configured units (or helpful error with model code)
 - [ ] Admin → Audit Log: shows user names, not raw UUIDs
-- [ ] Cost fields: values clamp at R5,000,000 max
+- [ ] Cost fields: clearing/local charges clamp at R2,000,000; battery/attachment at R5,000,000
+- [ ] Commercial fields: markup clamps at 200%, residual/finance at 100%, rates at R10K/hr, telematics at R100K/mo
+- [ ] Typing Infinity or non-numeric values in cost/commercial fields: safely handled (NaN/Infinity blocked)
 - [ ] Dashboard: reduced network calls (check network tab — no 1000/10000 page sizes)
-- [ ] Notifications: poll interval is 60s (not 30s)
+- [ ] Notifications: poll interval is 60s, pauses when tab is hidden, resumes on tab return
+- [ ] CrmTopBar approval badge: updates via shared useApprovalCount hook, pauses when tab hidden
+- [ ] Presence heartbeat: pauses when tab is hidden, resumes on tab return
 - [ ] CRM → Kanban: empty columns render with stage headers
 - [ ] Quote Export (approved): "Send to Customer" button visible and functional
 - [ ] Quote Export (approved/sent): "Mark Expired" button visible and functional

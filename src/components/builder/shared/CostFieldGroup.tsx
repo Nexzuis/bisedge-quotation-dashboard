@@ -8,6 +8,7 @@ interface CostField {
   value: number;
   onChange: (value: number) => void;
   step?: number;
+  max?: number;
 }
 
 interface CostFieldGroupProps {
@@ -32,9 +33,14 @@ export function CostFieldGroup({ title, fields, collapsible = false, defaultOpen
             <input
               type="number"
               min="0"
+              max={field.max ?? 5_000_000}
               step={field.step || 100}
               value={field.value || ''}
-              onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+              onChange={(e) => {
+                const raw = parseFloat(e.target.value);
+                const safe = Number.isFinite(raw) ? raw : 0;
+                field.onChange(Math.min(Math.max(safe, 0), field.max ?? 5_000_000));
+              }}
               placeholder="0"
               className="input w-full text-sm"
             />

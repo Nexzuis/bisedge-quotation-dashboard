@@ -13,15 +13,20 @@ function UnitCommercialPanel({ slotIndex }: { slotIndex: SlotIndex }) {
   const setCommercialField = useQuoteStore((s) => s.setCommercialField);
   const updateSlot = useQuoteStore((s) => s.updateSlot);
 
-  const numField = (field: Parameters<typeof setCommercialField>[1], label: string, step: number = 1, min: number = 0) => (
+  const numField = (field: Parameters<typeof setCommercialField>[1], label: string, step: number = 1, min: number = 0, max?: number) => (
     <div>
       <label className="block text-xs text-surface-400 mb-1">{label}</label>
       <input
         type="number"
         step={step}
         min={min}
+        max={max}
         value={(slot as any)[field] || ''}
-        onChange={(e) => setCommercialField(slotIndex, field, parseFloat(e.target.value) || 0)}
+        onChange={(e) => {
+          const raw = parseFloat(e.target.value);
+          const safe = Number.isFinite(raw) ? raw : 0;
+          setCommercialField(slotIndex, field, Math.min(Math.max(safe, min), max ?? 5_000_000));
+        }}
         placeholder="0"
         className="input w-full text-sm"
       />
@@ -47,8 +52,8 @@ function UnitCommercialPanel({ slotIndex }: { slotIndex: SlotIndex }) {
               className="input w-full text-sm"
             />
           </div>
-          {numField('markupPct', 'Markup %', 0.5)}
-          {numField('financeCostPct', 'Finance Cost % (Annual)', 0.25)}
+          {numField('markupPct', 'Markup %', 0.5, 0, 200)}
+          {numField('financeCostPct', 'Finance Cost % (Annual)', 0.25, 0, 100)}
         </div>
       </div>
 
@@ -87,9 +92,9 @@ function UnitCommercialPanel({ slotIndex }: { slotIndex: SlotIndex }) {
       <div>
         <h4 className="text-xs font-bold text-surface-500 uppercase mb-3">Residual Values</h4>
         <div className="grid grid-cols-3 gap-4">
-          {numField('residualValueTruckPct', 'Truck %')}
-          {numField('residualValueBatteryPct', 'Battery %')}
-          {numField('residualValueAttachmentPct', 'Attachment %')}
+          {numField('residualValueTruckPct', 'Truck %', 1, 0, 100)}
+          {numField('residualValueBatteryPct', 'Battery %', 1, 0, 100)}
+          {numField('residualValueAttachmentPct', 'Attachment %', 1, 0, 100)}
         </div>
       </div>
 
@@ -97,9 +102,9 @@ function UnitCommercialPanel({ slotIndex }: { slotIndex: SlotIndex }) {
       <div>
         <h4 className="text-xs font-bold text-surface-500 uppercase mb-3">Maintenance Rates (R/hr)</h4>
         <div className="grid grid-cols-3 gap-4">
-          {numField('maintenanceRateTruckPerHr', 'Truck')}
-          {numField('maintenanceRateTiresPerHr', 'Tires')}
-          {numField('maintenanceRateAttachmentPerHr', 'Attachment')}
+          {numField('maintenanceRateTruckPerHr', 'Truck', 1, 0, 10_000)}
+          {numField('maintenanceRateTiresPerHr', 'Tires', 1, 0, 10_000)}
+          {numField('maintenanceRateAttachmentPerHr', 'Attachment', 1, 0, 10_000)}
         </div>
       </div>
 
@@ -107,15 +112,15 @@ function UnitCommercialPanel({ slotIndex }: { slotIndex: SlotIndex }) {
       <div>
         <h4 className="text-xs font-bold text-surface-500 uppercase mb-3">Telematics Subscription</h4>
         <div className="grid grid-cols-2 gap-4">
-          {numField('telematicsSubscriptionCostPerMonth', 'Cost/Month (R)', 10)}
-          {numField('telematicsSubscriptionSellingPerMonth', 'Selling/Month (R)', 10)}
+          {numField('telematicsSubscriptionCostPerMonth', 'Cost/Month (R)', 10, 0, 100_000)}
+          {numField('telematicsSubscriptionSellingPerMonth', 'Selling/Month (R)', 10, 0, 100_000)}
         </div>
       </div>
 
       {/* Operator Price */}
       <div>
         <h4 className="text-xs font-bold text-surface-500 uppercase mb-3">Operator</h4>
-        {numField('operatorPricePerMonth', 'Operator Price/Month (R)', 100)}
+        {numField('operatorPricePerMonth', 'Operator Price/Month (R)', 100, 0, 500_000)}
       </div>
 
       {/* Live Pricing Preview */}

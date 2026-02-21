@@ -174,7 +174,7 @@ Data flows: `Component -> Hook -> Repository -> DatabaseAdapter -> SupabaseAdapt
 - `usePresence.ts` — quote_presence CRUD + realtime
 - `useQuoteLock.ts` — quotes.locked_by/locked_at updates
 - `useCompanyMerge.ts` — direct multi-table queries + RPC
-- `UserManagement.tsx` — creates a separate `createClient()` instance
+- `UserManagement.tsx` — calls Edge Function for create, direct Supabase for list/update
 - `ApprovalDashboard.tsx`, `PendingApprovalsWidget.tsx` — direct queries
 
 ### Zustand + Immer over Redux
@@ -287,6 +287,20 @@ Status lifecycle: `draft → pending-approval → approved | rejected | in-revie
 - Whole-store Zustand subscriptions replaced with `useShallow` selectors
 - 56 new regression tests (178 total, up from 122)
 
+### Fixed in Phase 1 Review Round 1 (BUILD-REVIEW.md)
+
+- Admin user creation moved server-side via Supabase Edge Function (`supabase/functions/admin-create-user/`)
+- RLS policies committed as migration artifact (`supabase/migrations/001_rls_policies.sql`)
+- Clickjacking headers added to `vercel.json` (`X-Frame-Options`, CSP `frame-ancestors`)
+- SPEC.md updated to match quotes-based realtime subscription (was stale)
+- Approval notifications: guard for missing `payload.old.status`, filtered subscription
+- Password field hidden when editing existing users (was misleading)
+- Price list queries: deterministic `.order('id')` + raised limits to prevent truncation
+- `auditLogMapper.ts` extracted — tests now import production functions directly
+- `safeNum` exported from `useQuoteStore` — tests import real function
+- Typed `LoadFromDBResult` (`'found' | 'not_found' | 'error'`) with distinct error messaging
+- TECH-DEBT.md entry for `database.types.ts` auto-generation (TD-6.3)
+
 ### Not Working / Partially Working
 
 - Quote versions table (typed but never used — keep/remove decision pending)
@@ -294,10 +308,8 @@ Status lifecycle: `draft → pending-approval → approved | rejected | in-revie
 
 ### Not Yet Implemented
 
-- Row-Level Security policies (RLS verification/enforcement in Supabase)
-- Server-side user creation (Edge Function with service role key)
-- FK constraints, uniqueness constraints, indexes in DB
-- Auto-generated `database.types.ts` from live Supabase schema
+- Auto-generated `database.types.ts` from live Supabase schema (requires Supabase CLI + project ID)
+- Deploy Edge Function `admin-create-user` to Supabase (code committed, needs `supabase functions deploy`)
 - Email integration (template types exist, no sending)
 - Real product images in PDFs (placeholders only)
 - Dashboard widget customisation

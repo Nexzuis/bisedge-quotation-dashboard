@@ -36,16 +36,22 @@ function Dashboard() {
       setQuoteLoadError(null);
 
       try {
-        const loaded = quoteId ? await loadFromDB(quoteId) : await loadMostRecent();
-        if (!loaded && !cancelled) {
-          if (quoteId) {
-            useQuoteStore.getState().resetQuote();
+        if (quoteId) {
+          const result = await loadFromDB(quoteId);
+          if (!cancelled) {
+            if (result === 'not_found') {
+              useQuoteStore.getState().resetQuote();
+              setQuoteLoadError(`Quote with id ${quoteId} was not found.`);
+            } else if (result === 'error') {
+              useQuoteStore.getState().resetQuote();
+              setQuoteLoadError('Failed to load quote. Please check your connection and try again.');
+            }
           }
-          setQuoteLoadError(
-            quoteId
-              ? `Quote with id ${quoteId} was not found.`
-              : 'No existing quote was found. Create a new quote to continue.'
-          );
+        } else {
+          const loaded = await loadMostRecent();
+          if (!loaded && !cancelled) {
+            setQuoteLoadError('No existing quote was found. Create a new quote to continue.');
+          }
         }
       } catch (error) {
         if (!cancelled) {

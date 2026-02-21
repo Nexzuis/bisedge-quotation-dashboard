@@ -255,7 +255,7 @@ API surface = Supabase RPC + table operations from browser code.
 | `SELECT/INSERT/UPDATE/DELETE` | `quotes` | Main quote CRUD, listing, searching, counts, revisions by `quote_ref` prefix. |
 | `UPDATE` | `quotes.locked_by/locked_at` | Quote lock/unlock from `useQuoteLock` (direct Supabase calls). |
 | `SELECT` | `quote_versions` | Table is typed but not currently used by implemented quote save/list flows. |
-| `SELECT` | `approval_actions` | Realtime listeners read inserts for notifications; client does not write this table. |
+| `SELECT` | `approval_actions` | Historical approval action records; client does not write or subscribe to this table. |
 | `UPSERT/DELETE` | `quote_presence` | Presence heartbeat and cleanup. |
 | `SELECT/INSERT/UPDATE/DELETE` | `companies`, `contacts`, `activities` | CRM operations. |
 | `SELECT/INSERT/UPDATE/DELETE` | `leads` | Lead CRUD, filtering, stats, bulk status updates. |
@@ -275,8 +275,7 @@ API surface = Supabase RPC + table operations from browser code.
 | `quote-updates:{quoteId}` | `quotes` `UPDATE` events | Live single-quote refresh. |
 | `quote-list-updates` | `quotes` all events | Live quote list refresh. |
 | `quote-presence:{quoteId}` | Realtime presence | Show active viewers. |
-| `my-approval-notifications` | `approval_actions` `INSERT` | Notify quote creators about approval actions. |
-| `approver-notifications` | `approval_actions` `INSERT` filtered to `submitted` | Notify approvers of new submissions. |
+| `approval-status-notifications` | `quotes` `UPDATE` (filtered to approval-relevant statuses) | Detects status transitions by comparing `payload.old.status` vs `payload.new.status`. Notifies quote owners of approvals/rejections/change-requests and notifies assignees of new quotes needing review. |
 
 ---
 
@@ -451,7 +450,7 @@ Controls in code:
 
 ### 8.8 Current implementation caveats
 
-- `approval_actions` is subscribed to for notifications, but approval actions are primarily persisted into `quotes.approval_chain` and `audit_log` by client code.
+- Approval notifications subscribe to `quotes` table UPDATE events (not `approval_actions`). Status transitions are detected client-side by comparing `payload.old.status` vs `payload.new.status`. The `approval_actions` table is not used as a notification source.
 - Admin user creation uses `auth.signUp` from browser code with anon-key client, then inserts into `public.users`.
 - Password reset dialog captures a new password input, but implemented action sends reset email (`resetPasswordForEmail`) rather than setting that typed password directly.
 

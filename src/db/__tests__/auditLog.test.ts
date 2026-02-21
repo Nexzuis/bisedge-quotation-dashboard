@@ -1,41 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import type { AuditLogEntry } from '../interfaces';
+import { mapAuditLogEntry } from '../auditLogMapper';
 
-// ─── mapAuditLogEntry contract tests ──────────────────────────
-// The actual mapAuditLogEntry is a private method on SupabaseAdapter
-// and cannot be imported directly. These tests verify the mapping
-// contract by reimplementing the pure transformation logic from
-// SupabaseAdapter.ts lines 1918-1937 to guard against regressions
-// in the audit log mapping fix (Phase 1 bug: "audit_log write/read
-// mismatch — logAudit drops old_values/new_values; reads phantom
-// columns").
-//
-// The production method is a private instance method on a class that
-// requires a live Supabase connection. Testing it end-to-end would
-// need a Supabase mock, which is out of scope for this pure-logic
-// regression suite. Instead we test the mapping contract directly.
-
-/** Reimplementation of the private mapAuditLogEntry logic */
-function mapAuditLogEntry(row: any): AuditLogEntry {
-  const parseJson = (val: any): Record<string, any> | undefined => {
-    if (val == null) return undefined;
-    if (typeof val === 'string') {
-      try { return JSON.parse(val); } catch { return {}; }
-    }
-    return val;
-  };
-  return {
-    id: row.id,
-    timestamp: row.timestamp,
-    userId: row.user_id || '',
-    action: row.action,
-    entityType: row.entity_type,
-    entityId: row.entity_id,
-    changes: parseJson(row.changes) || {},
-    oldValues: parseJson(row.old_values),
-    newValues: parseJson(row.new_values),
-  };
-}
+// ─── mapAuditLogEntry production function tests ───────────────
+// Tests the actual exported mapAuditLogEntry function from
+// auditLogMapper.ts. This guards against regressions in the
+// audit log mapping fix (Phase 1 bug: "audit_log write/read
+// mismatch — logAudit drops old_values/new_values; reads
+// phantom columns").
 
 describe('mapAuditLogEntry', () => {
   it('should map a complete row with old_values and new_values as JSON strings', () => {

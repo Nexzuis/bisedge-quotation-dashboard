@@ -9,7 +9,6 @@ import { getAuditRepository } from '../../../db/repositories';
 import { useAuth } from '../../auth/AuthContext';
 import { Badge } from '../../ui/Badge';
 import { supabase } from '../../../lib/supabase';
-import { createClient } from '@supabase/supabase-js';
 import { logger } from '../../../utils/logger';
 import {
   ALL_ROLES,
@@ -214,68 +213,41 @@ const UserManagement = () => {
           newValues: { ...selectedUser, ...formData },
         });
       } else {
-        // Create new user via Supabase Auth + public.users
-        const signUpClient = createClient(
-          import.meta.env.VITE_SUPABASE_URL,
-          import.meta.env.VITE_SUPABASE_ANON_KEY,
-          { auth: { persistSession: false } }
-        );
-        const { data: authData, error: authError } = await signUpClient.auth.signUp({
-          email: formData.email,
-          password: formData.password,
+        // Create new user via server-side Edge Function (service role key)
+        const { data, error: fnError } = await supabase.functions.invoke('admin-create-user', {
+          body: {
+            email: formData.email,
+            password: formData.password,
+            fullName: formData.fullName,
+            role: formData.role,
+            username: formData.username,
+            isActive: formData.isActive,
+            permissionOverrides: formData.permissionOverrides,
+          },
         });
 
-        if (authError) {
-          logger.warn('Supabase auth signUp failed:', authError.message);
+        if (fnError) {
+          throw new Error('User creation failed: ' + fnError.message);
+        }
 
-          // Handle re-creating a previously deleted user:
-          // signUp fails because the auth user still exists, but public.users
-          // has is_active=false from the soft-delete. Reactivate the row.
-          const { data: existingUser } = await supabase
-            .from('users')
-            .select('id')
-            .eq('email', formData.email)
-            .single();
+        if (data?.error) {
+          throw new Error(data.error);
+        }
 
-          if (existingUser) {
-            await supabase.from('users').update({
-              full_name: formData.fullName,
-              role: formData.role,
-              is_active: formData.isActive,
-            }).eq('id', existingUser.id);
+        if (data?.reactivated) {
+          toast.info('Reactivated existing user. The user must log in with their previous password or use password reset.');
+        }
 
-            toast.info('Reactivated existing cloud user. Note: the user must log in with their previous Supabase password or use password reset.');
-          } else {
-            throw new Error('Cloud user creation failed: ' + authError.message);
-          }
-        } else if (authData.user && authData.user.identities && authData.user.identities.length > 0) {
-          // Brand new user — insert into public.users with the Supabase auth ID
-          const { error: insertError } = await supabase.from('users').insert({
-            id: authData.user.id,
-            username: formData.username,
-            email: formData.email,
-            full_name: formData.fullName,
-            role: formData.role,
-            is_active: formData.isActive,
-            permission_overrides: JSON.stringify(formData.permissionOverrides),
+        // Audit log
+        if (data?.userId) {
+          await auditRepo.log({
+            userId: currentUser!.id,
+            action: 'create',
+            entityType: 'user',
+            entityId: data.userId,
+            changes: { created: true, reactivated: data.reactivated ?? false },
+            newValues: { id: data.userId, ...formData },
           });
-          if (insertError) {
-            logger.error('public.users insert failed:', { error: insertError.message });
-            toast.error('Cloud user record failed: ' + insertError.message);
-          } else {
-            // Audit log
-            await auditRepo.log({
-              userId: currentUser!.id,
-              action: 'create',
-              entityType: 'user',
-              entityId: authData.user.id,
-              changes: { created: true },
-              newValues: { id: authData.user.id, ...formData },
-            });
-          }
-        } else if (authData.user) {
-          // signUp returned a user but with no identities — email not actually created
-          toast.error('Cloud sync failed: email may already exist in Supabase Auth. Check Supabase dashboard.');
         }
       }
 
@@ -547,10 +519,10 @@ const UserManagement = () => {
             )}
           </div>
 
+          {!selectedUser && (
           <div>
             <label className="block text-sm font-medium text-surface-100 mb-2">
-              Password {!selectedUser && <span className="text-red-400">*</span>}
-              {selectedUser && <span className="text-surface-100/60 text-xs">(leave blank to keep current)</span>}
+              Password <span className="text-red-400">*</span>
             </label>
             <div className="relative">
               <input
@@ -558,7 +530,7 @@ const UserManagement = () => {
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 className="w-full px-4 py-2 pr-10 bg-surface-800/40 border border-surface-700/50 rounded-lg text-surface-100 placeholder:text-surface-100/30 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                placeholder={selectedUser ? 'Enter new password (optional)' : 'Enter password'}
+                placeholder="Enter password"
               />
               <button
                 type="button"
@@ -572,6 +544,7 @@ const UserManagement = () => {
               <p className="text-red-400 text-sm mt-1">{validationErrors.password}</p>
             )}
           </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-surface-100 mb-2">

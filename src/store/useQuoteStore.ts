@@ -33,7 +33,7 @@ import { useConfigStore, getConfigDefaults } from './useConfigStore';
 const LOCK_STALE_MS = 60 * 60 * 1000; // 1 hour
 
 /** Safely coerce a value to a finite number, defaulting to 0 */
-const safeNum = (v: unknown): number => {
+export const safeNum = (v: unknown): number => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 };

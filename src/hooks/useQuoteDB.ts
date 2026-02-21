@@ -4,8 +4,10 @@ import { getQuoteRepository } from '../db/repositories';
 import type { PaginationOptions, QuoteFilter, PaginatedResult, StoredQuote } from '../db/interfaces';
 import { logger } from '../utils/logger';
 
+export type LoadFromDBResult = 'found' | 'not_found' | 'error';
+
 export interface UseQuoteDBResult {
-  loadFromDB: (id: string) => Promise<boolean>;
+  loadFromDB: (id: string) => Promise<LoadFromDBResult>;
   createNewQuote: () => Promise<void>;
   duplicateQuote: (id: string) => Promise<boolean>;
   createRevision: (id: string) => Promise<boolean>;
@@ -27,20 +29,22 @@ export function useQuoteDB(): UseQuoteDBResult {
   const repository = getQuoteRepository();
 
   /**
-   * Load quote from database and update store
+   * Load quote from database and update store.
+   * Returns 'found' on success, 'not_found' if the quote does not exist,
+   * or 'error' if a network/server error occurred.
    */
   const loadFromDB = useCallback(
-    async (id: string): Promise<boolean> => {
+    async (id: string): Promise<LoadFromDBResult> => {
       try {
         const quote = await repository.load(id);
         if (quote) {
           loadQuote(quote);
-          return true;
+          return 'found';
         }
-        return false;
+        return 'not_found';
       } catch (error) {
         logger.error('Error loading quote from DB:', error);
-        return false;
+        return 'error';
       }
     },
     [repository, loadQuote]

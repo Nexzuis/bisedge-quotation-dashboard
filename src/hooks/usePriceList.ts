@@ -24,7 +24,7 @@ export function usePriceListSeries(): { seriesCode: string; seriesName: string; 
         .from('price_list_series')
         .select('*')
         .order('series_name')
-        .limit(200);
+        .limit(500);
 
       if (error) {
         logger.error('usePriceListSeries: error fetching price_list_series', { error });
@@ -261,7 +261,8 @@ export function useTelematicsPackages(): TelematicsPackage[] {
       const { data, error } = await supabase
         .from('telematics_packages')
         .select('*')
-        .limit(100);
+        .order('id', { ascending: true })
+        .limit(200);
 
       if (error) {
         logger.error('useTelematicsPackages: error fetching telematics_packages', { error });
@@ -337,7 +338,8 @@ export function useContainerMapping(seriesCode: string): ContainerMapping | null
       const { data, error } = await supabase
         .from('container_mappings')
         .select('*')
-        .limit(200);
+        .order('id', { ascending: true })
+        .limit(500);
 
       if (error) {
         logger.error('useContainerMapping: error fetching container_mappings', { error });
@@ -394,7 +396,8 @@ export function useContainerMappings(seriesCodes: string[]): (ContainerMapping |
       const { data, error } = await supabase
         .from('container_mappings')
         .select('*')
-        .limit(200);
+        .order('id', { ascending: true })
+        .limit(500);
 
       if (error) {
         logger.error('useContainerMappings: error fetching container_mappings', { error });

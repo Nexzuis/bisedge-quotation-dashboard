@@ -49,13 +49,21 @@ export function useApprovalNotifications() {
           event: 'UPDATE',
           schema: 'public',
           table: 'quotes',
+          filter: 'status=in.(pending-approval,in-review,approved,rejected,changes-requested)',
         },
         (payload) => {
           const oldRecord = payload.old as Record<string, unknown>;
           const newRecord = payload.new as Record<string, unknown>;
 
-          // Only react when the status column actually changed.
-          if (!oldRecord || !newRecord || oldRecord.status === newRecord.status) {
+          // Skip if there is no new record at all.
+          if (!newRecord) return;
+
+          // If old record is available and status hasn't changed, skip.
+          // Note: payload.old may be empty on Postgres setups without full
+          // replica identity, so we fall back to always processing rather
+          // than silently dropping notifications.
+          const hasOldStatus = oldRecord && 'status' in oldRecord && oldRecord.status != null;
+          if (hasOldStatus && oldRecord.status === newRecord.status) {
             return;
           }
 

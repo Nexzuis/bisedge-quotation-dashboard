@@ -1,20 +1,14 @@
 import { describe, it, expect } from 'vitest';
+import { safeNum } from '../../store/useQuoteStore';
 
-// ─── safeNum behavior contract ────────────────────────────────
-// safeNum is a module-level private function in useQuoteStore.ts
-// that cannot be imported directly. These tests verify the
-// behavioral contract: "safely coerce a value to a finite number,
-// defaulting to 0." This ensures that any future refactor of
-// safeNum preserves the NaN-safety guarantees that getSlotPricing
-// and getQuoteTotals depend on to prevent NaN propagation
+// ─── safeNum production function tests ────────────────────────
+// Tests the actual exported safeNum function from useQuoteStore.ts.
+// safeNum safely coerces a value to a finite number, defaulting
+// to 0. This ensures that getSlotPricing and getQuoteTotals never
+// suffer NaN propagation from undefined/null slot fields
 // (Phase 2 bug: "NaN propagation from undefined slot fields").
 
-describe('safeNum behavior contract', () => {
-  // Reimplementation matching the contract in useQuoteStore.ts line 36-38
-  const safeNum = (v: unknown): number => {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : 0;
-  };
+describe('safeNum (production export)', () => {
 
   // ── Non-finite inputs should return 0 ────────────────────
 

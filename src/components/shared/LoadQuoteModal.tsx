@@ -98,8 +98,8 @@ export function LoadQuoteModal({ isOpen, onClose, onQuoteLoaded }: LoadQuoteModa
   }, [searchQuery]);
 
   const handleLoadQuote = async (id: string) => {
-    const success = await loadFromDB(id);
-    if (success) {
+    const result = await loadFromDB(id);
+    if (result === 'found') {
       onQuoteLoaded?.();
       onClose();
     }

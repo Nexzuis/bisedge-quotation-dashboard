@@ -26,6 +26,7 @@ import type {
 import type { LeadFilter, LeadPaginationOptions, LeadStats, QualificationStatus } from '../types/leads';
 import type { IDatabaseAdapter } from './DatabaseAdapter';
 import { sanitizePostgrestValue } from '../utils/sanitize';
+import { mapAuditLogEntry } from './auditLogMapper';
 
 type QuotesInsert = Database['public']['Tables']['quotes']['Insert'];
 type DbQuoteStatus = Database['public']['Tables']['quotes']['Row']['status'];
@@ -677,7 +678,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         return [];
       }
 
-      return (data || []).map(this.mapAuditLogEntry);
+      return (data || []).map((row: any) => mapAuditLogEntry(row));
     } catch (error) {
       console.error('Error getting audit log from Supabase:', error);
       return [];
@@ -1280,7 +1281,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         return [];
       }
 
-      return (data || []).map(this.mapAuditLogEntry);
+      return (data || []).map((row: any) => mapAuditLogEntry(row));
     } catch (error) {
       console.error('Error listing audit log from Supabase:', error);
       return [];
@@ -1915,26 +1916,8 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
     };
   }
 
-  private mapAuditLogEntry(row: any): AuditLogEntry {
-    const parseJson = (val: any): Record<string, any> | undefined => {
-      if (val == null) return undefined;
-      if (typeof val === 'string') {
-        try { return JSON.parse(val); } catch { return {}; }
-      }
-      return val;
-    };
-    return {
-      id: row.id,
-      timestamp: row.timestamp,
-      userId: row.user_id || '',
-      action: row.action,
-      entityType: row.entity_type,
-      entityId: row.entity_id,
-      changes: parseJson(row.changes) || {},
-      oldValues: parseJson(row.old_values),
-      newValues: parseJson(row.new_values),
-    };
-  }
+  // mapAuditLogEntry has been extracted to src/db/auditLogMapper.ts
+  // and is imported at the top of this file as a standalone function.
 
   private dbLeadToStored(row: any): StoredLead {
     return {

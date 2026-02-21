@@ -6,7 +6,12 @@ import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
-if (!SUPABASE_URL || !SUPABASE_KEY) { console.error('Missing env vars'); process.exit(1); }
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  console.error('ERROR: Missing required environment variables.');
+  console.error('A service role key is required — the anon key must NOT be used for privileged operations.');
+  console.error('Usage: SUPABASE_URL=... SUPABASE_SERVICE_KEY=... node scripts/seed-leads-batch2a.mjs');
+  process.exit(1);
+}
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const now = new Date().toISOString();

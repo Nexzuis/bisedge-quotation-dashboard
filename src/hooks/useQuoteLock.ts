@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useState, useRef } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { supabase } from '../lib/supabase';
@@ -34,7 +35,16 @@ export function useQuoteLock(
   autoRelease: boolean = true
 ): QuoteLockStatus {
   const { user } = useAuthStore();
-  const { lockedBy, lockedAt, acquireLock, releaseLock, isLockedByOther, canEdit } = useQuoteStore();
+  const { lockedBy, lockedAt, acquireLock, releaseLock, isLockedByOther, canEdit } = useQuoteStore(
+    useShallow((s) => ({
+      lockedBy: s.lockedBy,
+      lockedAt: s.lockedAt,
+      acquireLock: s.acquireLock,
+      releaseLock: s.releaseLock,
+      isLockedByOther: s.isLockedByOther,
+      canEdit: s.canEdit,
+    }))
+  );
 
   const [lockedByName, setLockedByName] = useState<string | null>(null);
   const [hasLock, setHasLock] = useState(false);
@@ -191,7 +201,8 @@ export function useQuoteLock(
  */
 export function useManualQuoteLock(quoteId: string) {
   const { user } = useAuthStore();
-  const { acquireLock, releaseLock } = useQuoteStore();
+  const acquireLock = useQuoteStore((s) => s.acquireLock);
+  const releaseLock = useQuoteStore((s) => s.releaseLock);
 
   const handleAcquire = async () => {
     if (!user) return false;

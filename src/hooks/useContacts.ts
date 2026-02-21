@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { getContactRepository } from '../db/repositories';
 import type { StoredContact } from '../db/interfaces';
+import { logger } from '../utils/logger';
 
 export function useContacts() {
   const repo = getContactRepository();
@@ -10,7 +11,7 @@ export function useContacts() {
       try {
         return await repo.getByCompany(companyId);
       } catch (error) {
-        console.error('Failed to get contacts:', error);
+        logger.error('Failed to get contacts:', { error });
         return [];
       }
     },
@@ -22,7 +23,7 @@ export function useContacts() {
       try {
         return await repo.getPrimary(companyId);
       } catch (error) {
-        console.error('Failed to get primary contact:', error);
+        logger.error('Failed to get primary contact:', { error });
         return null;
       }
     },
@@ -34,7 +35,7 @@ export function useContacts() {
       try {
         return await repo.getById(id);
       } catch (error) {
-        console.error('Failed to get contact:', error);
+        logger.error('Failed to get contact:', { error });
         return null;
       }
     },

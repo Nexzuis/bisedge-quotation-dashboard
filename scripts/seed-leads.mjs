@@ -11,11 +11,18 @@
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error('Missing SUPABASE_URL or SUPABASE_SERVICE_KEY environment variables.');
-  console.error('Set them or use: SUPABASE_URL=... SUPABASE_SERVICE_KEY=... node scripts/seed-leads.mjs');
+if (!SUPABASE_URL) {
+  console.error('ERROR: Missing SUPABASE_URL (or VITE_SUPABASE_URL) environment variable.');
+  console.error('Usage: SUPABASE_URL=... SUPABASE_SERVICE_KEY=... node scripts/seed-leads.mjs');
+  process.exit(1);
+}
+
+if (!SUPABASE_KEY) {
+  console.error('ERROR: Missing SUPABASE_SERVICE_KEY (or VITE_SUPABASE_SERVICE_ROLE_KEY) environment variable.');
+  console.error('A service role key is required for seed scripts — the anon key must NOT be used for privileged operations.');
+  console.error('Usage: SUPABASE_URL=... SUPABASE_SERVICE_KEY=... node scripts/seed-leads.mjs');
   process.exit(1);
 }
 

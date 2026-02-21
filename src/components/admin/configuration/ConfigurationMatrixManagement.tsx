@@ -5,6 +5,7 @@ import { useConfirmDialog } from '../../../hooks/useConfirmDialog';
 import { configurationMatrixRepository } from '../../../db/ConfigurationMatrixRepository';
 import { importConfigurationFromExcel, exportConfigurationToExcel } from '../../../utils/configurationImporter';
 import { Download, Upload, Trash2 } from 'lucide-react';
+import { logger } from '../../../utils/logger';
 
 const ConfigurationMatrixManagement: React.FC = () => {
   const matrices = useAllConfigurationMatrices();
@@ -31,7 +32,7 @@ const ConfigurationMatrixManagement: React.FC = () => {
         );
 
         if (result.warnings.length > 0) {
-          console.warn('Import warnings:', result.warnings);
+          logger.warn('Import warnings:', result.warnings);
         }
       } else {
         setImportStatus(`Import failed: ${result.errors.join(', ')}`);
@@ -59,7 +60,7 @@ const ConfigurationMatrixManagement: React.FC = () => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Export error:', error);
+      logger.error('Export error:', { error });
       toast.error('Failed to export configuration matrix');
     }
   };

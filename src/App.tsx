@@ -30,6 +30,7 @@ import { useUnsavedChanges } from './hooks/useUnsavedChanges';
 import { useAutoSave } from './hooks/useAutoSave';
 import { AutoSaveContextProvider } from './hooks/AutoSaveContext';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useApprovalNotifications } from './hooks/useApprovalNotifications';
 import { supabaseConfigError } from './lib/supabase';
 import { Loader2 } from 'lucide-react';
 
@@ -81,6 +82,9 @@ function AppContent() {
   // Global keyboard shortcuts: Ctrl+S (save), Ctrl+N (new quote), Ctrl+P (PDF)
   // Ctrl+K is intentionally excluded — GlobalSearch.tsx owns that shortcut.
   useKeyboardShortcuts({ onSave: autoSave.saveNow });
+
+  // Track C4-6: Real-time approval notifications via quotes table status changes.
+  useApprovalNotifications();
 
   // One-time config load
   useEffect(() => {

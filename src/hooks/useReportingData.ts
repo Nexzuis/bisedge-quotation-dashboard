@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { getDb } from '../db/DatabaseAdapter';
 import type { StoredCompany, StoredActivity, StoredUser } from '../db/interfaces';
 import type { PipelineStage, ActivityType } from '../types/crm';
+import { logger } from '../utils/logger';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -313,7 +314,7 @@ export function useReportingData(): UseReportingDataResult {
 
       setData({ funnel, conversion, salesReps, activitySummary, forecast });
     } catch (err) {
-      console.error('[useReportingData] Failed to compute metrics:', err);
+      logger.error('[useReportingData] Failed to compute metrics:', { error: err });
       setError(err instanceof Error ? err.message : 'Failed to load reporting data.');
     } finally {
       setLoading(false);

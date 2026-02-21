@@ -1,5 +1,6 @@
 import type { ZAR } from '../types/quote';
 import { getDb } from '../db/DatabaseAdapter';
+import { logger } from '../utils/logger';
 
 export interface CommissionTier {
   minMargin: number;
@@ -32,7 +33,7 @@ export async function calcCommission(totalSales: ZAR, marginPct: number): Promis
 
     return totalSales * (tier.commissionRate / 100);
   } catch (error) {
-    console.error('Error calculating commission:', error);
+    logger.error('Error calculating commission:', { error });
     return 0;
   }
 }
@@ -90,7 +91,7 @@ export async function getCommissionTier(marginPct: number): Promise<CommissionTi
       description: `${tier.minMargin}% - ${tier.maxMargin}% margin`,
     };
   } catch (error) {
-    console.error('Error getting commission tier:', error);
+    logger.error('Error getting commission tier:', { error });
     return null;
   }
 }
@@ -110,7 +111,7 @@ export async function getAllCommissionTiers(): Promise<CommissionTier[]> {
       description: `${t.minMargin}% - ${t.maxMargin}% margin`,
     }));
   } catch (error) {
-    console.error('Error getting commission tiers:', error);
+    logger.error('Error getting commission tiers:', { error });
     return [];
   }
 }

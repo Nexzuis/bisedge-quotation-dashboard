@@ -8,6 +8,7 @@ import { getTemplateRepository, getAuditRepository } from '../../../db/repositor
 import { useAuth } from '../../auth/AuthContext';
 import { Badge } from '../../ui/Badge';
 import type { StoredTemplate } from '../../../db/interfaces';
+import { logger } from '../../../utils/logger';
 
 interface TemplateFormData {
   name: string;
@@ -59,7 +60,7 @@ const TemplateManagement = () => {
 
       setTemplates(allTemplates);
     } catch (error) {
-      console.error('Failed to load templates:', error);
+      logger.error('Failed to load templates:', { error });
       toast.error('Failed to load templates');
     } finally {
       setLoading(false);
@@ -200,7 +201,7 @@ const TemplateManagement = () => {
       setShowEditModal(false);
       await loadTemplates();
     } catch (error) {
-      console.error('Failed to save template:', error);
+      logger.error('Failed to save template:', { error });
       toast.error('Failed to save template');
     } finally {
       setSaving(false);
@@ -231,7 +232,7 @@ const TemplateManagement = () => {
       setShowDeleteDialog(false);
       await loadTemplates();
     } catch (error) {
-      console.error('Failed to delete template:', error);
+      logger.error('Failed to delete template:', { error });
       toast.error('Failed to delete template');
     }
   };

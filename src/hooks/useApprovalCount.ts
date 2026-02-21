@@ -25,9 +25,9 @@ export function useApprovalCount() {
     if (!user || !isManager) return;
     try {
       // Server-side count queries — no client-side filtering needed
-      let pendingQuery = supabase.from('quotes').select('id', { count: 'exact', head: true })
+      let pendingQuery = supabase.from('quotes').select('id', { count: 'exact' }).limit(0)
         .eq('status', 'pending-approval');
-      let reviewQuery = supabase.from('quotes').select('id', { count: 'exact', head: true })
+      let reviewQuery = supabase.from('quotes').select('id', { count: 'exact' }).limit(0)
         .eq('status', 'in-review');
 
       // Server-side assignee filter for non-admins

@@ -1,22 +1,38 @@
 /**
  * Approval Notifications Hook
  *
- * Listens for approval/rejection events on user's quotes and shows
- * real-time toast notifications.
+ * Track C4-6 fix: The original implementation listened for INSERT events on
+ * the `approval_actions` table, but nothing in the application ever inserts
+ * into that table --- so notifications never fired (dead code).
+ *
+ * This rewrite subscribes to UPDATE events on the `quotes` table and detects
+ * changes to the `status` column (e.g. pending-approval -> approved/rejected).
+ * When a relevant status transition is detected, a toast notification is shown
+ * to the current user.
+ *
+ * The hook must be called once at the app shell level (e.g. AppContent) so the
+ * subscription lives for the duration of the session.
  */
 
 import { useEffect } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
 import { supabase, FEATURES } from '../lib/supabase';
-import { toast } from 'sonner';
-import { CheckCircle, XCircle, Bell } from 'lucide-react';
+import { toast } from '../components/ui/Toast';
 import { logger } from '../utils/logger';
 
+/** Statuses that represent a quote entering the review pipeline. */
+const REVIEW_STATUSES = ['pending-approval', 'in-review'] as const;
+
 /**
- * Subscribe to approval notifications for current user's quotes
+ * Subscribe to real-time quote status changes and show approval-related
+ * toast notifications for the current user.
+ *
+ * - Quote owners see notifications when their quote is approved/rejected.
+ * - Managers/approvers see notifications when new quotes are submitted for
+ *   their review.
  */
 export function useApprovalNotifications() {
-  const { user } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
 
   useEffect(() => {
     if (!user || !FEATURES.realtime) {
@@ -25,82 +41,73 @@ export function useApprovalNotifications() {
 
     logger.debug('Setting up approval notifications for user:', user.email);
 
-    // Subscribe to approval actions on user's quotes
-    const subscription = supabase
-      .channel('my-approval-notifications')
+    const channel = supabase
+      .channel('approval-status-notifications')
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: 'UPDATE',
           schema: 'public',
-          table: 'approval_actions',
+          table: 'quotes',
         },
-        async (payload) => {
-          const action = payload.new;
+        (payload) => {
+          const oldRecord = payload.old as Record<string, unknown>;
+          const newRecord = payload.new as Record<string, unknown>;
 
-          logger.debug('Approval action received:', action);
+          // Only react when the status column actually changed.
+          if (!oldRecord || !newRecord || oldRecord.status === newRecord.status) {
+            return;
+          }
 
-          // Check if this is for one of our quotes
-          try {
-            const { data: quote } = await supabase
-              .from('quotes')
-              .select('quote_ref, created_by')
-              .eq('id', action.quote_id)
-              .single();
+          const newStatus = newRecord.status as string;
+          const quoteRef = (newRecord.quote_ref as string) || 'Unknown';
+          const createdBy = newRecord.created_by as string | null;
+          const currentAssigneeId = newRecord.current_assignee_id as string | null;
 
-            if (!quote || quote.created_by !== user.id) {
-              // Not our quote, ignore
-              return;
+          logger.debug('Quote status changed:', {
+            quoteRef,
+            from: oldRecord.status,
+            to: newStatus,
+          });
+
+          // --- Notifications for the quote owner ---
+          if (createdBy === user.id) {
+            if (newStatus === 'approved') {
+              toast.success('Quote Approved', {
+                description: `Quote ${quoteRef} has been approved.`,
+                duration: 10000,
+              });
+            } else if (newStatus === 'rejected') {
+              toast.error('Quote Rejected', {
+                description: `Quote ${quoteRef} has been rejected.`,
+                duration: 15000,
+              });
+            } else if (newStatus === 'changes-requested') {
+              toast.warning('Changes Requested', {
+                description: `Changes were requested on Quote ${quoteRef}.`,
+                duration: 12000,
+              });
             }
+          }
 
-            // Fetch approver name
-            const { data: approver } = await supabase
-              .from('users')
-              .select('full_name, email')
-              .eq('id', action.performed_by)
-              .single();
-
-            const approverName = approver?.full_name || 'Someone';
-
-            // Show notification based on action type
-            switch (action.action) {
-              case 'approved':
-                toast.success('Quote Approved! 🎉', {
-                  description: `${approverName} approved Quote ${quote.quote_ref}`,
-                  duration: 10000,
-                  icon: <CheckCircle className="w-5 h-5" />,
-                });
-                break;
-
-              case 'rejected':
-                toast.error('Quote Rejected', {
-                  description: `${approverName} rejected Quote ${quote.quote_ref}${
-                    action.notes ? `: ${action.notes}` : ''
-                  }`,
-                  duration: 15000,
-                  icon: <XCircle className="w-5 h-5" />,
-                });
-                break;
-
-              case 'submitted':
-                // Don't notify on our own submissions
-                if (action.performed_by !== user.id) {
-                  toast.info('New Quote Submitted', {
-                    description: `Quote ${quote.quote_ref} submitted for Tier ${action.tier} approval`,
-                    duration: 8000,
-                    icon: <Bell className="w-5 h-5" />,
-                  });
-                }
-                break;
-            }
-          } catch (error) {
-            logger.error('Error processing approval notification:', error);
+          // --- Notifications for approvers / reviewers ---
+          // If the quote was just assigned to the current user for review,
+          // notify them so they can act on it.
+          if (
+            currentAssigneeId === user.id &&
+            createdBy !== user.id &&
+            (REVIEW_STATUSES as readonly string[]).includes(newStatus)
+          ) {
+            toast.info('New Quote Needs Review', {
+              description: `Quote ${quoteRef} has been submitted for your approval.`,
+              duration: 12000,
+            });
           }
         }
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          logger.debug('Approval notifications active');
+          logger.debug('Approval notifications active (quotes table)');
         } else if (status === 'CHANNEL_ERROR') {
           logger.error('Failed to subscribe to approval notifications');
         }
@@ -108,95 +115,7 @@ export function useApprovalNotifications() {
 
     return () => {
       logger.debug('Unsubscribing from approval notifications');
-      subscription.unsubscribe();
-    };
-  }, [user]);
-}
-
-/**
- * Hook for approvers to get notified of new submissions
- */
-export function useApproverNotifications() {
-  const { user } = useAuthStore();
-
-  useEffect(() => {
-    if (!user || !FEATURES.realtime) {
-      return;
-    }
-
-    // Only for approval-eligible roles (sales_manager+)
-    const approvalRoles = ['sales_manager', 'local_leader', 'ceo', 'system_admin'];
-    if (!approvalRoles.includes(user.role)) {
-      return;
-    }
-
-    logger.debug('Setting up approver notifications');
-
-    // Subscribe to new quote submissions
-    const subscription = supabase
-      .channel('approver-notifications')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'approval_actions',
-          filter: 'action=eq.submitted',
-        },
-        async (payload) => {
-          const action = payload.new;
-
-          logger.debug('New quote submitted for approval:', action);
-
-          try {
-            // Check if we can approve this tier
-            const canApprove = approvalRoles.includes(user.role);
-
-            if (!canApprove) {
-              return;
-            }
-
-            // Fetch quote details
-            const { data: quote } = await supabase
-              .from('quotes')
-              .select('quote_ref, client_name')
-              .eq('id', action.quote_id)
-              .single();
-
-            // Fetch submitter
-            const { data: submitter } = await supabase
-              .from('users')
-              .select('full_name')
-              .eq('id', action.performed_by)
-              .single();
-
-            if (quote) {
-              toast.info('New Quote Needs Approval 📋', {
-                description: `${submitter?.full_name || 'Someone'} submitted Quote ${quote.quote_ref} (${quote.client_name})`,
-                duration: 12000,
-                icon: <Bell className="w-5 h-5" />,
-                action: {
-                  label: 'Review',
-                  onClick: () => {
-                    // Navigate to approval dashboard
-                    window.location.hash = '#/admin/approvals';
-                  },
-                },
-              });
-            }
-          } catch (error) {
-            logger.error('Error processing approver notification:', error);
-          }
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          logger.debug('Approver notifications active');
-        }
-      });
-
-    return () => {
-      subscription.unsubscribe();
+      channel.unsubscribe();
     };
   }, [user]);
 }

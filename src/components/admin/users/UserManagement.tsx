@@ -10,6 +10,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { Badge } from '../../ui/Badge';
 import { supabase } from '../../../lib/supabase';
 import { createClient } from '@supabase/supabase-js';
+import { logger } from '../../../utils/logger';
 import {
   ALL_ROLES,
   ROLE_DISPLAY_NAMES,
@@ -19,6 +20,7 @@ import {
   type PermissionOverrides,
   type PermissionOverrideKey,
 } from '../../../auth/permissions';
+import { validatePassword } from '../../../engine/validators';
 
 function dbRowToStoredUser(row: Record<string, unknown>): StoredUser {
   return {
@@ -62,9 +64,6 @@ const UserManagement = () => {
     permissionOverrides: { ...DEFAULT_PERMISSION_OVERRIDES.sales_rep },
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [newPassword, setNewPassword] = useState('');
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [newPasswordError, setNewPasswordError] = useState('');
   const [saving, setSaving] = useState(false);
   const [resettingPassword, setResettingPassword] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
@@ -83,7 +82,7 @@ const UserManagement = () => {
       if (error) throw error;
       setUsers((data ?? []).map(dbRowToStoredUser));
     } catch (error) {
-      console.error('Failed to load users:', error);
+      logger.error('Failed to load users:', { error });
       toast.error('Failed to load users');
     } finally {
       setLoading(false);
@@ -109,8 +108,9 @@ const UserManagement = () => {
 
     if (!selectedUser && !formData.password) {
       errors.password = 'Password is required for new users';
-    } else if (formData.password && formData.password.length < 6) {
-      errors.password = 'Password must be at least 6 characters';
+    } else if (formData.password) {
+      const pwError = validatePassword(formData.password);
+      if (pwError) errors.password = pwError;
     }
 
     setValidationErrors(errors);
@@ -199,7 +199,7 @@ const UserManagement = () => {
         }).eq('id', selectedUser.id!);
 
         if (updateError) {
-          console.error('users update failed:', updateError.message);
+          logger.error('users update failed:', { error: updateError.message });
           throw updateError;
         }
 
@@ -226,7 +226,7 @@ const UserManagement = () => {
         });
 
         if (authError) {
-          console.warn('Supabase auth signUp failed:', authError.message);
+          logger.warn('Supabase auth signUp failed:', authError.message);
 
           // Handle re-creating a previously deleted user:
           // signUp fails because the auth user still exists, but public.users
@@ -260,7 +260,7 @@ const UserManagement = () => {
             permission_overrides: JSON.stringify(formData.permissionOverrides),
           });
           if (insertError) {
-            console.error('public.users insert failed:', insertError.message);
+            logger.error('public.users insert failed:', { error: insertError.message });
             toast.error('Cloud user record failed: ' + insertError.message);
           } else {
             // Audit log
@@ -283,7 +283,7 @@ const UserManagement = () => {
       toast.success(selectedUser ? 'User updated successfully' : 'User created successfully');
       await loadUsers();
     } catch (error) {
-      console.error('Failed to save user:', error);
+      logger.error('Failed to save user:', { error });
       toast.error('Failed to save user: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setSaving(false);
@@ -317,7 +317,7 @@ const UserManagement = () => {
         .eq('id', selectedUser.id!);
 
       if (softDeleteError) {
-        console.error('users soft-delete failed:', softDeleteError.message);
+        logger.error('users soft-delete failed:', { error: softDeleteError.message });
         throw softDeleteError;
       }
 
@@ -334,40 +334,26 @@ const UserManagement = () => {
       setShowDeleteDialog(false);
       await loadUsers();
     } catch (error) {
-      console.error('Failed to delete user:', error);
+      logger.error('Failed to delete user:', { error });
       toast.error('Failed to delete user');
     }
   };
 
   const handlePasswordResetClick = (user: StoredUser) => {
     setSelectedUser(user);
-    setNewPassword('');
-    setShowNewPassword(false);
-    setNewPasswordError('');
     setShowPasswordResetDialog(true);
   };
 
   const handlePasswordResetConfirm = async () => {
     if (!selectedUser || !currentUser) return;
 
-    if (!newPassword) {
-      setNewPasswordError('New password is required');
-      return;
-    }
-
-    if (newPassword.length < 8) {
-      setNewPasswordError('Password must be at least 8 characters');
-      return;
-    }
-
-    setNewPasswordError('');
     setResettingPassword(true);
 
     try {
       // Send password reset email via Supabase Auth
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(selectedUser.email);
       if (resetError) {
-        console.error('Supabase password reset email failed:', resetError.message);
+        logger.error('Supabase password reset email failed:', { error: resetError.message });
         toast.error('Password reset email failed: ' + resetError.message);
       } else {
         toast.info('Password reset email sent to ' + selectedUser.email);
@@ -388,7 +374,7 @@ const UserManagement = () => {
       toast.success(`Password reset email sent for ${selectedUser.username}`);
       setShowPasswordResetDialog(false);
     } catch (error) {
-      console.error('Failed to reset password:', error);
+      logger.error('Failed to reset password:', { error });
       toast.error('Failed to reset password: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setResettingPassword(false);
@@ -722,55 +708,18 @@ const UserManagement = () => {
               </div>
               <div>
                 <h3 id="password-reset-dialog-title" className="text-xl font-bold text-surface-100">
-                  Reset Password
+                  Send Password Reset Email
                 </h3>
                 <p className="text-sm text-surface-100/50">Admin action — audit logged</p>
               </div>
             </div>
 
             <p className="text-surface-100/60 mb-4 text-sm">
-              Set a new password for{' '}
-              <strong className="text-surface-100">{selectedUser?.username}</strong>
+              This will send a password reset email to{' '}
+              <strong className="text-surface-100">{selectedUser?.email}</strong>
               {selectedUser?.fullName ? ` (${selectedUser.fullName})` : ''}.
-              The user will need to use this password on their next login.
+              The user will receive a link to choose a new password themselves.
             </p>
-
-            {/* New password input with show/hide toggle */}
-            <div className="mb-1">
-              <label className="block text-sm font-medium text-surface-100 mb-2">
-                New Password <span className="text-red-400">*</span>
-                <span className="text-surface-100/40 font-normal ml-1">(min. 8 characters)</span>
-              </label>
-              <div className="relative">
-                <input
-                  type={showNewPassword ? 'text' : 'password'}
-                  value={newPassword}
-                  onChange={(e) => {
-                    setNewPassword(e.target.value);
-                    if (newPasswordError) setNewPasswordError('');
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !resettingPassword) handlePasswordResetConfirm();
-                  }}
-                  placeholder="Enter new password"
-                  autoFocus
-                  className={`w-full px-4 py-2 pr-10 bg-surface-800/40 border rounded-lg text-surface-100 placeholder:text-surface-100/30 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors ${
-                    newPasswordError ? 'border-red-500/60' : 'border-surface-700/50'
-                  }`}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowNewPassword(!showNewPassword)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-surface-100/60 hover:text-surface-100 transition-colors"
-                  aria-label={showNewPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-              {newPasswordError && (
-                <p className="text-red-400 text-sm mt-1.5">{newPasswordError}</p>
-              )}
-            </div>
 
             {/* Actions */}
             <div className="flex gap-3 mt-5">
@@ -792,12 +741,12 @@ const UserManagement = () => {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
-                    Resetting...
+                    Sending...
                   </>
                 ) : (
                   <>
                     <KeyRound className="w-4 h-4" />
-                    Reset Password
+                    Send Reset Email
                   </>
                 )}
               </button>

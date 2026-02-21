@@ -1,8 +1,13 @@
+// TODO: REQUIRES SUPABASE CONFIG — Add RLS policies that enforce role-based access
+// server-side, so even if client-side role checks are bypassed, the database
+// refuses unauthorized operations. The client-side role gating in this store
+// is defence-in-depth only.
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Role, PermissionOverrides } from '../auth/permissions';
 import { supabase } from '../lib/supabase';
 import { getDb } from '../db/DatabaseAdapter';
+import { logger } from '../utils/logger';
 
 interface User {
   id: string;
@@ -72,7 +77,7 @@ async function logAuthSecurityEvent(
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       user: null,
       isAuthenticated: false,
 
@@ -196,7 +201,7 @@ export const useAuthStore = create<AuthState>()(
           const { resetRepositories } = await import('../db/repositories');
           resetRepositories();
         } catch (err) {
-          console.warn('Failed to reset repositories on logout:', err);
+          logger.warn('Failed to reset repositories on logout:', err);
         }
 
         // Bug #6 fix: also reset the database adapter singleton
@@ -204,7 +209,7 @@ export const useAuthStore = create<AuthState>()(
           const { resetDbAdapter } = await import('../db/DatabaseAdapter');
           resetDbAdapter();
         } catch (err) {
-          console.warn('Failed to reset DB adapter on logout:', err);
+          logger.warn('Failed to reset DB adapter on logout:', err);
         }
 
         // Clear auth state
@@ -242,26 +247,20 @@ export const useAuthStore = create<AuthState>()(
           permissionOverrides = {};
         }
 
-        const { user } = get();
-
-        // Update role and overrides if they changed
-        if (
-          !user ||
-          dbUser.role !== user.role ||
-          JSON.stringify(permissionOverrides) !== JSON.stringify(user.permissionOverrides)
-        ) {
-          set({
-            user: {
-              id: dbUser.id,
-              username: dbUser.email,
-              role: dbUser.role as Role,
-              fullName: dbUser.full_name,
-              email: dbUser.email,
-              permissionOverrides,
-            },
-            isAuthenticated: true,
-          });
-        }
+        // Always set user from the server-authoritative DB row.
+        // This ensures the role and overrides cannot be tampered with
+        // via localStorage edits between sessions.
+        set({
+          user: {
+            id: dbUser.id,
+            username: dbUser.email,
+            role: dbUser.role as Role,
+            fullName: dbUser.full_name,
+            email: dbUser.email,
+            permissionOverrides,
+          },
+          isAuthenticated: true,
+        });
 
         return true;
       },
@@ -271,12 +270,18 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({ user: state.user }),
       onRehydrateStorage: () => (state) => {
         if (state) {
-          state.isAuthenticated = !!state.user;
+          // Security: do NOT trust the persisted role or mark the session
+          // as authenticated until checkAuth() re-validates against the DB.
+          // This closes the window where a tampered localStorage role could
+          // grant elevated UI access before server verification completes.
+          state.isAuthenticated = false;
           if (state.user) {
             state.checkAuth().then((valid) => {
               if (!valid) {
                 useAuthStore.setState({ user: null, isAuthenticated: false });
               }
+              // On success, checkAuth() already calls set() with the
+              // server-authoritative role and isAuthenticated: true.
             });
           }
         }

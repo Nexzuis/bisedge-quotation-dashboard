@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { getActivityRepository } from '../db/repositories';
 import type { StoredActivity } from '../db/interfaces';
 import type { ActivityType } from '../types/crm';
+import { logger } from '../utils/logger';
 
 export function useActivities() {
   const repo = getActivityRepository();
@@ -11,7 +12,7 @@ export function useActivities() {
       try {
         return await repo.getByCompany(companyId, limit);
       } catch (error) {
-        console.error('Failed to get activities:', error);
+        logger.error('Failed to get activities:', { error });
         return [];
       }
     },
@@ -23,7 +24,7 @@ export function useActivities() {
       try {
         return await repo.getRecent(limit);
       } catch (error) {
-        console.error('Failed to get recent activities:', error);
+        logger.error('Failed to get recent activities:', { error });
         return [];
       }
     },
@@ -35,7 +36,7 @@ export function useActivities() {
       try {
         return await repo.getByQuote(quoteId);
       } catch (error) {
-        console.error('Failed to get quote activities:', error);
+        logger.error('Failed to get quote activities:', { error });
         return [];
       }
     },

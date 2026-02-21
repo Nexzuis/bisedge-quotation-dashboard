@@ -92,8 +92,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         'Please check your VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local'
       );
     }
-    // Non-blocking startup health check for required RPCs
-    this.verifyRequiredRpcs();
+    // RPC availability is assumed; failures are handled at call sites.
   }
 
   // ===== Quote Operations =====
@@ -169,12 +168,13 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       });
 
       if (rpcError) {
-        console.error('Supabase RPC error saving quote:', rpcError);
+        // Do NOT fall back to a direct .upsert() — that would bypass optimistic locking.
+        console.error('saveQuote RPC failed (no fallback to upsert):', rpcError);
         return {
           success: false,
           id: quote.id,
           version: quote.version,
-          error: rpcError.message,
+          error: `Save failed: ${rpcError.message}. Please try again or contact support if the problem persists.`,
         };
       }
 
@@ -182,11 +182,12 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       const result = typeof rpcResult === 'string' ? JSON.parse(rpcResult) : rpcResult;
 
       if (!result.success) {
+        console.error('saveQuote version conflict or RPC rejection:', result.error);
         return {
           success: false,
           id: quote.id,
           version: result.version ?? quote.version,
-          error: result.error || 'Version conflict - quote was modified remotely',
+          error: result.error || 'Save failed: version conflict or server error. Please reload the quote and try again.',
         };
       }
 
@@ -205,12 +206,14 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         version: newVersion,
       };
     } catch (error) {
-      console.error('Error saving quote to Supabase:', error);
+      // Do NOT fall back to a direct .upsert() — that would bypass optimistic locking.
+      console.error('saveQuote unexpected error (no fallback to upsert):', error);
+      const message = error instanceof Error ? error.message : 'Unknown error';
       return {
         success: false,
         id: quote.id,
         version: quote.version,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: `Save failed: ${message}. Please try again.`,
       };
     }
   }
@@ -649,6 +652,8 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         entity_type: entry.entityType,
         entity_id: entry.entityId,
         changes: entry.changes ? JSON.stringify(entry.changes) : null,
+        old_values: entry.oldValues ? JSON.stringify(entry.oldValues) : null,
+        new_values: entry.newValues ? JSON.stringify(entry.newValues) : null,
       });
       if (error) {
         console.error('Audit log insert failed:', error.message);
@@ -1235,17 +1240,10 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       const tables = ['quotes', 'companies', 'contacts', 'activities', 'users', 'notifications'] as const;
       const results = await Promise.all(
         tables.map(async (table) => {
-          let { count, error } = await supabase
+          const { count, error } = await supabase
             .from(table)
-            .select('*', { count: 'exact', head: true });
-          if (error) {
-            const fallback = await supabase
-              .from(table)
-              .select('id', { count: 'exact' })
-              .limit(1);
-            count = fallback.count;
-            error = fallback.error;
-          }
+            .select('id', { count: 'exact' })
+            .limit(0);
           return { table, count: error ? 0 : (count || 0) };
         })
       );
@@ -1330,12 +1328,12 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       if (deleteError) throw new Error(deleteError.message);
 
       if (tiers.length > 0) {
-        const dbTiers = tiers.map((t) => ({
+        const dbTiers: Database['public']['Tables']['commission_tiers']['Insert'][] = tiers.map((t) => ({
           id: t.id || crypto.randomUUID(),
           min_margin: t.minMargin,
           max_margin: t.maxMargin,
-          commission_rate: t.commissionRate,
-        })) as unknown as Database['public']['Tables']['commission_tiers']['Insert'][];
+          commission_pct: t.commissionRate,
+        }));
 
         const { error } = await supabase.from('commission_tiers').insert(dbTiers);
         if (error) throw new Error(error.message);
@@ -1353,12 +1351,15 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       if (deleteError) throw new Error(deleteError.message);
 
       if (curves.length > 0) {
-        const dbCurves = curves.map((c) => ({
+        const dbCurves: Database['public']['Tables']['residual_curves']['Insert'][] = curves.map((c) => ({
           id: c.id || crypto.randomUUID(),
-          term: c.term,
-          residual_pct: c.residualPct,
-          model_family: c.modelFamily || '',
-        })) as unknown as Database['public']['Tables']['residual_curves']['Insert'][];
+          chemistry: c.chemistry,
+          term_36: c.term36 ?? null,
+          term_48: c.term48 ?? null,
+          term_60: c.term60 ?? null,
+          term_72: c.term72 ?? null,
+          term_84: c.term84 ?? null,
+        }));
 
         const { error } = await supabase.from('residual_curves').insert(dbCurves);
         if (error) throw new Error(error.message);
@@ -1397,7 +1398,8 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
     try {
       const { count, error } = await supabase
         .from('quotes')
-        .select('id', { count: 'exact', head: true })
+        .select('id', { count: 'exact' })
+        .limit(0)
         .gte('created_at', date);
 
       if (error) {
@@ -1897,34 +1899,40 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       id: row.id,
       minMargin: Number(row.min_margin) || 0,
       maxMargin: Number(row.max_margin) || 0,
-      commissionRate: Number(row.commission_rate) || 0,
+      commissionRate: Number(row.commission_pct) || 0,
     };
   }
 
   private mapResidualCurve(row: any): any {
     return {
       id: row.id,
-      term: Number(row.term) || 0,
-      residualPct: Number(row.residual_pct) || 0,
-      modelFamily: row.model_family || '',
+      chemistry: row.chemistry,
+      term36: Number(row.term_36) || 0,
+      term48: Number(row.term_48) || 0,
+      term60: Number(row.term_60) || 0,
+      term72: Number(row.term_72) || 0,
+      term84: Number(row.term_84) || 0,
     };
   }
 
-  private mapAuditLogEntry(row: any): any {
+  private mapAuditLogEntry(row: any): AuditLogEntry {
+    const parseJson = (val: any): Record<string, any> | undefined => {
+      if (val == null) return undefined;
+      if (typeof val === 'string') {
+        try { return JSON.parse(val); } catch { return {}; }
+      }
+      return val;
+    };
     return {
       id: row.id,
-      timestamp: row.timestamp || row.created_at,
-      userId: row.user_id,
-      userName: row.user_name,
+      timestamp: row.timestamp,
+      userId: row.user_id || '',
       action: row.action,
       entityType: row.entity_type,
       entityId: row.entity_id,
-      changes: typeof row.changes === 'string' ? (() => { try { return JSON.parse(row.changes); } catch { return {}; } })() : (row.changes || {}),
-      oldValues: row.old_values,
-      newValues: row.new_values,
-      notes: row.notes,
-      targetUserId: row.target_user_id,
-      targetUserName: row.target_user_name,
+      changes: parseJson(row.changes) || {},
+      oldValues: parseJson(row.old_values),
+      newValues: parseJson(row.new_values),
     };
   }
 
@@ -1967,54 +1975,6 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       createdAt: row.created_at || '',
       updatedAt: row.updated_at || '',
     };
-  }
-
-  /**
-   * Verify that required RPC functions exist in Supabase.
-   * Uses a metadata query against pg_proc — does NOT invoke the RPCs,
-   * so it won't burn sequence values or cause side effects.
-   * Log-only, non-blocking — called on adapter init.
-   */
-  async verifyRequiredRpcs(): Promise<void> {
-    const rpcs = ['generate_next_quote_ref', 'save_quote_if_version'];
-    try {
-      const { data, error } = await supabase
-        .from('pg_proc' as any)
-        .select('proname')
-        .in('proname', rpcs)
-        .eq('pronamespace', '(SELECT oid FROM pg_namespace WHERE nspname = \'public\')' as any);
-
-      // If the above query fails (RLS on pg_catalog), fall back to a safe
-      // dry-run of save_quote_if_version with version -1 (guaranteed no-op)
-      if (error) {
-        // Probe save_quote_if_version
-        const { error: rpcError1 } = await supabase.rpc('save_quote_if_version', {
-          p_id: '00000000-0000-0000-0000-000000000000',
-          p_expected_version: -1,
-          p_data: '{}',
-        });
-        if (rpcError1?.message?.includes('does not exist')) {
-          console.error('[HEALTH CHECK] Required RPC "save_quote_if_version" is missing. Run supabase-migrations-round4.sql.');
-        }
-
-        // Probe generate_next_quote_ref
-        const { error: rpcError2 } = await supabase.rpc('generate_next_quote_ref');
-        if (rpcError2?.message?.includes('does not exist')) {
-          console.error('[HEALTH CHECK] Required RPC "generate_next_quote_ref" is missing. Run supabase-migrations-round4.sql.');
-        }
-
-        return;
-      }
-
-      const found = new Set((data || []).map((r: any) => r.proname));
-      for (const rpc of rpcs) {
-        if (!found.has(rpc)) {
-          console.error(`[HEALTH CHECK] Required RPC "${rpc}" is missing. Run supabase-migrations-round4.sql.`);
-        }
-      }
-    } catch {
-      // Network errors are fine at startup
-    }
   }
 
   private emptyLeadStats(): LeadStats {

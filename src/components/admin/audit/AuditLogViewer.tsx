@@ -5,6 +5,7 @@ import { getDb } from '../../../db/DatabaseAdapter';
 import type { AuditLogEntry } from '../../../db/interfaces';
 import { Badge } from '../../ui/Badge';
 import * as XLSX from 'xlsx';
+import { logger } from '../../../utils/logger';
 
 const AuditLogViewer = () => {
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
@@ -39,7 +40,7 @@ const AuditLogViewer = () => {
       const allLogs = await getDb().listAuditLog();
       setLogs(allLogs);
     } catch (error) {
-      console.error('Failed to load audit logs:', error);
+      logger.error('Failed to load audit logs:', { error });
       toast.error('Failed to load audit logs');
     } finally {
       setLoading(false);
@@ -55,7 +56,7 @@ const AuditLogViewer = () => {
       allUsers.forEach(u => { if (u.id) map.set(u.id, u.fullName || u.email || u.id); });
       setUserNameMap(map);
     } catch (error) {
-      console.error('Failed to load users:', error);
+      logger.error('Failed to load users:', { error });
     }
   };
 

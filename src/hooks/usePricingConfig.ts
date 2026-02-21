@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getDb } from '../db/DatabaseAdapter';
 import type { StoredCommissionTier, StoredResidualCurve } from '../db/interfaces';
+import { logger } from '../utils/logger';
 
 export const useCommissionTiers = () => {
   const [tiers, setTiers] = useState<StoredCommissionTier[] | undefined>(undefined);
@@ -88,7 +89,7 @@ export const getResidualCurveImpact = async (chemistry: string): Promise<number>
 
     return count;
   } catch (error) {
-    console.error('Error calculating residual curve impact:', error);
+    logger.error('Error calculating residual curve impact:', { error });
     return 0;
   }
 };

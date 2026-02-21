@@ -347,6 +347,25 @@ export function validateBatteryChemistry(
 }
 
 /**
+ * Validate password strength.
+ * Returns null if valid, or an error message describing what is missing.
+ *
+ * Policy:
+ *  - Minimum 8 characters
+ *  - At least one uppercase letter
+ *  - At least one lowercase letter
+ *  - At least one number
+ */
+export function validatePassword(password: string): string | null {
+  if (!password) return 'Password is required';
+  if (password.length < 8) return 'Password must be at least 8 characters';
+  if (!/[A-Z]/.test(password)) return 'Password must contain at least one uppercase letter';
+  if (!/[a-z]/.test(password)) return 'Password must contain at least one lowercase letter';
+  if (!/[0-9]/.test(password)) return 'Password must contain at least one number';
+  return null;
+}
+
+/**
  * Validate email format
  */
 export function validateEmail(email: string): string | null {

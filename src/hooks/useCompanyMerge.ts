@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import type { StoredCompany } from '../db/interfaces';
+import { logger } from '../utils/logger';
 
 /**
  * Describes which company's value to keep for a given field.
@@ -129,7 +130,7 @@ export function useCompanyMerge() {
         const secondary = secondaryRes.data as StoredCompany | null;
 
         if (!primary || !secondary) {
-          console.error(
+          logger.error(
             'fetchMergePreview: one or both companies not found',
             { primaryId, secondaryId }
           );
@@ -137,9 +138,9 @@ export function useCompanyMerge() {
         }
 
         const [contactsRes, activitiesRes, quotesRes] = await Promise.all([
-          supabase.from('contacts').select('id', { count: 'exact', head: true }).eq('company_id', secondaryId),
-          supabase.from('activities').select('id', { count: 'exact', head: true }).eq('company_id', secondaryId),
-          supabase.from('quotes').select('id', { count: 'exact', head: true }).eq('company_id', secondaryId),
+          supabase.from('contacts').select('id', { count: 'exact' }).limit(0).eq('company_id', secondaryId),
+          supabase.from('activities').select('id', { count: 'exact' }).limit(0).eq('company_id', secondaryId),
+          supabase.from('quotes').select('id', { count: 'exact' }).limit(0).eq('company_id', secondaryId),
         ]);
 
         return {
@@ -152,7 +153,7 @@ export function useCompanyMerge() {
           },
         };
       } catch (error) {
-        console.error('fetchMergePreview failed:', error);
+        logger.error('fetchMergePreview failed:', { error });
         return null;
       }
     },
@@ -230,7 +231,7 @@ export function useCompanyMerge() {
 
         return true;
       } catch (error) {
-        console.error('mergeCompanies failed:', error);
+        logger.error('mergeCompanies failed:', { error });
         return false;
       }
     },

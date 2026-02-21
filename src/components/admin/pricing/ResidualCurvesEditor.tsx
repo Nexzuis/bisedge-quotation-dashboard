@@ -4,6 +4,7 @@ import { validateResidualCurve } from './validators';
 import { useAuth } from '../../auth/AuthContext';
 import type { StoredResidualCurve } from '../../../db/interfaces';
 import { CheckCircle2, AlertCircle, Save, TrendingDown } from 'lucide-react';
+import { logger } from '../../../utils/logger';
 
 const ResidualCurvesEditor = () => {
   const dbCurves = useResidualCurves();
@@ -31,7 +32,7 @@ const ResidualCurvesEditor = () => {
               setImpacts((prev) => ({ ...prev, [curve.chemistry]: count }));
             }
           } catch (err) {
-            console.error('Error loading impact for', curve.chemistry, err);
+            logger.error('Error loading impact for', { chemistry: curve.chemistry, error: err });
           }
         }
       };
@@ -82,7 +83,7 @@ const ResidualCurvesEditor = () => {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (error) {
-      console.error('Error saving residual curves:', error);
+      logger.error('Error saving residual curves:', { error });
       setErrors({ general: ['Failed to save residual curves'] });
     } finally {
       setSaving(false);

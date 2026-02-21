@@ -1,4 +1,5 @@
 import type { EUR, ZAR, BatteryChemistry, LeaseTermMonths, UnitSlot, ClearingCharges, LocalCosts } from '../types/quote';
+import { logger } from '../utils/logger';
 
 /**
  * PMT Function - Excel-compatible payment calculation
@@ -160,7 +161,7 @@ export async function calcResidualValueFromDB(
     const residualPct = (curve[field] as number) || 0;
     return salesPrice * (residualPct / 100);
   } catch (error) {
-    console.error('Error calculating residual value from DB:', error);
+    logger.error('Error calculating residual value from DB:', { error });
     return 0;
   }
 }

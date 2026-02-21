@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow';
 import { useQuoteStore } from '../store/useQuoteStore';
 
 export interface WorkflowStep {
@@ -13,29 +14,37 @@ export interface WorkflowStep {
  * Determines completion based on quote state
  */
 export function useWorkflowProgress() {
-  const quote = useQuoteStore();
-  const totals = quote.getQuoteTotals();
+  const { clientName, contactName, slots, status, getQuoteTotals } = useQuoteStore(
+    useShallow((s) => ({
+      clientName: s.clientName,
+      contactName: s.contactName,
+      slots: s.slots,
+      status: s.status,
+      getQuoteTotals: s.getQuoteTotals,
+    }))
+  );
+  const totals = getQuoteTotals();
 
   const steps: WorkflowStep[] = [
     {
       id: 'customer',
       label: 'Customer Details',
       description: 'Enter customer information',
-      completed: !!quote.clientName.trim() && !!quote.contactName.trim(),
+      completed: !!clientName.trim() && !!contactName.trim(),
       panels: ['deal-overview'],
     },
     {
       id: 'fleet',
       label: 'Fleet Configuration',
       description: 'Configure forklift units',
-      completed: quote.slots.some(s => !s.isEmpty && s.modelCode !== '0' && s.batteryId),
+      completed: slots.some(s => !s.isEmpty && s.modelCode !== '0' && s.batteryId),
       panels: ['fleet-builder'],
     },
     {
       id: 'pricing',
       label: 'Pricing Review',
       description: 'Review margins and pricing',
-      completed: quote.slots.some(s => !s.isEmpty) && totals.averageMargin > 0,
+      completed: slots.some(s => !s.isEmpty) && totals.averageMargin > 0,
       panels: ['pricing-margins'],
     },
     {
@@ -49,7 +58,7 @@ export function useWorkflowProgress() {
       id: 'generate',
       label: 'Generate Quote',
       description: 'Export PDF quotation',
-      completed: quote.status !== 'draft', // Marked complete when quote is submitted/approved
+      completed: status !== 'draft', // Marked complete when quote is submitted/approved
       panels: ['quote-generator'],
     },
   ];

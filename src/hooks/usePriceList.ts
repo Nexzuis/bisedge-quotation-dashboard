@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import { logger } from '../utils/logger';
 import type {
   PriceListSeries,
   PriceListModel,
@@ -22,10 +23,11 @@ export function usePriceListSeries(): { seriesCode: string; seriesName: string; 
       const { data, error } = await supabase
         .from('price_list_series')
         .select('*')
-        .order('series_name');
+        .order('series_name')
+        .limit(200);
 
       if (error) {
-        console.error('usePriceListSeries: error fetching price_list_series', error);
+        logger.error('usePriceListSeries: error fetching price_list_series', { error });
         return;
       }
 
@@ -80,7 +82,7 @@ export function useSeriesData(seriesCode: string): PriceListSeries | null {
         .maybeSingle();
 
       if (error) {
-        console.error('useSeriesData: error fetching series data', error);
+        logger.error('useSeriesData: error fetching series data', { error });
         return;
       }
 
@@ -143,7 +145,7 @@ export function useSeriesModels(seriesCode: string): PriceListModel[] {
         .maybeSingle();
 
       if (error) {
-        console.error('useSeriesModels: error fetching series models', error);
+        logger.error('useSeriesModels: error fetching series models', { error });
         return;
       }
 
@@ -200,7 +202,7 @@ export function useModelOptions(
         .maybeSingle();
 
       if (error) {
-        console.error('useModelOptions: error fetching series options', error);
+        logger.error('useModelOptions: error fetching series options', { error });
         return;
       }
 
@@ -258,10 +260,11 @@ export function useTelematicsPackages(): TelematicsPackage[] {
     async function fetchPackages() {
       const { data, error } = await supabase
         .from('telematics_packages')
-        .select('*');
+        .select('*')
+        .limit(100);
 
       if (error) {
-        console.error('useTelematicsPackages: error fetching telematics_packages', error);
+        logger.error('useTelematicsPackages: error fetching telematics_packages', { error });
         return;
       }
 
@@ -333,10 +336,11 @@ export function useContainerMapping(seriesCode: string): ContainerMapping | null
     async function fetchMapping() {
       const { data, error } = await supabase
         .from('container_mappings')
-        .select('*');
+        .select('*')
+        .limit(200);
 
       if (error) {
-        console.error('useContainerMapping: error fetching container_mappings', error);
+        logger.error('useContainerMapping: error fetching container_mappings', { error });
         return;
       }
 
@@ -389,10 +393,11 @@ export function useContainerMappings(seriesCodes: string[]): (ContainerMapping |
     async function fetchMappings() {
       const { data, error } = await supabase
         .from('container_mappings')
-        .select('*');
+        .select('*')
+        .limit(200);
 
       if (error) {
-        console.error('useContainerMappings: error fetching container_mappings', error);
+        logger.error('useContainerMappings: error fetching container_mappings', { error });
         return;
       }
 

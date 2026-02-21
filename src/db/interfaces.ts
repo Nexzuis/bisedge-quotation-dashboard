@@ -158,8 +158,8 @@ export interface AuditLogEntry {
   entityType: 'quote' | 'customer' | 'template' | 'user' | 'approvalTiers' | 'commissionTiers' | 'residualCurves' | 'settings' | 'forkliftModel' | 'batteryModel' | 'attachment' | 'company' | 'contact' | 'lead';
   entityId: string;
   changes: Record<string, any>;
-  oldValues?: any;
-  newValues?: any;
+  oldValues?: Record<string, unknown>;
+  newValues?: Record<string, unknown>;
   notes?: string;
   targetUserId?: string;
   targetUserName?: string;

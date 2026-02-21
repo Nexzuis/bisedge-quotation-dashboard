@@ -4,6 +4,7 @@ import { validateCommissionTiers } from './validators';
 import { useAuth } from '../../auth/AuthContext';
 import type { StoredCommissionTier } from '../../../db/interfaces';
 import { CheckCircle2, AlertCircle, Save, Plus, Trash2, RotateCcw } from 'lucide-react';
+import { logger } from '../../../utils/logger';
 
 const CommissionTiersEditor = () => {
   const dbTiers = useCommissionTiers();
@@ -87,7 +88,7 @@ const CommissionTiersEditor = () => {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (error) {
-      console.error('Error saving commission tiers:', error);
+      logger.error('Error saving commission tiers:', { error });
       setErrors(['Failed to save commission tiers']);
     } finally {
       setSaving(false);

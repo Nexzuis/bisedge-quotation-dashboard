@@ -10,6 +10,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../components/auth/AuthContext';
 import { getDb } from '../db/DatabaseAdapter';
 import type { StoredNotification } from '../types/notifications';
+import { logger } from '../utils/logger';
 
 const REFRESH_INTERVAL_MS = 60000;
 const MAX_RECENT = 20; // notifications shown in the dropdown
@@ -40,7 +41,7 @@ export function useNotifications() {
       setNotifications(recent);
       setUnreadCount(unread);
     } catch (err) {
-      console.error('[useNotifications] fetch error:', err);
+      logger.error('[useNotifications] fetch error:', { error: err });
     } finally {
       setIsLoading(false);
     }
@@ -83,7 +84,7 @@ export function useNotifications() {
         await getDb().markNotificationRead(id);
         await fetchNotifications();
       } catch (err) {
-        console.error('[useNotifications] markAsRead error:', err);
+        logger.error('[useNotifications] markAsRead error:', { error: err });
       }
     },
     [fetchNotifications]
@@ -95,7 +96,7 @@ export function useNotifications() {
       await getDb().markAllNotificationsRead(user.id);
       await fetchNotifications();
     } catch (err) {
-      console.error('[useNotifications] markAllAsRead error:', err);
+      logger.error('[useNotifications] markAllAsRead error:', { error: err });
     }
   }, [user?.id, fetchNotifications]);
 
@@ -114,7 +115,7 @@ export function useNotifications() {
         await getDb().saveNotification(record);
         await fetchNotifications();
       } catch (err) {
-        console.error('[useNotifications] createNotification error:', err);
+        logger.error('[useNotifications] createNotification error:', { error: err });
       }
     },
     [fetchNotifications]

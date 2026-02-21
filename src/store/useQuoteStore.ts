@@ -32,6 +32,12 @@ import { useConfigStore, getConfigDefaults } from './useConfigStore';
 
 const LOCK_STALE_MS = 60 * 60 * 1000; // 1 hour
 
+/** Safely coerce a value to a finite number, defaulting to 0 */
+const safeNum = (v: unknown): number => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
 // Default clearing charges from EU1 — uses config ROE for EUR→ZAR conversion
 function getDefaultClearing(): ClearingCharges {
   const { factoryROE } = getConfigDefaults();
@@ -319,7 +325,17 @@ export const useQuoteStore = create<QuoteStore>()(
 
     setCustomerInfo: (info) =>
       set((state) => {
-        Object.assign(state, info);
+        const CUSTOMER_FIELDS = [
+          'clientName', 'contactName', 'contactTitle',
+          'contactEmail', 'contactPhone', 'clientAddress',
+          'companyId',
+        ] as const;
+
+        for (const field of CUSTOMER_FIELDS) {
+          if (field in info && info[field] !== undefined) {
+            (state as any)[field] = info[field];
+          }
+        }
         state.updatedAt = new Date();
       }),
 
@@ -651,15 +667,36 @@ export const useQuoteStore = create<QuoteStore>()(
         return null;
       }
 
+      // Defensive numeric coercion — prevents NaN propagation from undefined/null slot fields
+      const eurCost = safeNum(slot.eurCost);
+      const configurationCost = safeNum(slot.configurationCost);
+      const attachmentsCost = safeNum(slot.attachmentsCost);
+      const discountPct = safeNum(slot.discountPct);
+      const factoryROE = safeNum(state.factoryROE);
+      const localBatteryCostZAR = safeNum(slot.localBatteryCostZAR);
+      const localAttachmentCostZAR = safeNum(slot.localAttachmentCostZAR);
+      const localTelematicsCostZAR = safeNum(slot.localTelematicsCostZAR);
+      const markupPct = safeNum(slot.markupPct);
+      const residualValueTruckPct = safeNum(slot.residualValueTruckPct);
+      const financeCostPct = safeNum(slot.financeCostPct);
+      const leaseTermMonths = safeNum(slot.leaseTermMonths);
+      const maintenanceRateTruckPerHr = safeNum(slot.maintenanceRateTruckPerHr);
+      const maintenanceRateTiresPerHr = safeNum(slot.maintenanceRateTiresPerHr);
+      const maintenanceRateAttachmentPerHr = safeNum(slot.maintenanceRateAttachmentPerHr);
+      const operatingHoursPerMonth = safeNum(slot.operatingHoursPerMonth);
+      const telematicsSubscriptionSellingPerMonth = safeNum(slot.telematicsSubscriptionSellingPerMonth);
+      const operatorPricePerMonth = safeNum(slot.operatorPricePerMonth);
+      const quantity = safeNum(slot.quantity) || 1;
+
       // 1. Factory cost in EUR = base EUR + configuration options
-      const grossEUR = slot.eurCost + (slot.configurationCost || 0) + (slot.attachmentsCost || 0);
+      const grossEUR = eurCost + configurationCost + attachmentsCost;
 
       // 2. Apply discount (EU1 Column I) to get nett EUR
-      const discountMultiplier = (100 - (slot.discountPct || 0)) / 100;
+      const discountMultiplier = (100 - discountPct) / 100;
       const factoryCostEUR = grossEUR * discountMultiplier;
 
       // 3. Factory cost in ZAR = nett EUR × factoryROE
-      const factoryCostZAR = factoryCostEUR * state.factoryROE;
+      const factoryCostZAR = factoryCostEUR * factoryROE;
 
       // 3. Clearing charges total
       const clearingTotal = sumClearingCharges(slot.clearingCharges);
@@ -672,47 +709,47 @@ export const useQuoteStore = create<QuoteStore>()(
         factoryCostZAR +
         clearingTotal +
         localCostsTotal +
-        slot.localBatteryCostZAR +
-        slot.localAttachmentCostZAR +
-        slot.localTelematicsCostZAR;
+        localBatteryCostZAR +
+        localAttachmentCostZAR +
+        localTelematicsCostZAR;
 
       // 6. Selling price = landed cost × (1 + markup%)
-      const sellingPriceZAR = landedCostZAR * (1 + slot.markupPct / 100);
+      const sellingPriceZAR = landedCostZAR * (1 + markupPct / 100);
 
       // 7. Margin (landed-cost basis for go-live financial correctness)
       const margin = calcMargin(sellingPriceZAR, landedCostZAR);
 
       // 8. Residual value using per-slot residual percentages
-      const residualValue = sellingPriceZAR * (slot.residualValueTruckPct / 100);
+      const residualValue = sellingPriceZAR * (residualValueTruckPct / 100);
 
       // 9. Lease rate using per-slot finance cost %
       const leaseRate = calcLeaseRate(
         sellingPriceZAR,
-        slot.financeCostPct,
-        slot.leaseTermMonths,
+        financeCostPct,
+        leaseTermMonths,
         residualValue
       );
 
       // 10. Maintenance = (truck + tires + attachment) × operating hours
       const maintenanceMonthly =
-        (slot.maintenanceRateTruckPerHr + slot.maintenanceRateTiresPerHr + slot.maintenanceRateAttachmentPerHr) *
-        slot.operatingHoursPerMonth;
+        (maintenanceRateTruckPerHr + maintenanceRateTiresPerHr + maintenanceRateAttachmentPerHr) *
+        operatingHoursPerMonth;
 
       // 11. Total monthly = lease + maintenance + telematics selling + operator
       const totalMonthly =
         leaseRate +
         maintenanceMonthly +
-        slot.telematicsSubscriptionSellingPerMonth +
-        slot.operatorPricePerMonth;
+        telematicsSubscriptionSellingPerMonth +
+        operatorPricePerMonth;
 
       // 12. Cost per hour
-      const costPerHour = calcCostPerHour(totalMonthly, slot.operatingHoursPerMonth);
+      const costPerHour = calcCostPerHour(totalMonthly, operatingHoursPerMonth);
 
       // 13. Total contract value
       const totalContractValue = calcTotalContractValue(
         totalMonthly,
-        slot.leaseTermMonths,
-        slot.quantity
+        leaseTermMonths,
+        quantity
       );
 
       return {
@@ -766,22 +803,23 @@ export const useQuoteStore = create<QuoteStore>()(
       activeSlots.forEach((slot) => {
         const pricing = get().getSlotPricing(slot.slotIndex);
         if (pricing) {
-          totalSalesPrice += pricing.salesPrice * slot.quantity;
-          totalFactoryCost += pricing.factoryCost * slot.quantity;
-          totalLandedCost += pricing.landedCostZAR * slot.quantity;
-          totalLeaseRate += pricing.leaseRate * slot.quantity;
-          totalMonthly += pricing.totalMonthly * slot.quantity;
-          totalContractValue += pricing.totalContractValue;
-          weightedMargin += pricing.margin * pricing.salesPrice * slot.quantity;
-          totalMonthlyCosts += pricing.maintenanceMonthly * slot.quantity;
-          totalResidualValue += pricing.residualValue * slot.quantity;
+          const qty = safeNum(slot.quantity) || 1;
+          totalSalesPrice += safeNum(pricing.salesPrice) * qty;
+          totalFactoryCost += safeNum(pricing.factoryCost) * qty;
+          totalLandedCost += safeNum(pricing.landedCostZAR) * qty;
+          totalLeaseRate += safeNum(pricing.leaseRate) * qty;
+          totalMonthly += safeNum(pricing.totalMonthly) * qty;
+          totalContractValue += safeNum(pricing.totalContractValue);
+          weightedMargin += safeNum(pricing.margin) * safeNum(pricing.salesPrice) * qty;
+          totalMonthlyCosts += safeNum(pricing.maintenanceMonthly) * qty;
+          totalResidualValue += safeNum(pricing.residualValue) * qty;
         }
       });
 
       const averageMargin = totalSalesPrice > 0 ? weightedMargin / totalSalesPrice : 0;
 
       const avgTerm = Math.round(
-        activeSlots.reduce((sum, s) => sum + s.leaseTermMonths, 0) / activeSlots.length
+        activeSlots.reduce((sum, s) => sum + safeNum(s.leaseTermMonths), 0) / activeSlots.length
       );
 
       const cashFlows = generateCashFlows(
@@ -793,7 +831,7 @@ export const useQuoteStore = create<QuoteStore>()(
       );
 
       const calculatedIRR = irr(cashFlows);
-      const monthlyRate = state.annualInterestRate / 12 / 100;
+      const monthlyRate = safeNum(state.annualInterestRate) / 12 / 100;
       const calculatedNPV = npv(monthlyRate, cashFlows);
 
       const configStore = useConfigStore.getState();
@@ -811,7 +849,7 @@ export const useQuoteStore = create<QuoteStore>()(
         irr: calculatedIRR,
         npv: calculatedNPV,
         commission,
-        unitCount: activeSlots.reduce((sum, s) => sum + s.quantity, 0),
+        unitCount: activeSlots.reduce((sum, s) => sum + (safeNum(s.quantity) || 1), 0),
         calculatedApprovalTier: undefined,
       };
     },

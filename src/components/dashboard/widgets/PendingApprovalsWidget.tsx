@@ -115,9 +115,9 @@ export function PendingApprovalsWidget() {
       // Server-side count for accurate badge (not truncated by limit)
       let serverTotal = parsed.length;
       try {
-        let pendingCountQ = supabase.from('quotes').select('id', { count: 'exact', head: true })
+        let pendingCountQ = supabase.from('quotes').select('id', { count: 'exact' }).limit(0)
           .eq('status', 'pending-approval');
-        let reviewCountQ = supabase.from('quotes').select('id', { count: 'exact', head: true })
+        let reviewCountQ = supabase.from('quotes').select('id', { count: 'exact' }).limit(0)
           .eq('status', 'in-review');
         if (user.role !== 'system_admin') {
           pendingCountQ = pendingCountQ.eq('current_assignee_id', user.id);

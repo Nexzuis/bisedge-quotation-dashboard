@@ -4,6 +4,7 @@ import { validateDefaultValues } from './validators';
 import { useAuth } from '../../auth/AuthContext';
 import { getConfigDefaults } from '../../../store/useConfigStore';
 import { CheckCircle2, AlertCircle, Save, Settings } from 'lucide-react';
+import { logger } from '../../../utils/logger';
 
 const DefaultValuesEditor = () => {
   const dbValues = useDefaultValues();
@@ -59,7 +60,7 @@ const DefaultValuesEditor = () => {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (error) {
-      console.error('Error saving default values:', error);
+      logger.error('Error saving default values:', { error });
       setErrors(['Failed to save default values']);
     } finally {
       setSaving(false);

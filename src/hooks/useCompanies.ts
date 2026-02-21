@@ -3,6 +3,7 @@ import { getCompanyRepository } from '../db/repositories';
 import type { StoredCompany } from '../db/interfaces';
 import type { PipelineStage } from '../types/crm';
 import { useAuth } from '../components/auth/AuthContext';
+import { logger } from '../utils/logger';
 
 export function useCompanies() {
   const repo = getCompanyRepository();
@@ -21,7 +22,7 @@ export function useCompanies() {
       const companies = await repo.list();
       return companies.filter(canAccessCompany);
     } catch (error) {
-      console.error('Failed to list companies:', error);
+      logger.error('Failed to list companies:', { error });
       return [];
     }
   }, [repo, canAccessCompany]);
@@ -32,7 +33,7 @@ export function useCompanies() {
         const companies = !query.trim() ? await repo.list() : await repo.search(query);
         return companies.filter(canAccessCompany);
       } catch (error) {
-        console.error('Failed to search companies:', error);
+        logger.error('Failed to search companies:', { error });
         return [];
       }
     },
@@ -46,7 +47,7 @@ export function useCompanies() {
         if (!company) return null;
         return canAccessCompany(company) ? company : null;
       } catch (error) {
-        console.error('Failed to get company:', error);
+        logger.error('Failed to get company:', { error });
         return null;
       }
     },

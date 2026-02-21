@@ -3,6 +3,7 @@ import { getLeadRepository, getCompanyRepository, getContactRepository } from '.
 import type { StoredLead, PaginatedResult } from '../db/interfaces';
 import type { LeadFilter, LeadPaginationOptions } from '../types/leads';
 import { useAuth } from '../components/auth/AuthContext';
+import { logger } from '../utils/logger';
 
 export function useLeads() {
   const repo = getLeadRepository();
@@ -15,7 +16,7 @@ export function useLeads() {
       try {
         return await repo.list(options, filters);
       } catch (error) {
-        console.error('Failed to list leads:', error);
+        logger.error('Failed to list leads:', { error });
         return { items: [], total: 0, page: options.page, pageSize: options.pageSize, totalPages: 0 };
       }
     },
@@ -27,7 +28,7 @@ export function useLeads() {
       try {
         return await repo.search(query);
       } catch (error) {
-        console.error('Failed to search leads:', error);
+        logger.error('Failed to search leads:', { error });
         return [];
       }
     },
@@ -39,7 +40,7 @@ export function useLeads() {
       try {
         return await repo.getById(id);
       } catch (error) {
-        console.error('Failed to get lead:', error);
+        logger.error('Failed to get lead:', { error });
         return null;
       }
     },

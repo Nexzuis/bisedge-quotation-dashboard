@@ -12,6 +12,7 @@ import { ApprovalDashboard } from './approvals/ApprovalDashboard';
 import { AlertCircle, RotateCcw, Menu, X, ShieldX } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { hasPermission, type Role } from '../../auth/permissions';
+import { logger } from '../../utils/logger';
 
 function RequirePermission({ resource, children }: { resource: string; children: ReactNode }) {
   const { user } = useAuth();
@@ -48,7 +49,7 @@ class AdminErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Admin page error:', error, errorInfo);
+    logger.error('Admin page error:', { error, errorInfo });
   }
 
   render() {

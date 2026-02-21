@@ -31,6 +31,7 @@ import {
 import { getAuditRepository } from '../../../db/repositories';
 import type { ApprovalChainEntry } from '../../../types/quote';
 import type { PermissionOverrides } from '../../../auth/permissions';
+import { logger } from '../../../utils/logger';
 
 interface PendingQuote {
   id: string;
@@ -98,7 +99,7 @@ export function ApprovalDashboard() {
           try {
             const rawChain = q.approval_chain || q.approvalChain;
             chain = typeof rawChain === 'string' ? JSON.parse(rawChain) : rawChain || [];
-          } catch (e) { console.error('Failed to parse approval chain for quote:', q.id, e); chain = []; }
+          } catch (e) { logger.error('Failed to parse approval chain for quote:', { quoteId: q.id, error: e }); chain = []; }
 
           let submitterName = 'Unknown';
           const submittedBy = q.submitted_by || q.submittedBy;
@@ -106,7 +107,7 @@ export function ApprovalDashboard() {
             try {
               const submitter = await db.getUser(submittedBy);
               if (submitter) submitterName = submitter.fullName || submitter.full_name || 'Unknown';
-            } catch (e) { console.warn('Failed to load submitter for:', submittedBy, e); }
+            } catch (e) { logger.warn('Failed to load submitter for:', submittedBy, e); }
           }
 
           return {
@@ -144,11 +145,11 @@ export function ApprovalDashboard() {
         ).length;
         setStats({ pending: total, approvedToday, rejectedToday });
       } catch (e) {
-        console.warn('Failed to load approval stats:', e);
+        logger.warn('Failed to load approval stats:', e);
         setStats({ pending: total, approvedToday: 0, rejectedToday: 0 });
       }
     } catch (error) {
-      console.error('Error loading pending approvals:', error);
+      logger.error('Error loading pending approvals:', { error });
       toast.error('Failed to load approvals');
     } finally {
       setIsLoading(false);
@@ -351,7 +352,7 @@ function ApprovalCard({ quote, onRefresh }: { quote: PendingQuote; onRefresh: ()
       setModalAction(null);
       onRefresh();
     } catch (error) {
-      console.error('Action failed:', error);
+      logger.error('Action failed:', { error });
       toast.error('Action failed');
     } finally {
       setIsProcessing(false);
@@ -512,8 +513,8 @@ export function ApprovalStats() {
     try {
       // Server-side count for both pending statuses
       const [pendingCount, reviewCount] = await Promise.all([
-        supabase.from('quotes').select('id', { count: 'exact', head: true }).eq('status', 'pending-approval'),
-        supabase.from('quotes').select('id', { count: 'exact', head: true }).eq('status', 'in-review'),
+        supabase.from('quotes').select('id', { count: 'exact' }).limit(0).eq('status', 'pending-approval'),
+        supabase.from('quotes').select('id', { count: 'exact' }).limit(0).eq('status', 'in-review'),
       ]);
       const totalPending = (pendingCount.count ?? 0) + (reviewCount.count ?? 0);
 
@@ -532,7 +533,7 @@ export function ApprovalStats() {
         ).length,
       });
     } catch (e) {
-      console.warn('Failed to load approval stats:', e);
+      logger.warn('Failed to load approval stats:', e);
     } finally {
       setLoading(false);
     }

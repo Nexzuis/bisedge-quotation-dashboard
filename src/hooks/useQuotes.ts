@@ -13,6 +13,7 @@ import { getDb } from '../db/DatabaseAdapter';
 import { ROLE_HIERARCHY, type Role } from '../auth/permissions';
 import type { StoredQuote, QuoteFilter, PaginationOptions } from '../db/interfaces';
 import type { QuoteState } from '../types/quote';
+import { logger } from '../utils/logger';
 
 export function useQuotes() {
   const { user } = useAuthStore();
@@ -51,9 +52,9 @@ export function useQuotes() {
         const result = await db.listQuotes(paginationOptions, roleFilters);
 
         setQuotes(result.items);
-        console.log(`✅ Loaded ${result.items.length} quotes for role: ${user.role}`);
+        logger.debug(`Loaded ${result.items.length} quotes for role: ${user.role}`);
       } catch (err) {
-        console.error('Error loading quotes:', err);
+        logger.error('Error loading quotes:', { error: err });
         setError(err instanceof Error ? err.message : 'Failed to load quotes');
         setQuotes([]);
       } finally {
@@ -81,9 +82,9 @@ export function useQuotes() {
         const results = await db.searchQuotes(query);
 
         setQuotes(results);
-        console.log(`🔍 Found ${results.length} quotes matching: "${query}"`);
+        logger.debug(`Found ${results.length} quotes matching: "${query}"`);
       } catch (err) {
-        console.error('Error searching quotes:', err);
+        logger.error('Error searching quotes:', { error: err });
         setError(err instanceof Error ? err.message : 'Search failed');
         setQuotes([]);
       } finally {
@@ -108,13 +109,13 @@ export function useQuotes() {
 
         // Permission check
         if (!canViewQuote(quote, user.id, user.role)) {
-          console.warn('User does not have permission to view this quote');
+          logger.warn('User does not have permission to view this quote');
           return null;
         }
 
         return quote;
       } catch (err) {
-        console.error('Error getting quote:', err);
+        logger.error('Error getting quote:', { error: err });
         return null;
       }
     },

@@ -3,6 +3,7 @@ import CommissionTiersEditor from './CommissionTiersEditor';
 import ResidualCurvesEditor from './ResidualCurvesEditor';
 import DefaultValuesEditor from './DefaultValuesEditor';
 import { TrendingUp, Percent, Settings, AlertCircle, RotateCcw } from 'lucide-react';
+import { logger } from '../../../utils/logger';
 
 type Tab = 'commission' | 'residual' | 'defaults';
 
@@ -20,7 +21,7 @@ class TabErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error(`Error in ${this.props.tabName} tab:`, error, errorInfo);
+    logger.error(`Error in ${this.props.tabName} tab:`, { error, errorInfo });
   }
 
   render() {

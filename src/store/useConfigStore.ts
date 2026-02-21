@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { StoredCommissionTier, StoredResidualCurve } from '../db/interfaces';
 import { getDb } from '../db/DatabaseAdapter';
+import { logger } from '../utils/logger';
 
 interface ConfigState {
   commissionTiers: StoredCommissionTier[];
@@ -69,7 +70,7 @@ export const useConfigStore = create<ConfigState>((set) => ({
 
       set({ commissionTiers, residualCurves, defaultValues, isLoaded: true, loadError: null });
     } catch (error) {
-      console.error('Error loading config:', error);
+      logger.error('Error loading config:', { error });
       set({
         isLoaded: false,
         loadError: error instanceof Error ? error.message : 'Failed to load configuration'

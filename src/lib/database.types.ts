@@ -22,6 +22,7 @@ export interface Database {
           id: string // UUID
           email: string
           full_name: string
+          username: string | null
           role: 'system_admin' | 'ceo' | 'local_leader' | 'sales_manager' | 'key_account' | 'sales_rep'
           is_active: boolean
           created_at: string
@@ -37,6 +38,7 @@ export interface Database {
           id: string
           email: string
           full_name: string
+          username?: string | null
           role: 'system_admin' | 'ceo' | 'local_leader' | 'sales_manager' | 'key_account' | 'sales_rep'
           is_active?: boolean
           created_at?: string
@@ -52,6 +54,7 @@ export interface Database {
           id?: string
           email?: string
           full_name?: string
+          username?: string | null
           role?: 'system_admin' | 'ceo' | 'local_leader' | 'sales_manager' | 'key_account' | 'sales_rep'
           is_active?: boolean
           created_at?: string

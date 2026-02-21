@@ -9,6 +9,8 @@ import {
   Loader2,
   FileText,
   Eye,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { getDb } from '../../../db/DatabaseAdapter';
@@ -51,11 +53,14 @@ export function ApprovalDashboard() {
   const [quotes, setQuotes] = useState<PendingQuote[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState({ pending: 0, approvedToday: 0, rejectedToday: 0 });
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const PAGE_SIZE = 20;
 
   useEffect(() => {
     if (!user) return;
     loadPendingQuotes();
-  }, [user]);
+  }, [user, page]);
 
   const loadPendingQuotes = async () => {
     if (!user) return;
@@ -64,15 +69,15 @@ export function ApprovalDashboard() {
     try {
       const db = getDb();
 
-      // Load quotes pending approval — server-side assignee filter
+      // Load quotes pending approval — paginated
       const result = await db.listQuotes(
-        { page: 1, pageSize: 50, sortBy: 'createdAt', sortOrder: 'asc' },
+        { page, pageSize: PAGE_SIZE, sortBy: 'createdAt', sortOrder: 'asc' },
         { status: 'pending-approval' }
       );
 
-      // Also load in-review quotes
+      // Also load in-review quotes — same page
       const reviewResult = await db.listQuotes(
-        { page: 1, pageSize: 50, sortBy: 'createdAt', sortOrder: 'asc' },
+        { page, pageSize: PAGE_SIZE, sortBy: 'createdAt', sortOrder: 'asc' },
         { status: 'in-review' }
       );
 
@@ -120,7 +125,7 @@ export function ApprovalDashboard() {
 
       setQuotes(parsed);
 
-      // Server-side count for accurate pending total (not truncated by page size)
+      // Server-side count for accurate pending total + pagination
       let serverPendingCount = parsed.length;
       try {
         let pendingCountQ = supabase.from('quotes').select('id', { count: 'exact', head: true })
@@ -133,8 +138,10 @@ export function ApprovalDashboard() {
         }
         const [pc, rc] = await Promise.all([pendingCountQ, reviewCountQ]);
         serverPendingCount = (pc.count ?? 0) + (rc.count ?? 0);
+        setTotalPages(Math.max(1, Math.ceil(serverPendingCount / PAGE_SIZE)));
       } catch {
         // Fall back to parsed.length if count query fails
+        setTotalPages(Math.max(1, Math.ceil(parsed.length / PAGE_SIZE)));
       }
 
       // Query today's approval/rejection counts
@@ -228,6 +235,31 @@ export function ApprovalDashboard() {
       {!isLoading && quotes.map((q) => (
         <ApprovalCard key={q.id} quote={q} onRefresh={loadPendingQuotes} />
       ))}
+
+      {/* Pagination */}
+      {!isLoading && totalPages > 1 && (
+        <div className="flex items-center justify-center gap-4 pt-2">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1}
+            className="flex items-center gap-1 px-3 py-1.5 bg-surface-700 hover:bg-surface-600 text-surface-200 rounded-lg text-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Previous
+          </button>
+          <span className="text-sm text-surface-400">
+            Page {page} of {totalPages}
+          </span>
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages}
+            className="flex items-center gap-1 px-3 py-1.5 bg-surface-700 hover:bg-surface-600 text-surface-200 rounded-lg text-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            Next
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

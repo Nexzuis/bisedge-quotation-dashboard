@@ -19,23 +19,30 @@ CREATE POLICY "quotes_insert" ON public.quotes FOR INSERT TO authenticated WITH 
 CREATE POLICY "quotes_update" ON public.quotes FOR UPDATE TO authenticated USING (auth.uid()::text = created_by::text OR auth.uid()::text = assigned_to::text OR auth.uid()::text = current_assignee_id::text OR auth.uid()::text = locked_by::text);
 CREATE POLICY "quotes_delete" ON public.quotes FOR DELETE TO authenticated USING (auth.uid()::text = created_by::text);
 
--- COMPANIES
+-- COMPANIES (all reps read/write shared CRM data; only admins delete)
 CREATE POLICY "companies_select" ON public.companies FOR SELECT TO authenticated USING (true);
 CREATE POLICY "companies_insert" ON public.companies FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "companies_update" ON public.companies FOR UPDATE TO authenticated USING (true);
-CREATE POLICY "companies_delete" ON public.companies FOR DELETE TO authenticated USING (true);
+CREATE POLICY "companies_delete" ON public.companies FOR DELETE TO authenticated USING (
+  EXISTS (SELECT 1 FROM public.users WHERE id::text = auth.uid()::text AND role IN ('system_admin', 'ceo', 'local_leader'))
+);
 
--- CONTACTS
+-- CONTACTS (all reps read/write shared CRM data; only admins delete)
 CREATE POLICY "contacts_select" ON public.contacts FOR SELECT TO authenticated USING (true);
 CREATE POLICY "contacts_insert" ON public.contacts FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "contacts_update" ON public.contacts FOR UPDATE TO authenticated USING (true);
-CREATE POLICY "contacts_delete" ON public.contacts FOR DELETE TO authenticated USING (true);
+CREATE POLICY "contacts_delete" ON public.contacts FOR DELETE TO authenticated USING (
+  EXISTS (SELECT 1 FROM public.users WHERE id::text = auth.uid()::text AND role IN ('system_admin', 'ceo', 'local_leader'))
+);
 
--- ACTIVITIES
+-- ACTIVITIES (all reps read/write; only creator or admins delete)
 CREATE POLICY "activities_select" ON public.activities FOR SELECT TO authenticated USING (true);
 CREATE POLICY "activities_insert" ON public.activities FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "activities_update" ON public.activities FOR UPDATE TO authenticated USING (true);
-CREATE POLICY "activities_delete" ON public.activities FOR DELETE TO authenticated USING (true);
+CREATE POLICY "activities_delete" ON public.activities FOR DELETE TO authenticated USING (
+  auth.uid()::text = created_by::text
+  OR EXISTS (SELECT 1 FROM public.users WHERE id::text = auth.uid()::text AND role IN ('system_admin', 'ceo', 'local_leader'))
+);
 
 -- NOTIFICATIONS
 CREATE POLICY "notifications_select" ON public.notifications FOR SELECT TO authenticated USING (auth.uid()::text = user_id::text);
@@ -44,6 +51,13 @@ CREATE POLICY "notifications_update" ON public.notifications FOR UPDATE TO authe
 
 -- USERS
 CREATE POLICY "users_select" ON public.users FOR SELECT TO authenticated USING (true);
+CREATE POLICY "users_update" ON public.users FOR UPDATE TO authenticated USING (
+  EXISTS (SELECT 1 FROM public.users WHERE id::text = auth.uid()::text AND role IN ('system_admin', 'ceo', 'local_leader'))
+  OR id::text = auth.uid()::text
+);
+CREATE POLICY "users_delete" ON public.users FOR DELETE TO authenticated USING (
+  EXISTS (SELECT 1 FROM public.users WHERE id::text = auth.uid()::text AND role IN ('system_admin', 'ceo', 'local_leader'))
+);
 
 -- AUDIT LOG
 CREATE POLICY "audit_log_select" ON public.audit_log FOR SELECT TO authenticated USING (true);

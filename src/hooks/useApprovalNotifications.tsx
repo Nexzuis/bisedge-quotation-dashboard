@@ -58,12 +58,15 @@ export function useApprovalNotifications() {
           // Skip if there is no new record at all.
           if (!newRecord) return;
 
-          // If old record is available and status hasn't changed, skip.
-          // Note: payload.old may be empty on Postgres setups without full
-          // replica identity, so we fall back to always processing rather
-          // than silently dropping notifications.
+          // Only process confirmed status transitions.
+          // If payload.old is empty (Postgres without full replica identity),
+          // skip to avoid false-positive notifications on non-status updates.
           const hasOldStatus = oldRecord && 'status' in oldRecord && oldRecord.status != null;
-          if (hasOldStatus && oldRecord.status === newRecord.status) {
+          if (!hasOldStatus) {
+            logger.debug('Skipping approval notification: old status unavailable (replica identity not full)');
+            return;
+          }
+          if (oldRecord.status === newRecord.status) {
             return;
           }
 

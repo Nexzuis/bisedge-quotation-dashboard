@@ -223,14 +223,15 @@ Also in migrations:
 - `leads.converted_company_id` -> `companies.id`
 - `leads.converted_contact_id` -> `contacts.id`
 
-### 3.4 Schema/runtime mismatches currently present in code
+### 3.4 Schema/runtime mismatches (resolved)
 
-- `users.username` is used heavily in `UserManagement` queries/updates, but is not present in `database.types.ts`.
-- Adapter saves/reads `commission_tiers.commission_rate`, while typed schema says `commission_pct`.
-- Adapter saves/reads `residual_curves.term/residual_pct/model_family`, while typed schema says `chemistry + term_36..term_84`.
-- Adapter maps extra `audit_log` fields (`notes`, `target_user_id`, `target_user_name`) not present in typed schema.
+All previously documented mismatches were fixed in Phase 1:
+- `users.username` added to `database.types.ts`.
+- `commission_tiers` adapter aligned to `commission_pct` column.
+- `residual_curves` adapter aligned to `chemistry + term_36..term_84` schema.
+- `audit_log` adapter now persists `old_values`/`new_values`; phantom column reads removed.
 
-These mismatches are part of the current state and should be resolved before relying on types as authoritative.
+Remaining gap: `database.types.ts` is still hand-maintained (auto-generation blocked on Supabase CLI access — see TECH-DEBT TD-6.3).
 
 ---
 
@@ -445,14 +446,15 @@ Controls in code:
 
 ### 8.7 RLS and server-side policy location
 
-- RLS policies are not defined in this repository.
-- Policy enforcement is expected in Supabase project configuration.
+- RLS policies are defined in `supabase/migrations/001_rls_policies.sql` and applied to the live Supabase instance.
+- Quotes enforce ownership on insert/update/delete; notifications scoped to owning user; CRM tables restrict delete to admin roles; config tables restrict write to admin roles.
+- Users table: admins can update/delete; users can update their own row.
 
 ### 8.8 Current implementation caveats
 
-- Approval notifications subscribe to `quotes` table UPDATE events (not `approval_actions`). Status transitions are detected client-side by comparing `payload.old.status` vs `payload.new.status`. The `approval_actions` table is not used as a notification source.
-- Admin user creation uses `auth.signUp` from browser code with anon-key client, then inserts into `public.users`.
-- Password reset dialog captures a new password input, but implemented action sends reset email (`resetPasswordForEmail`) rather than setting that typed password directly.
+- Approval notifications subscribe to `quotes` table UPDATE events (not `approval_actions`), filtered to status transitions only. Requires full replica identity on the `quotes` table for `payload.old` to be populated; without it, notifications are skipped to avoid false positives.
+- Admin user creation is handled server-side via Supabase Edge Function (`supabase/functions/admin-create-user/`). The frontend calls this function rather than using `auth.signUp` directly.
+- Password reset sends a reset email via `resetPasswordForEmail`. The admin UI does not collect a new password for existing users.
 
 ---
 

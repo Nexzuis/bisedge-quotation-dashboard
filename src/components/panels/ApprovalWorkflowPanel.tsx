@@ -16,6 +16,7 @@ import { CardHeader } from '../ui/Card';
 import { toast } from '../ui/Toast';
 import { useQuoteStore } from '../../store/useQuoteStore';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useIsReadOnly } from '../../hooks/ReadOnlyContext';
 import { validateQuoteSync } from '../../engine/validators';
 import { useApprovalActions } from '../../hooks/useApprovalActions';
 import { ApprovalChainBreadcrumb } from '../shared/ApprovalChainBreadcrumb';
@@ -48,6 +49,7 @@ const ACTION_STYLES: Record<ApprovalAction, string> = {
 };
 
 export function ApprovalWorkflowPanel() {
+  const { isReadOnly } = useIsReadOnly();
   const quote = useQuoteStore((state) => state);
   const getQuoteTotals = useQuoteStore((state) => state.getQuoteTotals);
   const { user } = useAuthStore();
@@ -244,7 +246,7 @@ export function ApprovalWorkflowPanel() {
             <div className="grid grid-cols-2 gap-2">
               {availableActions.map((action) => {
                 const Icon = ACTION_ICONS[action];
-                const disabled = isProcessing || (action === 'submit' && hasBlockingErrors);
+                const disabled = isProcessing || isReadOnly || (action === 'submit' && hasBlockingErrors);
                 return (
                   <button
                     key={action}

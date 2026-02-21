@@ -57,6 +57,7 @@ AS $$
 DECLARE
   current_ver integer;
   current_owner uuid;
+  current_lock_holder uuid;
   new_ver integer;
   calling_user uuid;
 BEGIN
@@ -70,10 +71,24 @@ BEGIN
   END IF;
 
   -- Lock the row (or confirm it doesn't exist yet)
-  SELECT version, created_by INTO current_ver, current_owner
+  SELECT version, created_by, locked_by INTO current_ver, current_owner, current_lock_holder
     FROM quotes
     WHERE id = p_id
     FOR UPDATE;
+
+  -- Lock enforcement: independent gate, runs BEFORE ownership check
+  IF FOUND THEN
+    IF current_lock_holder IS NOT NULL
+       AND current_lock_holder != calling_user
+       AND NOT EXISTS (SELECT 1 FROM users WHERE id = calling_user AND role = 'system_admin')
+    THEN
+      RETURN jsonb_build_object(
+        'success', false,
+        'version', current_ver,
+        'error', 'Quote is locked by another user'
+      );
+    END IF;
+  END IF;
 
   -- Ownership check: only creator, assigned_to, current_assignee, or lock holder may write
   IF FOUND THEN

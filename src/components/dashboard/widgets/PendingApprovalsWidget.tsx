@@ -61,57 +61,58 @@ export function PendingApprovalsWidget() {
     try {
       const db = getDb();
 
-      const [pendingResult, reviewResult] = await Promise.all([
-        db.listQuotes(
-          { page: 1, pageSize: 20, sortBy: 'createdAt', sortOrder: 'asc' },
-          { status: 'pending-approval' }
-        ),
-        db.listQuotes(
-          { page: 1, pageSize: 20, sortBy: 'createdAt', sortOrder: 'asc' },
-          { status: 'in-review' }
-        ),
-      ]);
+      // Single unified query — only 5 items needed for widget display
+      let query = supabase
+        .from('quotes')
+        .select('*')
+        .in('status', ['pending-approval', 'in-review'])
+        .order('created_at', { ascending: true })
+        .limit(5);
 
-      const allItems = [...pendingResult.items, ...reviewResult.items];
+      if (user.role !== 'system_admin') {
+        query = query.eq('current_assignee_id', user.id);
+      }
 
-      // Filter to quotes assigned to current user (or all if system_admin)
-      const filtered = allItems.filter((q: any) => {
-        if (user.role === 'system_admin') return true;
-        return q.currentAssigneeId === user.id;
-      });
+      const { data, error } = await query;
+      if (error) throw error;
 
+      // Parse rows (no client-side filter needed)
       const parsed: PendingQuote[] = await Promise.all(
-        filtered.map(async (q: any) => {
+        (data || []).map(async (q: any) => {
           let chain: ApprovalChainEntry[] = [];
           try {
-            chain = typeof q.approvalChain === 'string' ? JSON.parse(q.approvalChain) : q.approvalChain || [];
+            const rawChain = q.approval_chain || q.approvalChain;
+            chain = typeof rawChain === 'string' ? JSON.parse(rawChain) : rawChain || [];
           } catch { chain = []; }
 
           let submitterName = 'Unknown';
-          if (q.submittedBy) {
+          const submittedBy = q.submitted_by || q.submittedBy;
+          if (submittedBy) {
             try {
-              const submitter = await db.getUser(q.submittedBy);
+              const submitter = await db.getUser(submittedBy);
               if (submitter) submitterName = submitter.fullName || submitter.full_name || 'Unknown';
             } catch {}
           }
 
           return {
             id: q.id,
-            quoteRef: q.quoteRef || q.quote_ref || '',
-            clientName: q.clientName || q.client_name || '',
+            quoteRef: q.quote_ref || q.quoteRef || '',
+            clientName: q.client_name || q.clientName || '',
             status: q.status,
-            currentAssigneeId: q.currentAssigneeId || q.current_assignee_id || null,
-            currentAssigneeRole: q.currentAssigneeRole || q.current_assignee_role || null,
+            currentAssigneeId: q.current_assignee_id || q.currentAssigneeId || null,
+            currentAssigneeRole: q.current_assignee_role || q.currentAssigneeRole || null,
             approvalChain: chain,
-            submittedBy: q.submittedBy || q.submitted_by || null,
-            submittedAt: q.submittedAt || q.submitted_at || null,
+            submittedBy: submittedBy || null,
+            submittedAt: q.submitted_at || q.submittedAt || null,
             submitterName,
-            createdBy: q.createdBy || q.created_by || null,
+            createdBy: q.created_by || q.createdBy || null,
           };
         })
       );
 
-      // Server-side count for accurate badge (not truncated by slice)
+      setQuotes(parsed);
+
+      // Server-side count for accurate badge (not truncated by limit)
       let serverTotal = parsed.length;
       try {
         let pendingCountQ = supabase.from('quotes').select('id', { count: 'exact', head: true })
@@ -128,7 +129,6 @@ export function PendingApprovalsWidget() {
         // Fall back to parsed.length
       }
       setTotalCount(serverTotal);
-      setQuotes(parsed.slice(0, 5)); // Show top 5 on dashboard
     } catch (err) {
       console.error('Error loading pending approvals:', err);
     } finally {

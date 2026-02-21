@@ -33,11 +33,17 @@ export function usePresence(quoteId: string, enabled: boolean = true) {
       return;
     }
 
-    let heartbeatInterval: NodeJS.Timeout | null = null;
+    // Bug #15 fix: track cleanup state synchronously so the async
+    // startPresence function doesn't start intervals after cleanup
+    let cleanedUp = false;
+    let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
     let channel: any = null;
     let handleVisibility: (() => void) | null = null;
 
     const startPresence = async () => {
+      // Guard: if cleanup already ran before this async function executes, bail
+      if (cleanedUp) return;
+
       setIsTracking(true);
 
       // Update presence in database
@@ -56,11 +62,15 @@ export function usePresence(quoteId: string, enabled: boolean = true) {
       // Initial presence update
       await updatePresence();
 
+      // Guard again after the await
+      if (cleanedUp) return;
+
       // Set up heartbeat (update every 30 seconds)
       heartbeatInterval = setInterval(updatePresence, CONFIG.presenceHeartbeatMs);
 
       // Pause heartbeat when tab is hidden, resume on return
       handleVisibility = () => {
+        if (cleanedUp) return;
         if (document.hidden) {
           if (heartbeatInterval) {
             clearInterval(heartbeatInterval);
@@ -68,7 +78,9 @@ export function usePresence(quoteId: string, enabled: boolean = true) {
           }
         } else {
           updatePresence();
-          heartbeatInterval = setInterval(updatePresence, CONFIG.presenceHeartbeatMs);
+          if (!cleanedUp) {
+            heartbeatInterval = setInterval(updatePresence, CONFIG.presenceHeartbeatMs);
+          }
         }
       };
       document.addEventListener('visibilitychange', handleVisibility);
@@ -76,14 +88,15 @@ export function usePresence(quoteId: string, enabled: boolean = true) {
       // Subscribe to presence changes via real-time channel
       channel = supabase.channel(`quote-presence:${quoteId}`)
         .on('presence', { event: 'sync' }, () => {
+          if (cleanedUp) return;
           const state = channel.presenceState();
-          const viewers: Viewer[] = [];
+          const currentViewers: Viewer[] = [];
 
           Object.keys(state).forEach((key) => {
             const presences = state[key];
             presences.forEach((presence: any) => {
               if (presence.user_id !== user.id) {
-                viewers.push({
+                currentViewers.push({
                   userId: presence.user_id,
                   userName: presence.user_name || 'Unknown User',
                   userEmail: presence.user_email || '',
@@ -93,9 +106,10 @@ export function usePresence(quoteId: string, enabled: boolean = true) {
             });
           });
 
-          setViewers(viewers);
+          setViewers(currentViewers);
         })
         .subscribe(async (status) => {
+          if (cleanedUp) return;
           if (status === 'SUBSCRIBED') {
             logger.debug('Presence tracking active for quote:', quoteId);
 
@@ -114,6 +128,7 @@ export function usePresence(quoteId: string, enabled: boolean = true) {
 
     // Cleanup on unmount
     return () => {
+      cleanedUp = true;
       setIsTracking(false);
 
       // Remove visibility listener

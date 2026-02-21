@@ -4,6 +4,7 @@ import { Panel } from '../ui/Panel';
 import { CardHeader } from '../ui/Card';
 import { useQuoteStore } from '../../store/useQuoteStore';
 import { validateEmail, validatePhone } from '../../engine/validators';
+import { useIsReadOnly } from '../../hooks/ReadOnlyContext';
 
 export function DealOverviewPanel() {
   const clientName = useQuoteStore((state) => state.clientName);
@@ -13,6 +14,7 @@ export function DealOverviewPanel() {
   const clientAddress = useQuoteStore((state) => state.clientAddress);
   const setCustomerInfo = useQuoteStore((state) => state.setCustomerInfo);
 
+  const { isReadOnly } = useIsReadOnly();
   const [emailError, setEmailError] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
 
@@ -20,6 +22,7 @@ export function DealOverviewPanel() {
     <Panel accent="brand">
       <CardHeader icon={User} title="Deal Overview" />
 
+      <fieldset disabled={isReadOnly} className="border-0 p-0 m-0 min-w-0">
       <div className="space-y-4">
         {/* Client Name */}
         <div>
@@ -123,6 +126,7 @@ export function DealOverviewPanel() {
           ))}
         </div>
       </div>
+      </fieldset>
     </Panel>
   );
 }

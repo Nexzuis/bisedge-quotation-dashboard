@@ -5,16 +5,18 @@
  * and real-time subscriptions configured.
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from './database.types';
 
 // Get environment variables
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Validate required environment variables
+// Bug #29 fix: collect missing env var messages instead of throwing
+const missingEnvVars: string[] = [];
+
 if (!supabaseUrl) {
-  throw new Error(
+  missingEnvVars.push(
     'Missing VITE_SUPABASE_URL environment variable. ' +
     'Please add it to your .env.local file. ' +
     'Get this value from: https://supabase.com/dashboard → Your Project → Settings → API'
@@ -22,47 +24,54 @@ if (!supabaseUrl) {
 }
 
 if (!supabaseAnonKey) {
-  throw new Error(
+  missingEnvVars.push(
     'Missing VITE_SUPABASE_ANON_KEY environment variable. ' +
     'Please add it to your .env.local file. ' +
     'Get this value from: https://supabase.com/dashboard → Your Project → Settings → API'
   );
 }
 
+/** Error message if env vars are missing, null otherwise */
+export const supabaseConfigError: string | null =
+  missingEnvVars.length > 0 ? missingEnvVars.join('\n') : null;
+
 /**
  * Supabase client instance
  * Type-safe with Database schema types
+ *
+ * Will be a real client when env vars are present, or a dummy/null when missing.
  */
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    // Persist session in localStorage for automatic login
-    persistSession: true,
+export const supabase: SupabaseClient<Database> = supabaseUrl && supabaseAnonKey
+  ? createClient<Database>(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        // Persist session in localStorage for automatic login
+        persistSession: true,
 
-    // Automatically refresh tokens when they expire
-    autoRefreshToken: true,
+        // Automatically refresh tokens when they expire
+        autoRefreshToken: true,
 
-    // Detect session changes (login/logout) in other tabs
-    detectSessionInUrl: true,
+        // Detect session changes (login/logout) in other tabs
+        detectSessionInUrl: true,
 
-    // Flow type for PKCE authentication
-    flowType: 'pkce',
-  },
+        // Flow type for PKCE authentication
+        flowType: 'pkce',
+      },
 
-  realtime: {
-    params: {
-      // Limit events per second to avoid overwhelming the client
-      eventsPerSecond: 10,
-    },
-  },
+      realtime: {
+        params: {
+          // Limit events per second to avoid overwhelming the client
+          eventsPerSecond: 10,
+        },
+      },
 
-  // Global options
-  global: {
-    headers: {
-      // Add custom headers if needed
-      // 'X-Client-Info': 'bisedge-quotation-dashboard',
-    },
-  },
-});
+      global: {
+        headers: {
+          // Add custom headers if needed
+        },
+      },
+    })
+  // Provide a placeholder that will never be used — App.tsx shows an error screen
+  : (null as unknown as SupabaseClient<Database>);
 
 /**
  * Helper to check if Supabase is properly configured

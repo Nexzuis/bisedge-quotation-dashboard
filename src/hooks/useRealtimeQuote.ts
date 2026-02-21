@@ -5,7 +5,7 @@
  * Prevents editing conflicts and keeps all users in sync.
  */
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { supabase, FEATURES } from '../lib/supabase';
@@ -125,6 +125,12 @@ export function useRealtimeQuote(quoteId: string, enabled: boolean = true) {
 export function useRealtimeQuoteList(onUpdate?: () => void) {
   const { user } = useAuthStore();
 
+  // Stabilize onUpdate via ref to prevent subscription churn
+  const onUpdateRef = useRef(onUpdate);
+  useEffect(() => {
+    onUpdateRef.current = onUpdate;
+  }, [onUpdate]);
+
   useEffect(() => {
     if (!FEATURES.realtime || !user) {
       return;
@@ -145,8 +151,8 @@ export function useRealtimeQuoteList(onUpdate?: () => void) {
         (payload) => {
           logger.debug('Quote list update detected:', payload.eventType);
 
-          if (onUpdate) {
-            onUpdate();
+          if (onUpdateRef.current) {
+            onUpdateRef.current();
           } else {
             toast.info('Quotes updated', {
               description: 'Refreshing list...',
@@ -164,5 +170,5 @@ export function useRealtimeQuoteList(onUpdate?: () => void) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [user, onUpdate]);
+  }, [user]);
 }

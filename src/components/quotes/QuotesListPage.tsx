@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Search, Loader2, ArrowLeft, ArrowUpDown } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -7,6 +7,7 @@ import { QuoteStatusBadge } from '../shared/QuoteStatusBadge';
 import { useAuthStore } from '../../store/useAuthStore';
 import { getDb } from '../../db/DatabaseAdapter';
 import { ROLE_HIERARCHY, type Role } from '../../auth/permissions';
+import { useRealtimeQuoteList } from '../../hooks/useRealtimeQuote';
 import { staggerContainer, fadeInUp } from '../crm/shared/motionVariants';
 import type { StoredQuote } from '../../db/interfaces';
 import type { QuoteStatus } from '../../types/quote';
@@ -56,20 +57,7 @@ export default function QuotesListPage() {
 
   const isManager = user && (ROLE_HIERARCHY[user.role as Role] || 0) >= 2;
 
-  useEffect(() => {
-    loadQuotes();
-  }, [user, statusFilter, onlyThisMonth]);
-
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      loadQuotes();
-      return;
-    }
-    const timer = setTimeout(() => searchForQuotes(), 400);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  const loadQuotes = async () => {
+  const loadQuotes = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
@@ -104,7 +92,23 @@ export default function QuotesListPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, statusFilter, onlyThisMonth, isManager]);
+
+  useEffect(() => {
+    loadQuotes();
+  }, [loadQuotes]);
+
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      loadQuotes();
+      return;
+    }
+    const timer = setTimeout(() => searchForQuotes(), 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery, loadQuotes]);
+
+  // Subscribe to realtime updates — auto-refresh list when any quote changes
+  useRealtimeQuoteList(loadQuotes);
 
   const searchForQuotes = async () => {
     if (!user) return;

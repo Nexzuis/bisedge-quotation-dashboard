@@ -10,7 +10,7 @@ export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 export interface UseAutoSaveResult {
   status: SaveStatus;
   lastSavedAt: Date | null;
-  saveNow: () => Promise<void>;
+  saveNow: () => Promise<boolean>;
   error: string | null;
 }
 
@@ -43,15 +43,15 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
   /**
    * Save the quote immediately
    */
-  const saveNow = useCallback(async () => {
-    if (isSavingRef.current) return;
+  const saveNow = useCallback(async (): Promise<boolean> => {
+    if (isSavingRef.current) return false;
 
     // Bug #1 fix: if the quoteRef has changed since the save was scheduled,
     // skip this save — the data belongs to a different quote
     const currentQuoteRef = useQuoteStore.getState().quoteRef;
     if (currentQuoteRef !== scheduledQuoteRefRef.current) {
       logger.debug('Autosave skipped: quoteRef changed since save was scheduled');
-      return;
+      return false;
     }
 
     try {
@@ -59,11 +59,11 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         logger.warn('Autosave paused: waiting for authenticated Supabase session');
-        return;
+        return false;
       }
     } catch (err) {
       logger.warn('Autosave paused: failed to check Supabase session', err);
-      return;
+      return false;
     }
 
     // If quote still has default ref, auto-assign a real one before saving
@@ -73,7 +73,7 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
         useQuoteStore.getState().setQuoteRef(nextRef);
       } catch (err) {
         logger.error('Failed to assign quote ref:', err);
-        return;
+        return false;
       }
     }
 
@@ -101,9 +101,19 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
         setTimeout(() => {
           setStatus('idle');
         }, 3000);
+
+        return true;
       } else {
         setStatus('error');
         setError(result.error || 'Unknown error');
+
+        // Lock enforcement: quote locked by another user
+        if (result.error?.includes('locked by another user')) {
+          toast.error('Cannot save: quote is locked', {
+            description: 'Another user is currently editing this quote.',
+            duration: 5000,
+          });
+        }
 
         // Bug #11 fix: version conflict with recovery action
         if (result.error?.includes('Version conflict')) {
@@ -127,11 +137,14 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
             duration: 10000,
           });
         }
+
+        return false;
       }
     } catch (err) {
       logger.error('Error saving quote:', err);
       setStatus('error');
       setError(err instanceof Error ? err.message : 'Save failed');
+      return false;
     } finally {
       isSavingRef.current = false;
     }

@@ -29,6 +29,22 @@ let activityRepository: IActivityRepository | null = null;
 let leadRepository: ILeadRepository | null = null;
 
 /**
+ * Reset all repository singletons.
+ * Must be called on logout so that stale DB adapters bound to the
+ * previous user session are discarded.
+ */
+export function resetRepositories(): void {
+  quoteRepository = null;
+  customerRepository = null;
+  templateRepository = null;
+  auditRepository = null;
+  companyRepository = null;
+  contactRepository = null;
+  activityRepository = null;
+  leadRepository = null;
+}
+
+/**
  * Get Quote Repository singleton
  */
 export function getQuoteRepository(): IQuoteRepository {

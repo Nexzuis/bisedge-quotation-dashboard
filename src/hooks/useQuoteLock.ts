@@ -141,18 +141,21 @@ export function useQuoteLock(
         releaseLock(capturedUserId);
 
         // Sync lock release to cloud
-        Promise.resolve(
-          supabase
-            .from('quotes')
-            .update({
-              locked_by: null,
-              locked_at: null,
-            })
-            .eq('id', quoteId)
-            .eq('locked_by', capturedUserId)
-        )
-          .then(() => logger.debug('Lock released from cloud'))
-          .catch((err: Error) => logger.error('Failed to release lock from cloud:', err));
+        supabase
+          .from('quotes')
+          .update({
+            locked_by: null,
+            locked_at: null,
+          })
+          .eq('id', quoteId)
+          .eq('locked_by', capturedUserId)
+          .then(({ error }) => {
+            if (error) {
+              logger.error('Failed to release lock from cloud:', error);
+            } else {
+              logger.debug('Lock released from cloud');
+            }
+          });
       }
     };
     // Bug #4 fix: lockedBy removed from deps to prevent acquire/release cycles.
@@ -230,7 +233,7 @@ export function useManualQuoteLock(quoteId: string) {
     releaseLock(user.id);
 
     try {
-      await supabase
+      const { error } = await supabase
         .from('quotes')
         .update({
           locked_by: null,
@@ -238,6 +241,10 @@ export function useManualQuoteLock(quoteId: string) {
         })
         .eq('id', quoteId)
         .eq('locked_by', user.id);
+
+      if (error) {
+        logger.error('Failed to release lock from cloud:', error);
+      }
     } catch (error) {
       logger.error('Failed to release lock:', error);
     }

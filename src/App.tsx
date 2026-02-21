@@ -30,6 +30,7 @@ import { useUnsavedChanges } from './hooks/useUnsavedChanges';
 import { useAutoSave } from './hooks/useAutoSave';
 import { AutoSaveContextProvider } from './hooks/AutoSaveContext';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { supabaseConfigError } from './lib/supabase';
 import { Loader2 } from 'lucide-react';
 
 // Protected route wrapper
@@ -301,6 +302,27 @@ function AppContent() {
 }
 
 function App() {
+  // Bug #29 fix: show a helpful error screen instead of a white screen when
+  // required Supabase environment variables are missing
+  if (supabaseConfigError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-surface-900 via-surface-800 to-surface-900 flex items-center justify-center p-4">
+        <div className="glass rounded-xl p-8 max-w-lg">
+          <div className="text-red-400 text-xl font-bold mb-4">Configuration Error</div>
+          <div className="text-surface-300 mb-4">
+            The application cannot start because required environment variables are missing.
+          </div>
+          <div className="text-surface-400 text-sm font-mono bg-surface-800 p-4 rounded whitespace-pre-wrap">
+            {supabaseConfigError}
+          </div>
+          <div className="text-surface-500 text-xs mt-4">
+            Create a <code className="bg-surface-700 px-1 rounded">.env.local</code> file in the project root with the required variables, then restart the dev server.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <ErrorBoundary>
       <HashRouter>

@@ -15,6 +15,9 @@ import { ReviewSummaryStep } from './steps/ReviewSummaryStep';
 import { ExportStep } from './steps/ExportStep';
 import { useQuoteStore } from '../../store/useQuoteStore';
 import { useAutoSaveContext } from '../../hooks/AutoSaveContext';
+import { useQuoteLock } from '../../hooks/useQuoteLock';
+import { useRealtimeQuote } from '../../hooks/useRealtimeQuote';
+import { ReadOnlyProvider } from '../../hooks/ReadOnlyContext';
 import { toast } from '../ui/Toast';
 
 const STEPS = [
@@ -30,14 +33,33 @@ const STEPS = [
 
 function BuilderContent() {
   const { currentStep } = useBuilder();
+  const quoteId = useQuoteStore((s) => s.id);
   const StepComponent = STEPS[currentStep];
 
+  // Acquire lock when entering builder, release on unmount
+  const { isLocked, lockedByName, hasLock } = useQuoteLock(quoteId);
+
+  // Subscribe to realtime updates from other users
+  useRealtimeQuote(quoteId);
+
+  const isReadOnly = isLocked && !hasLock;
+  const readOnlyReason = isReadOnly
+    ? `This quote is currently being edited by ${lockedByName || 'another user'}.`
+    : null;
+
   return (
-    <BuilderLayout>
-      <AnimatedStep stepKey={currentStep}>
-        <StepComponent />
-      </AnimatedStep>
-    </BuilderLayout>
+    <ReadOnlyProvider isReadOnly={isReadOnly} readOnlyReason={readOnlyReason}>
+      <BuilderLayout>
+        {isReadOnly && (
+          <div className="mx-4 mt-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+            This quote is currently being edited by {lockedByName || 'another user'}. You are viewing in read-only mode.
+          </div>
+        )}
+        <AnimatedStep stepKey={currentStep}>
+          <StepComponent />
+        </AnimatedStep>
+      </BuilderLayout>
+    </ReadOnlyProvider>
   );
 }
 
@@ -69,7 +91,7 @@ function NavigationGuard() {
       if (getHasUnsavedChanges()) {
         // Revert to builder
         pendingHashRef.current = newHash;
-        window.history.pushState(null, '', oldHash);
+        window.history.replaceState(null, '', oldHash);
         setShowModal(true);
       }
     };
@@ -90,15 +112,14 @@ function NavigationGuard() {
   }, [navigate]);
 
   const handleSaveAndLeave = async () => {
-    try {
-      await saveNow();
-      toast.success('Quote saved');
-    } catch {
+    const success = await saveNow();
+    if (!success) {
       toast.error('Failed to save quote');
       setShowModal(false);
       pendingHashRef.current = null;
       return;
     }
+    toast.success('Quote saved');
     proceedToTarget();
   };
 

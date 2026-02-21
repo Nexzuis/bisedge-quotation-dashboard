@@ -69,80 +69,65 @@ export function ApprovalDashboard() {
     try {
       const db = getDb();
 
-      // Load quotes pending approval — paginated
-      const result = await db.listQuotes(
-        { page, pageSize: PAGE_SIZE, sortBy: 'createdAt', sortOrder: 'asc' },
-        { status: 'pending-approval' }
-      );
+      // Single query: both statuses + server-side assignee filter + pagination
+      let query = supabase
+        .from('quotes')
+        .select('*', { count: 'exact' })
+        .in('status', ['pending-approval', 'in-review'])
+        .order('created_at', { ascending: true });
 
-      // Also load in-review quotes — same page
-      const reviewResult = await db.listQuotes(
-        { page, pageSize: PAGE_SIZE, sortBy: 'createdAt', sortOrder: 'asc' },
-        { status: 'in-review' }
-      );
+      // Server-side assignee filter for non-admins
+      if (user.role !== 'system_admin') {
+        query = query.eq('current_assignee_id', user.id);
+      }
 
-      const allItems = [...result.items, ...reviewResult.items];
+      // Apply pagination
+      const offset = (page - 1) * PAGE_SIZE;
+      query = query.range(offset, offset + PAGE_SIZE - 1);
 
-      // Filter to quotes assigned to current user (or all if system_admin)
-      const filtered = allItems.filter((q: any) => {
-        if (user.role === 'system_admin') return true;
-        return q.currentAssigneeId === user.id;
-      });
+      const { data, count, error } = await query;
+      if (error) throw error;
 
-      // Parse and format
+      const total = count ?? 0;
+      setTotalPages(Math.max(1, Math.ceil(total / PAGE_SIZE)));
+
+      // Parse rows into PendingQuote shape
       const parsed: PendingQuote[] = await Promise.all(
-        filtered.map(async (q: any) => {
+        (data || []).map(async (q: any) => {
           let chain: ApprovalChainEntry[] = [];
           try {
-            chain = typeof q.approvalChain === 'string' ? JSON.parse(q.approvalChain) : q.approvalChain || [];
+            const rawChain = q.approval_chain || q.approvalChain;
+            chain = typeof rawChain === 'string' ? JSON.parse(rawChain) : rawChain || [];
           } catch (e) { console.error('Failed to parse approval chain for quote:', q.id, e); chain = []; }
 
           let submitterName = 'Unknown';
-          if (q.submittedBy) {
+          const submittedBy = q.submitted_by || q.submittedBy;
+          if (submittedBy) {
             try {
-              const submitter = await db.getUser(q.submittedBy);
+              const submitter = await db.getUser(submittedBy);
               if (submitter) submitterName = submitter.fullName || submitter.full_name || 'Unknown';
-            } catch (e) { console.warn('Failed to load submitter for:', q.submittedBy, e); }
+            } catch (e) { console.warn('Failed to load submitter for:', submittedBy, e); }
           }
 
           return {
             id: q.id,
-            quoteRef: q.quoteRef || q.quote_ref || '',
-            clientName: q.clientName || q.client_name || '',
-            contactName: q.contactName || q.contact_name || '',
+            quoteRef: q.quote_ref || q.quoteRef || '',
+            clientName: q.client_name || q.clientName || '',
+            contactName: q.contact_name || q.contactName || '',
             status: q.status,
-            currentAssigneeId: q.currentAssigneeId || q.current_assignee_id || null,
-            currentAssigneeRole: q.currentAssigneeRole || q.current_assignee_role || null,
+            currentAssigneeId: q.current_assignee_id || q.currentAssigneeId || null,
+            currentAssigneeRole: q.current_assignee_role || q.currentAssigneeRole || null,
             approvalChain: chain,
-            submittedBy: q.submittedBy || q.submitted_by || null,
-            submittedAt: q.submittedAt || q.submitted_at || null,
-            createdBy: q.createdBy || q.created_by || null,
-            createdAt: q.createdAt || q.created_at || '',
+            submittedBy: submittedBy || null,
+            submittedAt: q.submitted_at || q.submittedAt || null,
+            createdBy: q.created_by || q.createdBy || null,
+            createdAt: q.created_at || q.createdAt || '',
             submitterName,
           };
         })
       );
 
       setQuotes(parsed);
-
-      // Server-side count for accurate pending total + pagination
-      let serverPendingCount = parsed.length;
-      try {
-        let pendingCountQ = supabase.from('quotes').select('id', { count: 'exact', head: true })
-          .eq('status', 'pending-approval');
-        let reviewCountQ = supabase.from('quotes').select('id', { count: 'exact', head: true })
-          .eq('status', 'in-review');
-        if (user.role !== 'system_admin') {
-          pendingCountQ = pendingCountQ.eq('current_assignee_id', user.id);
-          reviewCountQ = reviewCountQ.eq('current_assignee_id', user.id);
-        }
-        const [pc, rc] = await Promise.all([pendingCountQ, reviewCountQ]);
-        serverPendingCount = (pc.count ?? 0) + (rc.count ?? 0);
-        setTotalPages(Math.max(1, Math.ceil(serverPendingCount / PAGE_SIZE)));
-      } catch {
-        // Fall back to parsed.length if count query fails
-        setTotalPages(Math.max(1, Math.ceil(parsed.length / PAGE_SIZE)));
-      }
 
       // Query today's approval/rejection counts
       try {
@@ -157,10 +142,10 @@ export function ApprovalDashboard() {
         const rejectedToday = recentAudit.filter(
           (e) => e.action === 'reject' && new Date(e.timestamp).getTime() >= todayMs
         ).length;
-        setStats({ pending: serverPendingCount, approvedToday, rejectedToday });
+        setStats({ pending: total, approvedToday, rejectedToday });
       } catch (e) {
         console.warn('Failed to load approval stats:', e);
-        setStats({ pending: serverPendingCount, approvedToday: 0, rejectedToday: 0 });
+        setStats({ pending: total, approvedToday: 0, rejectedToday: 0 });
       }
     } catch (error) {
       console.error('Error loading pending approvals:', error);
@@ -525,18 +510,20 @@ export function ApprovalStats() {
 
   const loadStats = async () => {
     try {
-      const db = getDb();
-      const result = await db.listQuotes(
-        { page: 1, pageSize: 100, sortBy: 'createdAt', sortOrder: 'asc' },
-        { status: 'pending-approval' }
-      );
+      // Server-side count for both pending statuses
+      const [pendingCount, reviewCount] = await Promise.all([
+        supabase.from('quotes').select('id', { count: 'exact', head: true }).eq('status', 'pending-approval'),
+        supabase.from('quotes').select('id', { count: 'exact', head: true }).eq('status', 'in-review'),
+      ]);
+      const totalPending = (pendingCount.count ?? 0) + (reviewCount.count ?? 0);
+
       const auditRepo = getAuditRepository();
       const recentAudit = await auditRepo.getRecent(200);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const todayMs = today.getTime();
       setStats({
-        pending: result.items.length,
+        pending: totalPending,
         approvedToday: recentAudit.filter(
           (e) => e.action === 'approve' && new Date(e.timestamp).getTime() >= todayMs
         ).length,

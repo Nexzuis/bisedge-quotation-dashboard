@@ -38,15 +38,14 @@ export function ExportStep() {
 
   const handleSave = async () => {
     setIsSaving(true);
-    try {
-      await saveNow();
+    const success = await saveNow();
+    if (success) {
       setSaved(true);
       toast.success('Quote saved successfully');
-    } catch (error) {
+    } else {
       toast.error('Failed to save quote');
-    } finally {
-      setIsSaving(false);
     }
+    setIsSaving(false);
   };
 
   const handleExportPDF = async () => {
@@ -80,9 +79,10 @@ export function ExportStep() {
     }
   };
 
-  // Load target users when the approval modal opens
+  // Bug #25 fix: cancel async work if the component unmounts or modal closes
   useEffect(() => {
     if (!showApprovalModal) return;
+    let cancelled = false;
     const loadUsers = async () => {
       const db = getDb();
       const allUsers: { id: string; fullName: string; role: string }[] = [];
@@ -90,9 +90,12 @@ export function ExportStep() {
         const users = await db.getUsersByRole(role);
         allUsers.push(...users.map((u: any) => ({ id: u.id, fullName: u.fullName || u.full_name, role: u.role })));
       }
-      setTargetUsers(allUsers);
+      if (!cancelled) {
+        setTargetUsers(allUsers);
+      }
     };
     loadUsers();
+    return () => { cancelled = true; };
   }, [showApprovalModal, targetRoles]);
 
   const handleSubmitForApproval = () => {

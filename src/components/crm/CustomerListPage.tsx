@@ -37,15 +37,18 @@ export default function CustomerListPage() {
   const { listCompanies, searchCompanies } = useCompanies();
   const location = useLocation();
 
-  // Load user names for display
+  // Bug #26 fix: cancel async work if the component unmounts
   useEffect(() => {
+    let cancelled = false;
     getDb().listUsers().then((users) => {
+      if (cancelled) return;
       const map: Record<string, string> = {};
       for (const u of users) {
         map[u.id] = u.fullName || u.username;
       }
       setUserNameMap(map);
     }).catch(() => { console.warn('Failed to load user names'); });
+    return () => { cancelled = true; };
   }, []);
 
   // Check if navigated with openNewLead or filterStage state

@@ -5,6 +5,7 @@ import { CardHeader } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { Tooltip } from '../ui/Tooltip';
 import { useQuoteStore } from '../../store/useQuoteStore';
+import { useIsReadOnly } from '../../hooks/ReadOnlyContext';
 import {
   usePriceListSeries,
   useSeriesData,
@@ -40,6 +41,7 @@ function getSpecCategory(specCode: string): string {
 }
 
 function FleetSlot({ slotIndex }: { slotIndex: SlotIndex }) {
+  const { isReadOnly } = useIsReadOnly();
   const slot = useQuoteStore((state) => state.slots[slotIndex]);
   const factoryROE = useQuoteStore((state) => state.factoryROE);
   const defaultLeaseTermMonths = useQuoteStore((state) => state.defaultLeaseTermMonths);
@@ -138,7 +140,7 @@ function FleetSlot({ slotIndex }: { slotIndex: SlotIndex }) {
   };
 
   return (
-    <div className={`glass rounded-lg p-3 transition-all ${slot.isEmpty && !slot.seriesCode ? 'opacity-60' : 'opacity-100 border-brand-500/20'} ${isExpanded ? 'bg-brand-500/5' : ''}`}>
+    <fieldset disabled={isReadOnly} className={`border-0 p-0 m-0 min-w-0 glass rounded-lg p-3 transition-all ${slot.isEmpty && !slot.seriesCode ? 'opacity-60' : 'opacity-100 border-brand-500/20'} ${isExpanded ? 'bg-brand-500/5' : ''}`}>
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-semibold text-surface-400">Unit {slotIndex + 1}</span>
@@ -521,7 +523,7 @@ function FleetSlot({ slotIndex }: { slotIndex: SlotIndex }) {
           </div>
         </>
       )}
-    </div>
+    </fieldset>
   );
 }
 

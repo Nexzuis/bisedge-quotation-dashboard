@@ -8,7 +8,7 @@ export interface KeyboardShortcutOptions {
    * Called when Ctrl+S is pressed. Typically bound to the saveNow function
    * from useAutoSave so the shortcut reuses the same save path as auto-save.
    */
-  onSave: () => Promise<void>;
+  onSave: () => Promise<boolean>;
 }
 
 /**
@@ -59,14 +59,13 @@ export function useKeyboardShortcuts({ onSave }: KeyboardShortcutOptions): void 
       switch (e.key) {
         case 's': {
           e.preventDefault();
-          void onSaveRef.current().then(() => {
-            toast.success('Quote saved', {
-              description: 'All changes have been saved successfully.',
-              duration: 3000,
-            });
-          }).catch((err: unknown) => {
-            const message = err instanceof Error ? err.message : 'Save failed';
-            toast.error('Save failed', { description: message });
+          void onSaveRef.current().then((success) => {
+            if (success) {
+              toast.success('Quote saved', {
+                description: 'All changes have been saved successfully.',
+                duration: 3000,
+              });
+            }
           });
           break;
         }

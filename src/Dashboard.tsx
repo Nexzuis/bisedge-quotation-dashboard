@@ -4,6 +4,9 @@ import { DashboardLayout } from './components/layout/DashboardLayout';
 import { CrmTopBar } from './components/crm/CrmTopBar';
 import { useQuoteDB } from './hooks/useQuoteDB';
 import { useQuoteStore } from './store/useQuoteStore';
+import { useQuoteLock } from './hooks/useQuoteLock';
+import { useRealtimeQuote } from './hooks/useRealtimeQuote';
+import { ReadOnlyProvider } from './hooks/ReadOnlyContext';
 
 function Dashboard() {
   const [searchParams] = useSearchParams();
@@ -12,6 +15,17 @@ function Dashboard() {
   const [quoteLoadError, setQuoteLoadError] = useState<string | null>(null);
 
   const quoteId = searchParams.get('id');
+  const storeQuoteId = useQuoteStore((s) => s.id);
+
+  // Lock & realtime: gate on load state to avoid hooking before quote is ready
+  const shouldLock = !isLoadingQuote && !quoteLoadError;
+  const { isLocked, lockedByName, hasLock } = useQuoteLock(storeQuoteId, shouldLock, true);
+  useRealtimeQuote(storeQuoteId, shouldLock);
+
+  const isReadOnly = shouldLock && isLocked && !hasLock;
+  const readOnlyReason = isReadOnly
+    ? `This quote is currently being edited by ${lockedByName || 'another user'}.`
+    : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -61,7 +75,18 @@ function Dashboard() {
           </div>
         )}
       </div>
-      {!isLoadingQuote && <DashboardLayout />}
+      {isReadOnly && (
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+            This quote is currently being edited by {lockedByName || 'another user'}. You are viewing in read-only mode.
+          </div>
+        </div>
+      )}
+      {!isLoadingQuote && (
+        <ReadOnlyProvider isReadOnly={isReadOnly} readOnlyReason={readOnlyReason}>
+          <DashboardLayout />
+        </ReadOnlyProvider>
+      )}
     </div>
   );
 }

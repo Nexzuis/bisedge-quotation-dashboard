@@ -12,6 +12,7 @@ import { useAutoSaveContext } from '../../hooks/AutoSaveContext';
 import { useQuoteDB } from '../../hooks/useQuoteDB';
 import { LoadQuoteModal } from '../shared/LoadQuoteModal';
 import { useAuth } from '../auth/AuthContext';
+import { useIsReadOnly } from '../../hooks/ReadOnlyContext';
 
 export function TopBar() {
   const [isExporting, setIsExporting] = useState(false);
@@ -31,6 +32,9 @@ export function TopBar() {
 
   // Quote DB operations
   const { createNewQuote } = useQuoteDB();
+
+  // Read-only state
+  const { isReadOnly } = useIsReadOnly();
 
   // Auth and navigation
   const { user } = useAuth();
@@ -103,13 +107,12 @@ export function TopBar() {
 
   const handleSaveAndNew = async () => {
     setShowNewQuoteModal(false);
-    try {
-      await saveNow();
-      toast.success('Quote saved');
-    } catch {
+    const success = await saveNow();
+    if (!success) {
       toast.error('Failed to save quote');
       return;
     }
+    toast.success('Quote saved');
     await createNewQuote();
   };
 
@@ -195,8 +198,14 @@ export function TopBar() {
           <Button
             variant="secondary"
             icon={Save}
-            onClick={saveNow}
+            onClick={async () => {
+              const success = await saveNow();
+              if (success) {
+                toast.success('Quote saved');
+              }
+            }}
             loading={saveStatus === 'saving'}
+            disabled={isReadOnly}
           >
             Save
           </Button>

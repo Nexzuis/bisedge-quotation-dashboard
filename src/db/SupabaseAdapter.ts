@@ -428,17 +428,12 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
   }
 
   async getNextQuoteRef(): Promise<string> {
-    try {
-      const { data, error } = await supabase.rpc('generate_next_quote_ref');
-      if (error) {
-        console.error('getNextQuoteRef RPC error:', error);
-        return '2140.0'; // fallback
-      }
-      return data as string;
-    } catch (error) {
-      console.error('Error getting next quote ref from Supabase:', error);
-      return '2140.0';
+    const { data, error } = await supabase.rpc('generate_next_quote_ref');
+    if (error) {
+      console.error('getNextQuoteRef RPC error:', error);
+      throw new Error('Failed to generate quote reference. Please try again.');
     }
+    return data as string;
   }
 
   async getMostRecentQuote(): Promise<QuoteState | null> {
@@ -1992,14 +1987,22 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       // If the above query fails (RLS on pg_catalog), fall back to a safe
       // dry-run of save_quote_if_version with version -1 (guaranteed no-op)
       if (error) {
-        const { error: rpcError } = await supabase.rpc('save_quote_if_version', {
+        // Probe save_quote_if_version
+        const { error: rpcError1 } = await supabase.rpc('save_quote_if_version', {
           p_id: '00000000-0000-0000-0000-000000000000',
           p_expected_version: -1,
           p_data: '{}',
         });
-        if (rpcError?.message?.includes('does not exist')) {
+        if (rpcError1?.message?.includes('does not exist')) {
           console.error('[HEALTH CHECK] Required RPC "save_quote_if_version" is missing. Run supabase-migrations-round4.sql.');
         }
+
+        // Probe generate_next_quote_ref
+        const { error: rpcError2 } = await supabase.rpc('generate_next_quote_ref');
+        if (rpcError2?.message?.includes('does not exist')) {
+          console.error('[HEALTH CHECK] Required RPC "generate_next_quote_ref" is missing. Run supabase-migrations-round4.sql.');
+        }
+
         return;
       }
 

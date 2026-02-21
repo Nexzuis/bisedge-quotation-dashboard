@@ -6,11 +6,13 @@ import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { toast } from '../ui/Toast';
 import { useQuoteStore } from '../../store/useQuoteStore';
+import { useIsReadOnly } from '../../hooks/ReadOnlyContext';
 import { generateQuotePDF, type PdfGenerationOptions } from '../../pdf/generatePDF';
 import { validateQuoteSync } from '../../engine/validators';
 import { formatDateFilename } from '../../engine/formatters';
 
 export function QuoteGeneratorPanel() {
+  const { isReadOnly } = useIsReadOnly();
   const [isExporting, setIsExporting] = useState(false);
 
   // PDF Options State
@@ -153,6 +155,7 @@ export function QuoteGeneratorPanel() {
               <select
                 value={quote.quoteType}
                 onChange={(e) => setQuoteType(e.target.value as 'rental' | 'rent-to-own' | 'dual')}
+                disabled={isReadOnly}
                 className="w-full px-3 py-1.5 text-xs bg-surface-900 border border-surface-700 rounded text-surface-200 focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
               >
                 <option value="rental">Standard Rental</option>
@@ -170,6 +173,7 @@ export function QuoteGeneratorPanel() {
                 max={365}
                 value={quote.validityDays ?? 30}
                 onChange={(e) => setValidityDays(Number(e.target.value))}
+                disabled={isReadOnly}
                 className="w-full px-2 py-1.5 text-xs bg-surface-900 border border-surface-700 rounded text-surface-200 focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
               />
               <p className="text-xs text-surface-500 mt-1">

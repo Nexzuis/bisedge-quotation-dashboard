@@ -4,6 +4,7 @@ import { Panel } from '../ui/Panel';
 import { CardHeader } from '../ui/Card';
 import { useQuoteStore } from '../../store/useQuoteStore';
 import { getConfigDefaults } from '../../store/useConfigStore';
+import { useIsReadOnly } from '../../hooks/ReadOnlyContext';
 import type { LeaseTermMonths } from '../../types/quote';
 
 export function SettingsPanel() {
@@ -19,6 +20,7 @@ export function SettingsPanel() {
   const setInterestRate = useQuoteStore((state) => state.setInterestRate);
   const setDefaultLeaseTermMonths = useQuoteStore((state) => state.setDefaultLeaseTermMonths);
 
+  const { isReadOnly } = useIsReadOnly();
   const defaults = getConfigDefaults();
 
   const confirmChange = useCallback((fieldName: string, newValue: number, defaultValue: number, applyFn: (v: number) => void) => {
@@ -38,6 +40,7 @@ export function SettingsPanel() {
     <Panel accent="none">
       <CardHeader icon={Settings} title="Quote Settings" />
 
+      <fieldset disabled={isReadOnly} className="border-0 p-0 m-0 min-w-0">
       <div className="space-y-4">
         {/* Dual ROE Section */}
         <div className="space-y-3">
@@ -164,6 +167,7 @@ export function SettingsPanel() {
           </div>
         </div>
       </div>
+      </fieldset>
     </Panel>
   );
 }

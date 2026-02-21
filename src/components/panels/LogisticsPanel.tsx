@@ -3,6 +3,7 @@ import { Package, Truck, ChevronDown, ChevronUp, AlertTriangle, Info, DollarSign
 import { Panel } from '../ui/Panel';
 import { CardHeader } from '../ui/Card';
 import { useQuoteStore } from '../../store/useQuoteStore';
+import { useIsReadOnly } from '../../hooks/ReadOnlyContext';
 import type { ShippingEntry, UnitSlot, ContainerMapping } from '../../types/quote';
 import { useContainerMappings } from '../../hooks/usePriceList';
 import { formatZAR, formatEUR } from '../../engine/formatters';
@@ -31,6 +32,7 @@ export function LogisticsPanel() {
   const setShippingEntries = useQuoteStore((state) => state.setShippingEntries);
   const factoryROE = useQuoteStore((state) => state.factoryROE);
   const activeSlots = slots.filter((s) => !s.isEmpty && s.modelCode !== '0');
+  const { isReadOnly } = useIsReadOnly();
 
   const [showReference, setShowReference] = useState(true);
   const [showWarnings, setShowWarnings] = useState(false);
@@ -169,6 +171,7 @@ export function LogisticsPanel() {
         </div>
 
         {/* Suggestion Controls */}
+        <fieldset disabled={isReadOnly} className="border-0 p-0 m-0 min-w-0">
         <div className="glass rounded-lg p-3 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-xs font-semibold text-surface-300">
@@ -359,6 +362,7 @@ export function LogisticsPanel() {
             ))}
           </div>
         </div>
+        </fieldset>
 
         {/* Fit Check Warnings (per-series aware) */}
         <FitCheckWarnings

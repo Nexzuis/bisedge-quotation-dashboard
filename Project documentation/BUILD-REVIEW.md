@@ -1,103 +1,83 @@
-# BUILD-REVIEW.md - Round 2 Verification
+# BUILD-REVIEW.md - Round 3 Verification
 
 Date: 2026-02-21  
-Latest commit reviewed: `e45cd67`  
-Scope: Verify resolution of prior CRITICAL/IMPORTANT findings and detect regressions/new issues.
+Latest commit reviewed: `9032f3b`  
+Scope: Verify the 4 listed blockers and flag any remaining/new concerns.
 
 ## Verdict
 NOT APPROVED.
 
-Round 2 fixed several issues from the previous review, but not all CRITICAL/IMPORTANT risks are closed.
+## Blocker Status
 
-## Resolution Check (Prior Findings)
-
-### A. CRITICAL - Missing `users_update/users_delete` policies
+### 1. CRITICAL - `users_update` allowed self-updates (role escalation risk)
 Status: **Resolved**
-- Policies now exist:
-  - `supabase/migrations/001_rls_policies.sql:54`
-  - `supabase/migrations/001_rls_policies.sql:58`
 
-### B. IMPORTANT - Overly permissive CRM delete policies
-Status: **Partially resolved**
-- Deletes are tightened for companies/contacts/activities:
-  - `supabase/migrations/001_rls_policies.sql:26`
-  - `supabase/migrations/001_rls_policies.sql:34`
-  - `supabase/migrations/001_rls_policies.sql:42`
-- But updates are still globally open (`USING (true)`) for CRM core tables:
-  - `supabase/migrations/001_rls_policies.sql:25`
-  - `supabase/migrations/001_rls_policies.sql:33`
-  - `supabase/migrations/001_rls_policies.sql:41`
+Evidence:
+- Self-update clause was removed from users update policy.
+- `supabase/migrations/001_rls_policies.sql:61`
+- `supabase/migrations/001_rls_policies.sql:62`
 
-### C. IMPORTANT - Approval false positives when `payload.old.status` is missing
+Assessment:
+- The direct self-escalation path from the previous review is closed.
+
+### 2. IMPORTANT - User-management authority in RLS broader than app permission model
+Status: **Not resolved**
+
+Evidence:
+- RLS still allows `users_update/users_delete` for `system_admin`, `ceo`, `local_leader`:
+  - `supabase/migrations/001_rls_policies.sql:62`
+  - `supabase/migrations/001_rls_policies.sql:65`
+- App permission model exposes `admin:users` in role permissions only for `system_admin`:
+  - `src/auth/permissions.ts:90`
+  - `src/components/admin/AdminLayout.tsx:157`
+- Default overrides for `ceo`/`local_leader` do not include `can_manage_users`:
+  - `src/auth/permissions.ts:58`
+  - `src/auth/permissions.ts:59`
+
+Assessment:
+- The mismatch remains. Direct API usage under RLS is broader than app-level authorization by default.
+
+### 3. IMPORTANT - Approval notifications depended on replica identity but migration did not enforce it
 Status: **Resolved**
-- Notifications now skip when old status is unavailable:
+
+Evidence:
+- Migration now enforces replica identity for quotes:
+  - `supabase/migrations/001_rls_policies.sql:85`
+- Notification logic requires old status and safely skips otherwise:
   - `src/hooks/useApprovalNotifications.tsx:64`
   - `src/hooks/useApprovalNotifications.tsx:65`
-  - `src/hooks/useApprovalNotifications.tsx:66`
 
-### D. IMPORTANT - SPEC inaccuracies from prior review
-Status: **Mostly resolved**
-- Prior stale caveats were corrected.
-- New inconsistency remains: SPEC still lists `auth.signUp` in active API auth methods:
-  - `Project documentation/SPEC.md:266`
-- But the implementation now uses edge function user creation:
-  - `src/components/admin/users/UserManagement.tsx:217`
-  - `Project documentation/SPEC.md:456`
+Assessment:
+- Infra dependency is now represented in repo migration state.
 
-### Previous Important Gap (still open): manual DB types generation
+### 4. IMPORTANT - `database.types.ts` still hand-maintained
 Status: **Not resolved**
-- `database.types.ts` is still hand-maintained:
+
+Evidence:
+- Manual-types TODO remains:
   - `src/lib/database.types.ts:5`
+- SPEC still documents manual type file:
+  - `Project documentation/SPEC.md:109`
 
-## Remaining / New Issues
+Assessment:
+- Schema drift risk remains open. This is still technical debt, not fixed implementation.
 
-### 1. CRITICAL - Users can self-elevate role via `users_update` RLS policy
-Evidence:
-- Self-update condition is explicitly allowed:
-  - `supabase/migrations/001_rls_policies.sql:56`
-- No column-level guard or `WITH CHECK` restriction prevents changing privileged fields (`role`, `permission_overrides`, `is_active`).
+## Additional Checks
 
-Why this is critical:
-- Any authenticated user can update their own `public.users` row and set `role='system_admin'`.
-- App auth state reads role directly from `public.users`:
-  - `src/store/useAuthStore.ts:257`
-- Route/permission checks then trust that role:
-  - `src/components/admin/AdminLayout.tsx:157`
-  - `src/auth/permissions.ts:90`
+### SPEC alignment update
+Status: **Improved, but still not sufficient for approval**
 
-Impact:
-- Privilege escalation from normal user to admin-level UI/actions is possible at DB policy level.
+What improved:
+- `auth.signUp` removed from auth methods list.
+- Edge Function user creation documented.
+- `Project documentation/SPEC.md:266`
+- `Project documentation/SPEC.md:267`
+- `Project documentation/SPEC.md:457`
 
-### 2. IMPORTANT - RLS grants broader user-management authority than app permission model
-Evidence:
-- `users_update/users_delete` policy grants CEO/local_leader/system_admin:
-  - `supabase/migrations/001_rls_policies.sql:55`
-  - `supabase/migrations/001_rls_policies.sql:59`
-- App-level `admin:users` is scoped to system admin role permissions:
-  - `src/auth/permissions.ts:90`
+No new regressions were found in the files changed by `9032f3b` beyond the unresolved IMPORTANT items above.
 
-Impact:
-- Direct API access can bypass app-level intent and perform user management outside expected role boundaries.
-
-### 3. IMPORTANT - Notification correctness now depends on external DB setting not enforced in repo
-Evidence:
-- Hook requires populated `payload.old.status` and skips otherwise:
-  - `src/hooks/useApprovalNotifications.tsx:62`
-  - `src/hooks/useApprovalNotifications.tsx:66`
-- No migration in repo sets replica identity to ensure old row values for `quotes` updates.
-
-Impact:
-- In environments without full replica identity for `quotes`, approval notifications will silently not fire.
-
-### 4. IMPORTANT - `database.types.ts` generation remains unresolved
-Evidence:
-- Still manual with TODO:
-  - `src/lib/database.types.ts:5`
-
-Impact:
-- Schema drift risk remains, which was a prior important concern.
-
-## Summary
-- Round 2 materially improved policy coverage and notification safety logic.
-- Approval cannot be granted yet due unresolved CRITICAL privilege-escalation risk in `users_update` policy and remaining IMPORTANT gaps.
+## Final Assessment
+- CRITICAL issues: resolved in this round.
+- IMPORTANT issues: not fully resolved (`#2`, `#4` remain open).
+- Overall: do not approve yet.
 

@@ -308,13 +308,14 @@ Items within each section are ordered by severity (highest first).
 - **Problem:** Schema drift is the root cause of commission_tiers, residual_curves, and users.username bugs.
 - **Fix:** Run `npx supabase gen types typescript --project-id <id>`.
 
-### TD-6.3 Auto-generate database.types.ts from live Supabase schema [IMPORTANT]
+### TD-6.3 Auto-generate database.types.ts from live Supabase schema [IMPORTANT — BLOCKED]
 
-- **Severity**: IMPORTANT
+- **Severity**: IMPORTANT (flagged in 4 consecutive code reviews)
 - **File**: `src/lib/database.types.ts`
-- **Problem**: Types file is hand-written and already has drift. CURRENT-PLAN.md item B1 requires auto-generation.
+- **Problem**: Types file is hand-written. Phase 1 fixed known drift (username, commission_pct, residual_curves, audit_log), but manual maintenance cannot guarantee completeness.
 - **Required**: Run `npx supabase gen types typescript --project-id <PROJECT_ID> > src/lib/database.types.ts` and commit.
-- **Blocked by**: Supabase CLI access and project ID.
+- **Blocked by**: Supabase CLI access and project ID — cannot be resolved in code alone.
+- **Status**: Not a code fix. Requires infrastructure access. Will resolve when Supabase CLI is configured.
 
 ### TD-6.2 `pg_proc` REST introspection at startup [IMPORTANT]
 

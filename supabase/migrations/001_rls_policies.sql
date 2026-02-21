@@ -50,19 +50,32 @@ CREATE POLICY "notifications_insert" ON public.notifications FOR INSERT TO authe
 CREATE POLICY "notifications_update" ON public.notifications FOR UPDATE TO authenticated USING (auth.uid()::text = user_id::text);
 
 -- USERS
--- Update/delete restricted to admin roles only. Self-update is NOT allowed at
--- the RLS level because the row contains privileged fields (role, is_active,
--- permission_overrides) that would allow privilege escalation. If self-profile
--- editing is needed in the future, use a column-restricted RPC or a separate
--- policy with a WITH CHECK that prevents changing privileged columns.
--- Note: ceo/local_leader are included because the app's can_manage_users
--- permission override may be granted to these roles.
+-- Update/delete aligned with app permission model (src/auth/permissions.ts):
+--   - system_admin role has admin:users by default
+--   - Any role can gain it via can_manage_users permission override
+-- Self-update is NOT allowed because the row contains privileged fields
+-- (role, is_active, permission_overrides). Use a column-restricted RPC
+-- if self-profile editing is needed in the future.
 CREATE POLICY "users_select" ON public.users FOR SELECT TO authenticated USING (true);
 CREATE POLICY "users_update" ON public.users FOR UPDATE TO authenticated USING (
-  EXISTS (SELECT 1 FROM public.users WHERE id::text = auth.uid()::text AND role IN ('system_admin', 'ceo', 'local_leader'))
+  EXISTS (
+    SELECT 1 FROM public.users
+    WHERE id::text = auth.uid()::text
+    AND (
+      role = 'system_admin'
+      OR (permission_overrides->>'can_manage_users')::boolean = true
+    )
+  )
 );
 CREATE POLICY "users_delete" ON public.users FOR DELETE TO authenticated USING (
-  EXISTS (SELECT 1 FROM public.users WHERE id::text = auth.uid()::text AND role IN ('system_admin', 'ceo', 'local_leader'))
+  EXISTS (
+    SELECT 1 FROM public.users
+    WHERE id::text = auth.uid()::text
+    AND (
+      role = 'system_admin'
+      OR (permission_overrides->>'can_manage_users')::boolean = true
+    )
+  )
 );
 
 -- AUDIT LOG

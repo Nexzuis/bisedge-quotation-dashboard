@@ -263,7 +263,8 @@ API surface = Supabase RPC + table operations from browser code.
 | `SELECT/INSERT/UPDATE` | `notifications` | In-app notification inbox and read-state updates. |
 | `SELECT/INSERT/DELETE` | `templates` | Template admin operations. |
 | `SELECT/INSERT/UPDATE` | `users` | User admin CRUD (public profile table). |
-| `AUTH` | `auth.signInWithPassword`, `auth.signOut`, `auth.getSession`, `auth.getUser`, `auth.signUp`, `auth.resetPasswordForEmail` | Login/session and user creation/reset flows. |
+| `AUTH` | `auth.signInWithPassword`, `auth.signOut`, `auth.getSession`, `auth.getUser`, `auth.resetPasswordForEmail` | Login/session and password reset flows. |
+| `EDGE FUNCTION` | `admin-create-user` | Server-side user creation (service role key, admin-only). |
 | `SELECT/INSERT` | `audit_log` | Audit writes and queries. |
 | `SELECT/UPSERT` | `settings` | Default config values. |
 | `SELECT/INSERT/DELETE` | `commission_tiers`, `residual_curves` | Admin pricing config persistence. |

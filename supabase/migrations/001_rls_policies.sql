@@ -50,10 +50,16 @@ CREATE POLICY "notifications_insert" ON public.notifications FOR INSERT TO authe
 CREATE POLICY "notifications_update" ON public.notifications FOR UPDATE TO authenticated USING (auth.uid()::text = user_id::text);
 
 -- USERS
+-- Update/delete restricted to admin roles only. Self-update is NOT allowed at
+-- the RLS level because the row contains privileged fields (role, is_active,
+-- permission_overrides) that would allow privilege escalation. If self-profile
+-- editing is needed in the future, use a column-restricted RPC or a separate
+-- policy with a WITH CHECK that prevents changing privileged columns.
+-- Note: ceo/local_leader are included because the app's can_manage_users
+-- permission override may be granted to these roles.
 CREATE POLICY "users_select" ON public.users FOR SELECT TO authenticated USING (true);
 CREATE POLICY "users_update" ON public.users FOR UPDATE TO authenticated USING (
   EXISTS (SELECT 1 FROM public.users WHERE id::text = auth.uid()::text AND role IN ('system_admin', 'ceo', 'local_leader'))
-  OR id::text = auth.uid()::text
 );
 CREATE POLICY "users_delete" ON public.users FOR DELETE TO authenticated USING (
   EXISTS (SELECT 1 FROM public.users WHERE id::text = auth.uid()::text AND role IN ('system_admin', 'ceo', 'local_leader'))
@@ -71,6 +77,12 @@ CREATE POLICY "templates_select" ON public.templates FOR SELECT TO authenticated
 CREATE POLICY "commission_tiers_admin" ON public.commission_tiers FOR ALL TO authenticated USING (EXISTS (SELECT 1 FROM public.users WHERE id::text = auth.uid()::text AND role IN ('system_admin', 'ceo', 'local_leader')));
 CREATE POLICY "residual_curves_admin" ON public.residual_curves FOR ALL TO authenticated USING (EXISTS (SELECT 1 FROM public.users WHERE id::text = auth.uid()::text AND role IN ('system_admin', 'ceo', 'local_leader')));
 CREATE POLICY "templates_admin" ON public.templates FOR ALL TO authenticated USING (EXISTS (SELECT 1 FROM public.users WHERE id::text = auth.uid()::text AND role IN ('system_admin', 'ceo', 'local_leader')));
+
+-- REPLICA IDENTITY
+-- Required for Supabase Realtime to populate payload.old on UPDATE events.
+-- Without this, approval notifications cannot detect status transitions and
+-- will silently skip (see useApprovalNotifications.tsx).
+ALTER TABLE public.quotes REPLICA IDENTITY FULL;
 
 -- INDEXES
 CREATE INDEX IF NOT EXISTS idx_quotes_status ON public.quotes (status);

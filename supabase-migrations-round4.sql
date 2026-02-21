@@ -43,6 +43,7 @@ REVOKE EXECUTE ON FUNCTION generate_next_quote_ref() FROM public;
 GRANT EXECUTE ON FUNCTION generate_next_quote_ref() TO authenticated;
 
 -- Migration 4: Create atomic save function with version guard (Issue #1)
+-- Security: auth.uid() check + p_id used for INSERT id (prevents p_data.id mismatch)
 CREATE OR REPLACE FUNCTION save_quote_if_version(
   p_id uuid,
   p_expected_version integer,
@@ -55,12 +56,39 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   current_ver integer;
+  current_owner uuid;
   new_ver integer;
+  calling_user uuid;
 BEGIN
-  SELECT version INTO current_ver
+  -- Authorization: require authenticated user
+  calling_user := auth.uid();
+  IF calling_user IS NULL THEN
+    RETURN jsonb_build_object(
+      'success', false,
+      'error', 'Not authenticated'
+    );
+  END IF;
+
+  -- Lock the row (or confirm it doesn't exist yet)
+  SELECT version, created_by INTO current_ver, current_owner
     FROM quotes
     WHERE id = p_id
     FOR UPDATE;
+
+  -- Ownership check: only creator, assigned_to, current_assignee, or lock holder may write
+  IF FOUND THEN
+    IF current_owner != calling_user
+       AND (SELECT assigned_to FROM quotes WHERE id = p_id) IS DISTINCT FROM calling_user
+       AND (SELECT current_assignee_id FROM quotes WHERE id = p_id) IS DISTINCT FROM calling_user
+       AND (SELECT locked_by FROM quotes WHERE id = p_id) IS DISTINCT FROM calling_user
+       AND NOT EXISTS (SELECT 1 FROM users WHERE id = calling_user AND role = 'system_admin')
+    THEN
+      RETURN jsonb_build_object(
+        'success', false,
+        'error', 'Not authorized to modify this quote'
+      );
+    END IF;
+  END IF;
 
   IF FOUND AND current_ver != p_expected_version THEN
     RETURN jsonb_build_object(
@@ -72,6 +100,7 @@ BEGIN
 
   new_ver := (p_data->>'version')::integer;
 
+  -- Use p_id for the row id — prevents p_data.id mismatch attack
   INSERT INTO quotes (
     id, quote_ref, version, status, created_by, assigned_to,
     customer_id, company_id, client_name, contact_name, contact_title,
@@ -86,11 +115,11 @@ BEGIN
     locked_by, locked_at, updated_at, updated_by,
     quote_date, validity_days, last_synced_at, sync_status
   ) VALUES (
-    (p_data->>'id')::uuid,
+    p_id,  -- always use the trusted parameter, not p_data.id
     p_data->>'quote_ref',
     new_ver,
     p_data->>'status',
-    (p_data->>'created_by')::uuid,
+    COALESCE((p_data->>'created_by')::uuid, calling_user),
     (p_data->>'assigned_to')::uuid,
     (p_data->>'customer_id')::uuid,
     (p_data->>'company_id')::uuid,
@@ -126,7 +155,7 @@ BEGIN
     (p_data->>'locked_by')::uuid,
     (p_data->>'locked_at')::timestamptz,
     (p_data->>'updated_at')::timestamptz,
-    (p_data->>'updated_by')::uuid,
+    calling_user,  -- updated_by always set to the actual caller
     (p_data->>'quote_date')::date,
     (p_data->>'validity_days')::integer,
     (p_data->>'last_synced_at')::timestamptz,

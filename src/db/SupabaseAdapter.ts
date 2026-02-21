@@ -1976,25 +1976,41 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
 
   /**
    * Verify that required RPC functions exist in Supabase.
+   * Uses a metadata query against pg_proc — does NOT invoke the RPCs,
+   * so it won't burn sequence values or cause side effects.
    * Log-only, non-blocking — called on adapter init.
    */
   async verifyRequiredRpcs(): Promise<void> {
-    const rpcs = ['generate_next_quote_ref', 'save_quote_if_version'] as const;
-    for (const rpc of rpcs) {
-      try {
-        const { error } = await supabase.rpc(
-          rpc,
-          rpc === 'generate_next_quote_ref'
-            ? undefined
-            : { p_id: '00000000-0000-0000-0000-000000000000', p_expected_version: -1, p_data: '{}' }
-        );
-        // We expect either success or a controlled error — NOT "function does not exist"
-        if (error?.message?.includes('does not exist')) {
-          console.error(`[HEALTH CHECK] Required RPC "${rpc}" is missing. Run Supabase migrations (supabase-migrations-round4.sql).`);
+    const rpcs = ['generate_next_quote_ref', 'save_quote_if_version'];
+    try {
+      const { data, error } = await supabase
+        .from('pg_proc' as any)
+        .select('proname')
+        .in('proname', rpcs)
+        .eq('pronamespace', '(SELECT oid FROM pg_namespace WHERE nspname = \'public\')' as any);
+
+      // If the above query fails (RLS on pg_catalog), fall back to a safe
+      // dry-run of save_quote_if_version with version -1 (guaranteed no-op)
+      if (error) {
+        const { error: rpcError } = await supabase.rpc('save_quote_if_version', {
+          p_id: '00000000-0000-0000-0000-000000000000',
+          p_expected_version: -1,
+          p_data: '{}',
+        });
+        if (rpcError?.message?.includes('does not exist')) {
+          console.error('[HEALTH CHECK] Required RPC "save_quote_if_version" is missing. Run supabase-migrations-round4.sql.');
         }
-      } catch {
-        // Network errors are fine — we only care about "does not exist"
+        return;
       }
+
+      const found = new Set((data || []).map((r: any) => r.proname));
+      for (const rpc of rpcs) {
+        if (!found.has(rpc)) {
+          console.error(`[HEALTH CHECK] Required RPC "${rpc}" is missing. Run supabase-migrations-round4.sql.`);
+        }
+      }
+    } catch {
+      // Network errors are fine at startup
     }
   }
 

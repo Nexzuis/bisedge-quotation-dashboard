@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { getDb } from '../../../db/DatabaseAdapter';
+import { supabase } from '../../../lib/supabase';
 import { toast } from '../../ui/Toast';
 import { ApprovalChainBreadcrumb } from '../../shared/ApprovalChainBreadcrumb';
 import { ApprovalActionModal } from '../../shared/ApprovalActionModal';
@@ -119,6 +120,23 @@ export function ApprovalDashboard() {
 
       setQuotes(parsed);
 
+      // Server-side count for accurate pending total (not truncated by page size)
+      let serverPendingCount = parsed.length;
+      try {
+        let pendingCountQ = supabase.from('quotes').select('id', { count: 'exact', head: true })
+          .eq('status', 'pending-approval');
+        let reviewCountQ = supabase.from('quotes').select('id', { count: 'exact', head: true })
+          .eq('status', 'in-review');
+        if (user.role !== 'system_admin') {
+          pendingCountQ = pendingCountQ.eq('current_assignee_id', user.id);
+          reviewCountQ = reviewCountQ.eq('current_assignee_id', user.id);
+        }
+        const [pc, rc] = await Promise.all([pendingCountQ, reviewCountQ]);
+        serverPendingCount = (pc.count ?? 0) + (rc.count ?? 0);
+      } catch {
+        // Fall back to parsed.length if count query fails
+      }
+
       // Query today's approval/rejection counts
       try {
         const auditRepo = getAuditRepository();
@@ -132,10 +150,10 @@ export function ApprovalDashboard() {
         const rejectedToday = recentAudit.filter(
           (e) => e.action === 'reject' && new Date(e.timestamp).getTime() >= todayMs
         ).length;
-        setStats({ pending: parsed.length, approvedToday, rejectedToday });
+        setStats({ pending: serverPendingCount, approvedToday, rejectedToday });
       } catch (e) {
         console.warn('Failed to load approval stats:', e);
-        setStats({ pending: parsed.length, approvedToday: 0, rejectedToday: 0 });
+        setStats({ pending: serverPendingCount, approvedToday: 0, rejectedToday: 0 });
       }
     } catch (error) {
       console.error('Error loading pending approvals:', error);

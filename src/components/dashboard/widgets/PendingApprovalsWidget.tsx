@@ -12,6 +12,7 @@ import {
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { getDb } from '../../../db/DatabaseAdapter';
+import { supabase } from '../../../lib/supabase';
 import { ApprovalActionModal } from '../../shared/ApprovalActionModal';
 import { fadeInUp } from '../../crm/shared/motionVariants';
 import { ROLE_DISPLAY_NAMES, type Role, type PermissionOverrides } from '../../../auth/permissions';
@@ -46,6 +47,7 @@ export function PendingApprovalsWidget() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const [quotes, setQuotes] = useState<PendingQuote[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -109,6 +111,23 @@ export function PendingApprovalsWidget() {
         })
       );
 
+      // Server-side count for accurate badge (not truncated by slice)
+      let serverTotal = parsed.length;
+      try {
+        let pendingCountQ = supabase.from('quotes').select('id', { count: 'exact', head: true })
+          .eq('status', 'pending-approval');
+        let reviewCountQ = supabase.from('quotes').select('id', { count: 'exact', head: true })
+          .eq('status', 'in-review');
+        if (user.role !== 'system_admin') {
+          pendingCountQ = pendingCountQ.eq('current_assignee_id', user.id);
+          reviewCountQ = reviewCountQ.eq('current_assignee_id', user.id);
+        }
+        const [pc, rc] = await Promise.all([pendingCountQ, reviewCountQ]);
+        serverTotal = (pc.count ?? 0) + (rc.count ?? 0);
+      } catch {
+        // Fall back to parsed.length
+      }
+      setTotalCount(serverTotal);
       setQuotes(parsed.slice(0, 5)); // Show top 5 on dashboard
     } catch (err) {
       console.error('Error loading pending approvals:', err);
@@ -152,7 +171,7 @@ export function PendingApprovalsWidget() {
           <Clock className="w-4 h-4 text-amber-400 animate-pulse" />
           Pending Approvals
           <span className="bg-amber-500/20 text-amber-400 text-xs px-2 py-0.5 rounded-full">
-            {quotes.length}
+            {totalCount}
           </span>
         </h3>
         <button

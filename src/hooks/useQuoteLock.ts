@@ -120,7 +120,11 @@ export function useQuoteLock(
 
           logger.debug('Lock synced to cloud');
         } catch (error) {
-          logger.error('Failed to sync lock to cloud:', error);
+          // Sync failed — roll back local lock to stay consistent with DB
+          logger.error('Failed to sync lock to cloud, rolling back local lock:', error);
+          releaseLock(capturedUserId);
+          setHasLock(false);
+          hasLockRef.current = false;
         }
       } else {
         logger.warn(`Failed to acquire lock for quote ${quoteId}`);
@@ -210,7 +214,10 @@ export function useManualQuoteLock(quoteId: string) {
           return false;
         }
       } catch (error) {
-        logger.error('Failed to sync lock:', error);
+        // Sync failed — roll back local lock to stay consistent with DB
+        logger.error('Failed to sync lock, rolling back:', error);
+        releaseLock(user.id);
+        return false;
       }
     }
 

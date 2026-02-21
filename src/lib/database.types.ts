@@ -106,7 +106,7 @@ export interface Database {
           id: string
           quote_ref: string
           version: number
-          status: 'draft' | 'pending-approval' | 'approved' | 'sent-to-customer' | 'rejected' | 'expired'
+          status: 'draft' | 'pending-approval' | 'in-review' | 'changes-requested' | 'approved' | 'sent-to-customer' | 'rejected' | 'expired'
           created_by: string
           assigned_to: string | null
           customer_id: string | null
@@ -144,6 +144,7 @@ export interface Database {
           locked_at: string | null
           created_at: string
           updated_at: string
+          updated_by: string | null
           quote_date: string
           validity_days: number | null
           last_synced_at: string | null
@@ -153,7 +154,7 @@ export interface Database {
           id?: string
           quote_ref: string
           version?: number
-          status: 'draft' | 'pending-approval' | 'approved' | 'sent-to-customer' | 'rejected' | 'expired'
+          status: 'draft' | 'pending-approval' | 'in-review' | 'changes-requested' | 'approved' | 'sent-to-customer' | 'rejected' | 'expired'
           created_by: string
           assigned_to?: string | null
           customer_id?: string | null
@@ -191,6 +192,7 @@ export interface Database {
           locked_at?: string | null
           created_at?: string
           updated_at?: string
+          updated_by?: string | null
           quote_date?: string
           validity_days?: number | null
           last_synced_at?: string | null
@@ -200,7 +202,7 @@ export interface Database {
           id?: string
           quote_ref?: string
           version?: number
-          status?: 'draft' | 'pending-approval' | 'approved' | 'sent-to-customer' | 'rejected' | 'expired'
+          status?: 'draft' | 'pending-approval' | 'in-review' | 'changes-requested' | 'approved' | 'sent-to-customer' | 'rejected' | 'expired'
           created_by?: string
           assigned_to?: string | null
           customer_id?: string | null
@@ -238,6 +240,7 @@ export interface Database {
           locked_at?: string | null
           created_at?: string
           updated_at?: string
+          updated_by?: string | null
           quote_date?: string
           validity_days?: number | null
           last_synced_at?: string | null
@@ -935,6 +938,18 @@ export interface Database {
           p_merged_data: Json
         }
         Returns: void
+      }
+      generate_next_quote_ref: {
+        Args: Record<string, never>
+        Returns: string
+      }
+      save_quote_if_version: {
+        Args: {
+          p_id: string
+          p_expected_version: number
+          p_data: Json
+        }
+        Returns: Json
       }
     }
     Enums: {

@@ -102,7 +102,16 @@ export function ApprovalWorkflowPanel() {
       });
 
       try {
-        await getDb().saveQuote(useQuoteStore.getState() as QuoteState);
+        const result = await getDb().saveQuote(useQuoteStore.getState() as QuoteState);
+        if (!result.success) {
+          toast.error('Save failed', { description: result.error });
+          const fresh = await getDb().loadQuote((useQuoteStore.getState() as QuoteState).id);
+          if (fresh) useQuoteStore.getState().loadQuote(fresh);
+          return;
+        }
+        useQuoteStore.getState().setVersion(result.version);
+        useQuoteStore.getState().markSaved();
+
         await getAuditRepository().log({
           userId: user!.id,
           userName: user!.fullName,

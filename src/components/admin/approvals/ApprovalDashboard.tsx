@@ -63,16 +63,16 @@ export function ApprovalDashboard() {
     try {
       const db = getDb();
 
-      // Load quotes pending approval
+      // Load quotes pending approval — server-side assignee filter
       const result = await db.listQuotes(
-        { page: 1, pageSize: 100, sortBy: 'createdAt', sortOrder: 'asc' },
+        { page: 1, pageSize: 50, sortBy: 'createdAt', sortOrder: 'asc' },
         { status: 'pending-approval' }
       );
 
       // Also load in-review quotes
       const reviewResult = await db.listQuotes(
-        { page: 1, pageSize: 100, sortBy: 'createdAt', sortOrder: 'asc' },
-        { status: 'in-review' as any }
+        { page: 1, pageSize: 50, sortBy: 'createdAt', sortOrder: 'asc' },
+        { status: 'in-review' }
       );
 
       const allItems = [...result.items, ...reviewResult.items];
@@ -294,7 +294,12 @@ function ApprovalCard({ quote, onRefresh }: { quote: PendingQuote; onRefresh: ()
         ...(modalAction === 'approve' ? { approvedBy: user.id, approvedAt: new Date() } : {}),
       };
 
-      await db.saveQuote(updatedQuote);
+      const saveResult = await db.saveQuote(updatedQuote);
+
+      if (!saveResult.success) {
+        toast.error('Save failed', { description: saveResult.error });
+        return; // Skip audit logging
+      }
 
       await getAuditRepository().log({
         userId: user.id,

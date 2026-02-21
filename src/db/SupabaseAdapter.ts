@@ -92,6 +92,8 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         'Please check your VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local'
       );
     }
+    // Non-blocking startup health check for required RPCs
+    this.verifyRequiredRpcs();
   }
 
   // ===== Quote Operations =====
@@ -108,38 +110,23 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         };
       }
 
-      // Check for version conflicts (optimistic locking)
-      const { data: existing } = await supabase
-        .from('quotes')
-        .select('version, created_by')
-        .eq('id', quote.id)
-        .single();
-
-      if (existing && existing.version !== quote.version) {
-        return {
-          success: false,
-          id: quote.id,
-          version: existing.version,
-          error: 'Version conflict - quote was modified remotely',
-        };
-      }
-
-      // Prepare quote for database — explicit snake_case payload (no camelCase spread)
+      // Prepare quote for database — explicit snake_case payload
       const newVersion = quote.version + 1;
       const dbQuote: Record<string, any> = {
         id: quote.id,
         quote_ref: quote.quoteRef,
         version: newVersion,
         status: quote.status,
-        created_by: existing ? existing.created_by : user.id,
+        created_by: quote.createdBy || user.id,
         assigned_to: quote.assignedTo || null,
         company_id: quote.companyId || null,
+        customer_id: null,
         client_name: quote.clientName,
         contact_name: quote.contactName,
         contact_title: quote.contactTitle || '',
         contact_email: quote.contactEmail || null,
         contact_phone: quote.contactPhone || null,
-        client_address: JSON.stringify(quote.clientAddress),
+        client_address: quote.clientAddress,
         factory_roe: quote.factoryROE,
         customer_roe: quote.customerROE,
         discount_pct: quote.discountPct,
@@ -147,8 +134,8 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         default_lease_term_months: quote.defaultLeaseTermMonths,
         battery_chemistry_lock: quote.batteryChemistryLock,
         quote_type: quote.quoteType,
-        slots: JSON.stringify(quote.slots),
-        shipping_entries: JSON.stringify(quote.shippingEntries ?? []),
+        slots: quote.slots,
+        shipping_entries: quote.shippingEntries ?? [],
         approval_tier: quote.approvalTier ?? null,
         approval_status: quote.approvalStatus || null,
         approval_notes: quote.approvalNotes || null,
@@ -157,38 +144,56 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         submitted_at: quote.submittedAt instanceof Date ? quote.submittedAt.toISOString() : quote.submittedAt || null,
         approved_by: quote.approvedBy || null,
         approved_at: quote.approvedAt instanceof Date ? quote.approvedAt.toISOString() : quote.approvedAt || null,
+        rejected_by: (quote as any).rejectedBy || null,
+        rejected_at: (quote as any).rejectedAt instanceof Date ? (quote as any).rejectedAt.toISOString() : (quote as any).rejectedAt || null,
+        rejection_reason: (quote as any).rejectionReason || null,
         locked_by: quote.lockedBy || null,
         locked_at: quote.lockedAt instanceof Date ? quote.lockedAt.toISOString() : quote.lockedAt || null,
-        quote_date: quote.quoteDate instanceof Date ? quote.quoteDate.toISOString() : quote.quoteDate,
+        quote_date: quote.quoteDate instanceof Date ? quote.quoteDate.toISOString().split('T')[0] : quote.quoteDate,
         created_at: quote.createdAt instanceof Date ? quote.createdAt.toISOString() : quote.createdAt,
         updated_at: new Date().toISOString(),
+        updated_by: user.id,
         current_assignee_id: quote.currentAssigneeId || null,
         current_assignee_role: quote.currentAssigneeRole || null,
-        approval_chain: JSON.stringify(quote.approvalChain || []),
+        approval_chain: quote.approvalChain || [],
         validity_days: quote.validityDays ?? 30,
+        last_synced_at: null,
+        sync_status: null,
       };
 
-      // Upsert quote
-      const { error } = await supabase
-        .from('quotes')
-        .upsert(dbQuote as QuotesInsert, {
-          onConflict: 'id',
-        });
+      // Atomic save via RPC — SELECT ... FOR UPDATE + version check + upsert in one call
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('save_quote_if_version', {
+        p_id: quote.id,
+        p_expected_version: quote.version,
+        p_data: dbQuote,
+      });
 
-      if (error) {
-        console.error('Supabase error saving quote:', error);
+      if (rpcError) {
+        console.error('Supabase RPC error saving quote:', rpcError);
         return {
           success: false,
           id: quote.id,
           version: quote.version,
-          error: error.message,
+          error: rpcError.message,
+        };
+      }
+
+      // Parse JSONB result from RPC
+      const result = typeof rpcResult === 'string' ? JSON.parse(rpcResult) : rpcResult;
+
+      if (!result.success) {
+        return {
+          success: false,
+          id: quote.id,
+          version: result.version ?? quote.version,
+          error: result.error || 'Version conflict - quote was modified remotely',
         };
       }
 
       // Log audit entry
       await this.logAudit({
         userId: user.id,
-        action: existing ? 'update' : 'create',
+        action: quote.version === 0 ? 'create' : 'update',
         entityType: 'quote',
         entityId: quote.id,
         changes: {},
@@ -424,33 +429,12 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
 
   async getNextQuoteRef(): Promise<string> {
     try {
-      // Get all quotes and find max base reference number
-      const { data, error } = await supabase
-        .from('quotes')
-        .select('quote_ref')
-        .order('quote_ref', { ascending: false })
-        .limit(100);
-
+      const { data, error } = await supabase.rpc('generate_next_quote_ref');
       if (error) {
-        console.error('Error getting next quote ref:', error);
-        return '2140.0';
+        console.error('getNextQuoteRef RPC error:', error);
+        return '2140.0'; // fallback
       }
-
-      if (!data || data.length === 0) {
-        return '2140.0';
-      }
-
-      let maxRef = 2139;
-
-      data.forEach((quote: any) => {
-        const parts = quote.quote_ref.split('.');
-        const baseNum = parseInt(parts[0]);
-        if (!isNaN(baseNum) && baseNum > maxRef) {
-          maxRef = baseNum;
-        }
-      });
-
-      return `${maxRef + 1}.0`;
+      return data as string;
     } catch (error) {
       console.error('Error getting next quote ref from Supabase:', error);
       return '2140.0';
@@ -1988,6 +1972,30 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       createdAt: row.created_at || '',
       updatedAt: row.updated_at || '',
     };
+  }
+
+  /**
+   * Verify that required RPC functions exist in Supabase.
+   * Log-only, non-blocking — called on adapter init.
+   */
+  async verifyRequiredRpcs(): Promise<void> {
+    const rpcs = ['generate_next_quote_ref', 'save_quote_if_version'] as const;
+    for (const rpc of rpcs) {
+      try {
+        const { error } = await supabase.rpc(
+          rpc,
+          rpc === 'generate_next_quote_ref'
+            ? undefined
+            : { p_id: '00000000-0000-0000-0000-000000000000', p_expected_version: -1, p_data: '{}' }
+        );
+        // We expect either success or a controlled error — NOT "function does not exist"
+        if (error?.message?.includes('does not exist')) {
+          console.error(`[HEALTH CHECK] Required RPC "${rpc}" is missing. Run Supabase migrations (supabase-migrations-round4.sql).`);
+        }
+      } catch {
+        // Network errors are fine — we only care about "does not exist"
+      }
+    }
   }
 
   private emptyLeadStats(): LeadStats {

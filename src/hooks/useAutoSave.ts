@@ -162,6 +162,20 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
   }, [quoteRef, updatedAt]);
 
   /**
+   * Fix #5: Sync autosave baseline when the store is marked as saved externally
+   * (e.g. after loadQuote from realtime or markSaved from approval path).
+   * This prevents realtime reload from triggering an unnecessary autosave.
+   */
+  const _lastSavedAt = useQuoteStore((state) => (state as any)._lastSavedAt);
+
+  useEffect(() => {
+    if (_lastSavedAt) {
+      lastUpdatedAtRef.current = useQuoteStore.getState().updatedAt;
+      setLastSavedAt(_lastSavedAt);
+    }
+  }, [_lastSavedAt]);
+
+  /**
    * Watch for changes and trigger debounced save
    */
   useEffect(() => {

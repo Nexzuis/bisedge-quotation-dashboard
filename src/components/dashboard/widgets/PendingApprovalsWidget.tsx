@@ -61,12 +61,12 @@ export function PendingApprovalsWidget() {
 
       const [pendingResult, reviewResult] = await Promise.all([
         db.listQuotes(
-          { page: 1, pageSize: 100, sortBy: 'createdAt', sortOrder: 'asc' },
+          { page: 1, pageSize: 20, sortBy: 'createdAt', sortOrder: 'asc' },
           { status: 'pending-approval' }
         ),
         db.listQuotes(
-          { page: 1, pageSize: 100, sortBy: 'createdAt', sortOrder: 'asc' },
-          { status: 'in-review' as any }
+          { page: 1, pageSize: 20, sortBy: 'createdAt', sortOrder: 'asc' },
+          { status: 'in-review' }
         ),
       ]);
 
@@ -260,7 +260,12 @@ function ApprovalQuickCard({
         ...(modalAction === 'approve' ? { approvedBy: user.id, approvedAt: new Date() } : {}),
       };
 
-      await db.saveQuote(updatedQuote);
+      const saveResult = await db.saveQuote(updatedQuote);
+
+      if (!saveResult.success) {
+        toast.error('Save failed', { description: saveResult.error });
+        return; // Skip audit logging
+      }
 
       await getAuditRepository().log({
         userId: user.id,

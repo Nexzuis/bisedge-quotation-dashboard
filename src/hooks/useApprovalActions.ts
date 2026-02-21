@@ -81,7 +81,16 @@ export function useApprovalActions() {
         extraUpdates?.(state);
       });
 
-      await getDb().saveQuote(useQuoteStore.getState() as QuoteState);
+      const result = await getDb().saveQuote(useQuoteStore.getState() as QuoteState);
+      if (!result.success) {
+        toast.error('Save failed', { description: result.error });
+        // Revert local state from DB
+        const fresh = await getDb().loadQuote(useQuoteStore.getState().id);
+        if (fresh) useQuoteStore.getState().loadQuote(fresh);
+        return; // Skip audit logging
+      }
+      useQuoteStore.getState().setVersion(result.version);
+      useQuoteStore.getState().markSaved();
 
       await getAuditRepository().log({
         userId: user.id,
@@ -187,7 +196,15 @@ export function useApprovalActions() {
         state.updatedAt = new Date();
       });
 
-      await getDb().saveQuote(useQuoteStore.getState() as QuoteState);
+      const result = await getDb().saveQuote(useQuoteStore.getState() as QuoteState);
+      if (!result.success) {
+        toast.error('Save failed', { description: result.error });
+        const fresh = await getDb().loadQuote(currentState.id);
+        if (fresh) useQuoteStore.getState().loadQuote(fresh);
+        return; // Skip audit logging
+      }
+      useQuoteStore.getState().setVersion(result.version);
+      useQuoteStore.getState().markSaved();
 
       await getAuditRepository().log({
         userId: user.id,

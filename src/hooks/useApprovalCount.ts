@@ -8,7 +8,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../components/auth/AuthContext';
-import { getDb } from '../db/DatabaseAdapter';
+import { supabase } from '../lib/supabase';
 import { ROLE_HIERARCHY, type Role } from '../auth/permissions';
 
 const POLL_INTERVAL_MS = 30_000;
@@ -24,23 +24,21 @@ export function useApprovalCount() {
   const loadCount = useCallback(async () => {
     if (!user || !isManager) return;
     try {
-      const db = getDb();
-      const [pendingResult, reviewResult] = await Promise.all([
-        db.listQuotes(
-          { page: 1, pageSize: 100, sortBy: 'createdAt', sortOrder: 'asc' },
-          { status: 'pending-approval' }
-        ),
-        db.listQuotes(
-          { page: 1, pageSize: 100, sortBy: 'createdAt', sortOrder: 'asc' },
-          { status: 'in-review' as any }
-        ),
-      ]);
-      const all = [...pendingResult.items, ...reviewResult.items];
-      const assigned = all.filter((q: any) => {
-        if (user.role === 'system_admin') return true;
-        return q.currentAssigneeId === user.id;
-      });
-      setCount(assigned.length);
+      // Server-side count queries — no client-side filtering needed
+      let pendingQuery = supabase.from('quotes').select('id', { count: 'exact', head: true })
+        .eq('status', 'pending-approval');
+      let reviewQuery = supabase.from('quotes').select('id', { count: 'exact', head: true })
+        .eq('status', 'in-review');
+
+      // Server-side assignee filter for non-admins
+      if (user.role !== 'system_admin') {
+        pendingQuery = pendingQuery.eq('current_assignee_id', user.id);
+        reviewQuery = reviewQuery.eq('current_assignee_id', user.id);
+      }
+
+      const [pendingResult, reviewResult] = await Promise.all([pendingQuery, reviewQuery]);
+      const total = (pendingResult.count ?? 0) + (reviewResult.count ?? 0);
+      setCount(total);
     } catch {
       // Non-critical — badge will show stale count
     }

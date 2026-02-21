@@ -94,15 +94,29 @@ export function useQuoteLock(
         logger.debug(`Lock acquired for quote ${quoteId}`);
         setHasLock(true);
 
-        // Sync lock to cloud
+        // Sync lock to cloud — atomic guard: only succeed if unlocked or already ours
         try {
-          await supabase
+          const { data } = await supabase
             .from('quotes')
             .update({
               locked_by: capturedUserId,
               locked_at: new Date().toISOString(),
             })
-            .eq('id', quoteId);
+            .eq('id', quoteId)
+            .or(`locked_by.is.null,locked_by.eq.${capturedUserId}`)
+            .select('locked_by')
+            .maybeSingle();
+
+          if (!data) {
+            // 0 rows updated → lock held by someone else — roll back local state
+            releaseLock(capturedUserId);
+            toast.warning('Quote is locked', {
+              description: 'Another user is currently editing this quote.',
+            });
+            setHasLock(false);
+            hasLockRef.current = false;
+            return;
+          }
 
           logger.debug('Lock synced to cloud');
         } catch (error) {
@@ -179,13 +193,22 @@ export function useManualQuoteLock(quoteId: string) {
 
     if (acquired) {
       try {
-        await supabase
+        const { data } = await supabase
           .from('quotes')
           .update({
             locked_by: user.id,
             locked_at: new Date().toISOString(),
           })
-          .eq('id', quoteId);
+          .eq('id', quoteId)
+          .or(`locked_by.is.null,locked_by.eq.${user.id}`)
+          .select('locked_by')
+          .maybeSingle();
+
+        if (!data) {
+          // Lock held by someone else — roll back
+          releaseLock(user.id);
+          return false;
+        }
       } catch (error) {
         logger.error('Failed to sync lock:', error);
       }

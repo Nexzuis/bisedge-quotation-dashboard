@@ -843,7 +843,6 @@ export const useQuoteStore = create<QuoteStore>()(
       set((draft) => {
         draft.lockedBy = userId;
         draft.lockedAt = new Date();
-        draft.updatedAt = new Date();
       });
       return true;
     },
@@ -853,7 +852,6 @@ export const useQuoteStore = create<QuoteStore>()(
         if (state.lockedBy === userId) {
           state.lockedBy = null;
           state.lockedAt = null;
-          state.updatedAt = new Date();
         }
       }),
 

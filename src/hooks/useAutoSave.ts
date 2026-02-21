@@ -149,6 +149,7 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
   useEffect(() => {
     if (quoteRef !== prevQuoteRefRef.current) {
       prevQuoteRefRef.current = quoteRef;
+      scheduledQuoteRefRef.current = quoteRef;
       setLastSavedAt(new Date());
       lastUpdatedAtRef.current = updatedAt;
 

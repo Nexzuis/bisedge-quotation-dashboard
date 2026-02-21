@@ -65,6 +65,7 @@ export function useSeriesData(seriesCode: string): PriceListSeries | null {
 
   useEffect(() => {
     const currentRequestId = ++requestIdRef.current;
+    let cancelled = false;
 
     if (!seriesCode) {
       setSeries(null);
@@ -84,7 +85,7 @@ export function useSeriesData(seriesCode: string): PriceListSeries | null {
       }
 
       // Bug #27 fix: only apply results if this is still the latest request
-      if (currentRequestId === requestIdRef.current) {
+      if (currentRequestId === requestIdRef.current && !cancelled) {
         if (!data) {
           setSeries(null);
           return;
@@ -110,6 +111,8 @@ export function useSeriesData(seriesCode: string): PriceListSeries | null {
     }
 
     fetchSeriesData();
+
+    return () => { cancelled = true; };
   }, [seriesCode]);
 
   return series;
@@ -125,6 +128,7 @@ export function useSeriesModels(seriesCode: string): PriceListModel[] {
 
   useEffect(() => {
     const currentRequestId = ++requestIdRef.current;
+    let cancelled = false;
 
     if (!seriesCode) {
       setModels([]);
@@ -144,7 +148,7 @@ export function useSeriesModels(seriesCode: string): PriceListModel[] {
       }
 
       // Bug #27 fix: only apply results if this is still the latest request
-      if (currentRequestId === requestIdRef.current) {
+      if (currentRequestId === requestIdRef.current && !cancelled) {
         if (!data) {
           setModels([]);
           return;
@@ -160,6 +164,8 @@ export function useSeriesModels(seriesCode: string): PriceListModel[] {
     }
 
     fetchModels();
+
+    return () => { cancelled = true; };
   }, [seriesCode]);
 
   return models;
@@ -179,6 +185,7 @@ export function useModelOptions(
 
   useEffect(() => {
     const currentRequestId = ++requestIdRef.current;
+    let cancelled = false;
 
     if (!seriesCode || !indxColumn) {
       setOptions([]);
@@ -198,7 +205,7 @@ export function useModelOptions(
       }
 
       // Bug #27 fix: only apply results if this is still the latest request
-      if (currentRequestId === requestIdRef.current) {
+      if (currentRequestId === requestIdRef.current && !cancelled) {
         if (!data) {
           setOptions([]);
           return;
@@ -232,6 +239,8 @@ export function useModelOptions(
     }
 
     fetchOptions();
+
+    return () => { cancelled = true; };
   }, [seriesCode, indxColumn]);
 
   return options;

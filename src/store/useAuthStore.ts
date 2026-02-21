@@ -191,6 +191,22 @@ export const useAuthStore = create<AuthState>()(
           // Non-critical
         }
 
+        // Reset repository singletons so the next user gets fresh adapters
+        try {
+          const { resetRepositories } = await import('../db/repositories');
+          resetRepositories();
+        } catch (err) {
+          console.warn('Failed to reset repositories on logout:', err);
+        }
+
+        // Bug #6 fix: also reset the database adapter singleton
+        try {
+          const { resetDbAdapter } = await import('../db/DatabaseAdapter');
+          resetDbAdapter();
+        } catch (err) {
+          console.warn('Failed to reset DB adapter on logout:', err);
+        }
+
         // Clear auth state
         set({ user: null, isAuthenticated: false });
       },

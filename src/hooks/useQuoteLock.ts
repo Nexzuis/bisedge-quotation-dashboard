@@ -47,9 +47,13 @@ export function useQuoteLock(
   useEffect(() => {
     if (!user || !autoAcquire) return;
 
+    // Bug #5 fix: capture user.id in a ref so the cleanup closure
+    // always uses the ID that was active when the lock was acquired
+    const capturedUserId = user.id;
+
     const acquireQuoteLock = async () => {
       // Check if already locked
-      if (isLockedByOther(user.id)) {
+      if (isLockedByOther(capturedUserId)) {
         // Someone else has the lock
         logger.warn(`Quote ${quoteId} is locked by another user`);
 
@@ -79,12 +83,12 @@ export function useQuoteLock(
       }
 
       // Stale lock override: lockedBy exists but isLockedByOther returned false
-      if (lockedBy && lockedBy !== user.id) {
+      if (lockedBy && lockedBy !== capturedUserId) {
         logger.warn('Stale lock override', { quoteId, previousHolder: lockedBy, lockedAt });
       }
 
       // Try to acquire lock
-      const acquired = acquireLock(user.id);
+      const acquired = acquireLock(capturedUserId);
 
       if (acquired) {
         logger.debug(`Lock acquired for quote ${quoteId}`);
@@ -95,7 +99,7 @@ export function useQuoteLock(
           await supabase
             .from('quotes')
             .update({
-              locked_by: user.id,
+              locked_by: capturedUserId,
               locked_at: new Date().toISOString(),
             })
             .eq('id', quoteId);
@@ -114,8 +118,9 @@ export function useQuoteLock(
 
     // Release lock on unmount
     return () => {
-      if (autoRelease && hasLockRef.current && user) {
-        releaseLock(user.id);
+      // Bug #5 fix: use capturedUserId instead of user.id from closure
+      if (autoRelease && hasLockRef.current) {
+        releaseLock(capturedUserId);
 
         // Sync lock release to cloud
         Promise.resolve(
@@ -126,13 +131,30 @@ export function useQuoteLock(
               locked_at: null,
             })
             .eq('id', quoteId)
-            .eq('locked_by', user.id)
+            .eq('locked_by', capturedUserId)
         )
           .then(() => logger.debug('Lock released from cloud'))
           .catch((err: Error) => logger.error('Failed to release lock from cloud:', err));
       }
     };
+    // Bug #4 fix: lockedBy removed from deps to prevent acquire/release cycles.
+    // The separate effect below (lines 145-156) handles external lock takeover.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quoteId, user, autoAcquire, autoRelease]);
+
+  // Bug #4 fix: react to external lock changes (e.g. another user acquired the lock)
+  useEffect(() => {
+    if (!user) return;
+    if (lockedBy && lockedBy !== user.id && hasLockRef.current) {
+      // Someone else took the lock while we thought we had it
+      setHasLock(false);
+      hasLockRef.current = false;
+      toast.warning('Lock lost', {
+        description: 'Another user has taken over editing this quote.',
+        duration: 5000,
+      });
+    }
+  }, [lockedBy, user]);
 
   return {
     isLocked: !!lockedBy,

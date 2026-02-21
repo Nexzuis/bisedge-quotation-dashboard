@@ -114,9 +114,29 @@ export function getAvailableActions(
   return [...new Set(actions)]; // deduplicate
 }
 
+// ─── Transition validation ───────────────────────────────────────────────────
+
+/** Map of which actions are valid from which statuses */
+const VALID_TRANSITIONS: Record<string, ApprovalAction[]> = {
+  'draft':              ['submit', 'comment'],
+  'pending-approval':   ['approve', 'reject', 'escalate', 'return', 'comment', 'edit'],
+  'in-review':          ['approve', 'reject', 'escalate', 'return', 'comment'],
+  'changes-requested':  ['submit', 'comment'],
+  'approved':           ['comment'],
+  'rejected':           ['comment'],
+  'sent-to-customer':   ['comment'],
+  'expired':            ['comment'],
+};
+
 // ─── Status mapping ─────────────────────────────────────────────────────────
 
-export function getNextStatus(action: ApprovalAction, currentStatus: QuoteState['status']): QuoteState['status'] {
+export function getNextStatus(action: ApprovalAction, currentStatus: QuoteState['status']): QuoteState['status'] | null {
+  // Bug #23 fix: return null for invalid transitions so callers can detect failure
+  const allowed = VALID_TRANSITIONS[currentStatus];
+  if (allowed && !allowed.includes(action)) {
+    return null;
+  }
+
   switch (action) {
     case 'submit': return 'pending-approval';
     case 'approve': return 'approved';

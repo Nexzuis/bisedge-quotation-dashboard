@@ -272,3 +272,32 @@ Date: 2026-02-19
 - `npx tsc --noEmit`: 0 errors
 - `npx vitest run`: 96/96 passed
 - `npx vite build`: Clean build
+
+---
+
+## Bug Fix Sprint — Round 2 Corrective Fixes (2026-02-21)
+
+After code review of the initial 17-bug fix pass, 9 corrective fixes were applied to address partial fixes and regressions.
+
+### Files Modified
+
+| File | Bugs Fixed | Change Summary |
+|------|-----------|----------------|
+| `src/store/useQuoteStore.ts` | #2, #3 | Added `_lastSavedAt` field + `markSaved()` action; deep-merge slots by `slotIndex` in `loadQuote()` |
+| `src/hooks/useRealtimeQuote.ts` | #3 | Replaced broken epoch heuristic with `updatedAt > _lastSavedAt` |
+| `src/hooks/useAutoSave.ts` | #3 | Call `markSaved()` after successful save |
+| `src/hooks/usePriceList.ts` | #27 | `requestIdRef` in `useSeriesData`, `useSeriesModels`, `useModelOptions` |
+| `src/engine/commissionEngine.ts` | #9 | Half-open `[min, max)` with last-tier fallback (3 callsites) |
+| `src/engine/formatters.ts` | #18 | `Number.isFinite()` guard on `formatNumber` and `formatCompact` |
+| `src/components/GlobalSearch.tsx` | #20 | `stopImmediatePropagation()` on Escape |
+| `src/store/useAuthStore.ts` | #6 | `resetDbAdapter()` on logout |
+| `src/hooks/useQuoteLock.ts` | #4 | Removed `lockedBy` from main effect deps |
+| `src/engine/containerOptimizer.ts` | #22 | Added `containerHeight > 0` check |
+| `src/engine/approvalEngine.ts` | #23 | `getNextStatus` returns `null` for invalid transitions |
+| `src/hooks/useApprovalActions.ts` | #23 | Check `null` return, show error toast |
+| `src/components/admin/approvals/ApprovalDashboard.tsx` | #23 | Check `null` return, show error toast |
+| `src/components/dashboard/widgets/PendingApprovalsWidget.tsx` | #23 | Check `null` return, show error toast |
+
+### Validation (Post Round 2)
+- `npx tsc --noEmit`: 0 errors
+- `npx vitest run`: 122/122 passed

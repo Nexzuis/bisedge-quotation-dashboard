@@ -8,6 +8,7 @@ import type { ZAR, EUR } from '../types/quote';
  * @returns Formatted string (e.g., "R 125,450.00")
  */
 export function formatZAR(amount: ZAR, includeDecimals: boolean = true): string {
+  if (!Number.isFinite(amount)) return 'R 0.00';
   const options: Intl.NumberFormatOptions = {
     minimumFractionDigits: includeDecimals ? 2 : 0,
     maximumFractionDigits: includeDecimals ? 2 : 0,
@@ -24,6 +25,7 @@ export function formatZAR(amount: ZAR, includeDecimals: boolean = true): string 
  * @returns Formatted string (e.g., "€ 12,450.50")
  */
 export function formatEUR(amount: EUR, includeDecimals: boolean = true): string {
+  if (!Number.isFinite(amount)) return '€ 0.00';
   const options: Intl.NumberFormatOptions = {
     minimumFractionDigits: includeDecimals ? 2 : 0,
     maximumFractionDigits: includeDecimals ? 2 : 0,
@@ -40,6 +42,7 @@ export function formatEUR(amount: EUR, includeDecimals: boolean = true): string 
  * @returns Formatted string (e.g., "12.45%")
  */
 export function formatPercentage(value: number, decimals: number = 2): string {
+  if (!Number.isFinite(value)) return '0.00%';
   return `${value.toFixed(decimals)}%`;
 }
 
@@ -79,6 +82,7 @@ export function formatDateFilename(date: Date): string {
  * @returns Formatted string (e.g., "125,450")
  */
 export function formatNumber(value: number, decimals: number = 0): string {
+  if (!Number.isFinite(value)) return '0';
   return value.toLocaleString('en-ZA', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
@@ -179,6 +183,7 @@ export function truncate(text: string, maxLength: number): string {
  * @returns Compact string
  */
 export function formatCompact(value: number): string {
+  if (!Number.isFinite(value)) return '0';
   if (value >= 1_000_000) {
     return `${(value / 1_000_000).toFixed(1)}M`;
   }

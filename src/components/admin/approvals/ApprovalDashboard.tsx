@@ -276,6 +276,12 @@ function ApprovalCard({ quote, onRefresh }: { quote: PendingQuote; onRefresh: ()
       const entry = createChainEntry(chainAction as ApprovalChainEntry['action'], fromUser, toUser, data.notes);
       const newStatus = getNextStatus(modalAction as ApprovalAction, fullQuote.status);
 
+      // Bug #23 fix: bail out if transition is invalid
+      if (newStatus === null) {
+        toast.error('Invalid action', { description: `Cannot "${modalAction}" a quote in "${fullQuote.status}" status.` });
+        return;
+      }
+
       const isComment = modalAction === 'comment';
       const updatedQuote = {
         ...fullQuote,

@@ -246,6 +246,10 @@ interface QuoteStore extends QuoteState {
   setQuoteRef: (quoteRef: string) => void;
   setVersion: (version: number) => void;
   loadQuote: (quote: QuoteState) => void;
+
+  // Internal — tracks when the quote was last persisted to DB
+  _lastSavedAt: Date;
+  markSaved: () => void;
 }
 
 // Initial state factory — reads defaults from config store
@@ -298,12 +302,13 @@ function createInitialState(): QuoteState {
     createdAt: new Date(),
     updatedAt: new Date(),
     version: 1,
-  };
+  } as QuoteState;
 }
 
 export const useQuoteStore = create<QuoteStore>()(
   immer((set, get) => ({
     ...createInitialState(),
+    _lastSavedAt: new Date(),
 
     // Customer Actions
     setCustomerField: (field: CustomerField, value) =>
@@ -921,9 +926,29 @@ export const useQuoteStore = create<QuoteStore>()(
         state.version = version;
       }),
 
+    // Bug #3 fix: mark the quote as freshly saved so the realtime dirty-check works
+    markSaved: () =>
+      set((state) => {
+        (state as any)._lastSavedAt = new Date();
+      }),
+
+    // Bug #2 fix: deep-merge each slot with defaults so older quotes missing
+    // new UnitSlot fields (clearingCharges, localCosts) get proper defaults.
+    // Match by slotIndex (not array index) to handle sparse/reordered data.
     loadQuote: (quote) =>
       set(() => {
-        return { ...createInitialState(), ...quote };
+        const defaults = createInitialState();
+        const mergedSlots = defaults.slots.map((defaultSlot) => {
+          const loaded = quote.slots?.find((s) => s.slotIndex === defaultSlot.slotIndex);
+          if (!loaded) return defaultSlot;
+          return {
+            ...defaultSlot,
+            ...loaded,
+            clearingCharges: { ...defaultSlot.clearingCharges, ...(loaded.clearingCharges || {}) },
+            localCosts: { ...defaultSlot.localCosts, ...(loaded.localCosts || {}) },
+          };
+        });
+        return { ...defaults, ...quote, slots: mergedSlots, _lastSavedAt: new Date() } as any;
       }),
   }))
 );

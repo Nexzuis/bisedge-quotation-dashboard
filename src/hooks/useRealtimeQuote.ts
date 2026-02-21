@@ -47,13 +47,33 @@ export function useRealtimeQuote(quoteId: string, enabled: boolean = true) {
         const updatedQuote = await db.loadQuote(quoteId);
 
         if (updatedQuote) {
-          logger.debug('Quote reloaded from remote update');
-          loadQuote(updatedQuote);
+          // Bug #3 fix: check if the user has unsaved local changes before overwriting
+          const storeState = useQuoteStore.getState();
+          const hasLocalChanges = storeState.updatedAt.getTime() > (storeState as any)._lastSavedAt.getTime();
 
-          toast.info('Quote updated remotely', {
-            description: 'Refreshed to latest version',
-            duration: 3000,
-          });
+          if (hasLocalChanges) {
+            // Show conflict prompt instead of silently overwriting
+            toast.warning('Remote changes detected', {
+              description: 'Another user modified this quote. What would you like to do?',
+              action: {
+                label: 'Reload Remote',
+                onClick: () => {
+                  loadQuote(updatedQuote);
+                  toast.success('Quote reloaded with remote changes');
+                },
+              },
+              duration: 15000,
+            });
+          } else {
+            // No local changes — safe to auto-reload
+            logger.debug('Quote reloaded from remote update');
+            loadQuote(updatedQuote);
+
+            toast.info('Quote updated remotely', {
+              description: 'Refreshed to latest version',
+              duration: 3000,
+            });
+          }
         }
       } catch (error) {
         logger.error('Failed to reload quote after remote update:', error);

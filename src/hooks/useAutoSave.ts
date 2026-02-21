@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { toast } from '../components/ui/Toast';
+import { toast } from 'sonner';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { getQuoteRepository } from '../db/repositories';
 import type { SaveResult } from '../db/interfaces';
@@ -35,6 +35,9 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
   const isSavingRef = useRef(false);
   const prevQuoteRefRef = useRef(quoteRef);
 
+  // Bug #1 fix: capture the quoteRef at the time the debounce timeout was scheduled
+  const scheduledQuoteRefRef = useRef(quoteRef);
+
   const repository = getQuoteRepository();
 
   /**
@@ -42,6 +45,14 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
    */
   const saveNow = useCallback(async () => {
     if (isSavingRef.current) return;
+
+    // Bug #1 fix: if the quoteRef has changed since the save was scheduled,
+    // skip this save — the data belongs to a different quote
+    const currentQuoteRef = useQuoteStore.getState().quoteRef;
+    if (currentQuoteRef !== scheduledQuoteRefRef.current) {
+      logger.debug('Autosave skipped: quoteRef changed since save was scheduled');
+      return;
+    }
 
     try {
       const { supabase } = await import('../lib/supabase');
@@ -56,7 +67,7 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
     }
 
     // If quote still has default ref, auto-assign a real one before saving
-    if (quoteRef === '0000.0') {
+    if (currentQuoteRef === '0000.0') {
       try {
         const nextRef = await repository.getNextQuoteRef();
         useQuoteStore.getState().setQuoteRef(nextRef);
@@ -83,6 +94,9 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
         // Update version in store to prevent version conflicts
         useQuoteStore.getState().setVersion(result.version);
 
+        // Bug #3 fix: mark the quote as saved so the realtime dirty-check knows
+        useQuoteStore.getState().markSaved();
+
         // Reset to idle after 3 seconds
         setTimeout(() => {
           setStatus('idle');
@@ -91,10 +105,26 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
         setStatus('error');
         setError(result.error || 'Unknown error');
 
-        // Handle version conflict
+        // Bug #11 fix: version conflict with recovery action
         if (result.error?.includes('Version conflict')) {
+          const quoteId = useQuoteStore.getState().id;
           toast.warning('Quote modified in another tab', {
-            description: 'Please refresh to get the latest version'
+            description: 'Your version is out of date.',
+            action: {
+              label: 'Reload Latest',
+              onClick: async () => {
+                try {
+                  const latest = await repository.load(quoteId);
+                  if (latest) {
+                    useQuoteStore.getState().loadQuote(latest);
+                    toast.success('Quote reloaded to latest version');
+                  }
+                } catch {
+                  toast.error('Failed to reload quote');
+                }
+              },
+            },
+            duration: 10000,
           });
         }
       }
@@ -105,19 +135,28 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
     } finally {
       isSavingRef.current = false;
     }
-  }, [quoteRef, repository]);
+  }, [repository]);
 
   /**
    * When quoteRef changes (quote loaded from DB or new quote created),
    * treat the current state as "clean" so that hasUnsavedChanges starts
    * from a known baseline. Without this, lastSavedAt stays null after a
    * load and unsaved-change detection never triggers.
+   *
+   * Bug #1 fix: also clear any pending save timeout so a debounced save
+   * for the *previous* quote doesn't fire after navigation.
    */
   useEffect(() => {
     if (quoteRef !== prevQuoteRefRef.current) {
       prevQuoteRefRef.current = quoteRef;
       setLastSavedAt(new Date());
       lastUpdatedAtRef.current = updatedAt;
+
+      // Clear any pending save from the previous quote
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
     }
   }, [quoteRef, updatedAt]);
 
@@ -132,6 +171,9 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
         clearTimeout(saveTimeoutRef.current);
       }
 
+      // Bug #1 fix: capture quoteRef at schedule time
+      scheduledQuoteRefRef.current = quoteRef;
+
       // Set new timeout
       saveTimeoutRef.current = setTimeout(() => {
         saveNow();
@@ -144,7 +186,7 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [updatedAt, debounceMs, saveNow]);
+  }, [updatedAt, quoteRef, debounceMs, saveNow]);
 
   return {
     status,

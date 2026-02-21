@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import type {
   PriceListSeries,
@@ -60,9 +60,11 @@ export function usePriceListSeries(): { seriesCode: string; seriesName: string; 
  */
 export function useSeriesData(seriesCode: string): PriceListSeries | null {
   const [series, setSeries] = useState<PriceListSeries | null>(null);
+  // Bug #27 fix: use a request counter to discard stale responses from rapid changes
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
-    let cancelled = false;
+    const currentRequestId = ++requestIdRef.current;
 
     if (!seriesCode) {
       setSeries(null);
@@ -81,7 +83,8 @@ export function useSeriesData(seriesCode: string): PriceListSeries | null {
         return;
       }
 
-      if (!cancelled) {
+      // Bug #27 fix: only apply results if this is still the latest request
+      if (currentRequestId === requestIdRef.current) {
         if (!data) {
           setSeries(null);
           return;
@@ -107,10 +110,6 @@ export function useSeriesData(seriesCode: string): PriceListSeries | null {
     }
 
     fetchSeriesData();
-
-    return () => {
-      cancelled = true;
-    };
   }, [seriesCode]);
 
   return series;
@@ -121,9 +120,11 @@ export function useSeriesData(seriesCode: string): PriceListSeries | null {
  */
 export function useSeriesModels(seriesCode: string): PriceListModel[] {
   const [models, setModels] = useState<PriceListModel[]>([]);
+  // Bug #27 fix: use a request counter to discard stale responses from rapid changes
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
-    let cancelled = false;
+    const currentRequestId = ++requestIdRef.current;
 
     if (!seriesCode) {
       setModels([]);
@@ -142,7 +143,8 @@ export function useSeriesModels(seriesCode: string): PriceListModel[] {
         return;
       }
 
-      if (!cancelled) {
+      // Bug #27 fix: only apply results if this is still the latest request
+      if (currentRequestId === requestIdRef.current) {
         if (!data) {
           setModels([]);
           return;
@@ -158,10 +160,6 @@ export function useSeriesModels(seriesCode: string): PriceListModel[] {
     }
 
     fetchModels();
-
-    return () => {
-      cancelled = true;
-    };
   }, [seriesCode]);
 
   return models;
@@ -176,9 +174,11 @@ export function useModelOptions(
   indxColumn: number
 ): PriceListOption[] {
   const [options, setOptions] = useState<PriceListOption[]>([]);
+  // Bug #27 fix: use a request counter to discard stale responses from rapid changes
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
-    let cancelled = false;
+    const currentRequestId = ++requestIdRef.current;
 
     if (!seriesCode || !indxColumn) {
       setOptions([]);
@@ -197,7 +197,8 @@ export function useModelOptions(
         return;
       }
 
-      if (!cancelled) {
+      // Bug #27 fix: only apply results if this is still the latest request
+      if (currentRequestId === requestIdRef.current) {
         if (!data) {
           setOptions([]);
           return;
@@ -231,10 +232,6 @@ export function useModelOptions(
     }
 
     fetchOptions();
-
-    return () => {
-      cancelled = true;
-    };
   }, [seriesCode, indxColumn]);
 
   return options;
@@ -366,12 +363,14 @@ export function useContainerMapping(seriesCode: string): ContainerMapping | null
  */
 export function useContainerMappings(seriesCodes: string[]): (ContainerMapping | null)[] {
   const [mappings, setMappings] = useState<(ContainerMapping | null)[]>([]);
+  // Bug #27 fix: use a request counter to discard stale responses from rapid changes
+  const requestIdRef = useRef(0);
 
-  // Stable key for the dependency — sorted and deduped
-  const key = JSON.stringify([...new Set(seriesCodes)].sort());
+  // Bug #28 fix: preserve order in the key so slot reordering triggers a refetch
+  const key = JSON.stringify(seriesCodes);
 
   useEffect(() => {
-    let cancelled = false;
+    const currentRequestId = ++requestIdRef.current;
 
     if (seriesCodes.length === 0) {
       setMappings([]);
@@ -388,7 +387,8 @@ export function useContainerMappings(seriesCodes: string[]): (ContainerMapping |
         return;
       }
 
-      if (!cancelled && data) {
+      // Bug #27 fix: only apply results if this is still the latest request
+      if (currentRequestId === requestIdRef.current && data) {
         const result = seriesCodes.map((code) => {
           const match = matchSeriesCode(code, data);
           return match ? rowToContainerMapping(match) : null;
@@ -398,10 +398,6 @@ export function useContainerMappings(seriesCodes: string[]): (ContainerMapping |
     }
 
     fetchMappings();
-
-    return () => {
-      cancelled = true;
-    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 

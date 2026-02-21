@@ -34,13 +34,14 @@ export function GlobalSearch() {
         e.preventDefault();
         setIsOpen((prev) => !prev);
       }
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && isOpen) {
+        e.stopImmediatePropagation();
         setIsOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [isOpen]);
 
   // Focus input when opening
   useEffect(() => {

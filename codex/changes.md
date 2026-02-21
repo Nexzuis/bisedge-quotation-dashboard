@@ -189,3 +189,30 @@ Scope: Execute all P0, P1, and P2 frontend fixes from `codex/front end fix final
 ### Deferred Items
 - FEF-P1-8: Hash navigation works correctly with HashRouter; proper fix adds complexity for no user benefit
 - FEF-P2-4: Converting 16 raw buttons to shared Button is wide-reaching for purely cosmetic gain
+
+## Bug Fix Sprint — 2026-02-21
+
+### Round 1 (17 bugs identified, initial fixes applied)
+
+17 bugs were identified across store logic, hooks, engine calculations, and UI components. Initial fixes were applied in a single pass.
+
+### Round 2 (9 corrective fixes after code review)
+
+Code review found 8 fully fixed, 6 partially fixed, and 3 regressions. The following 9 corrective fixes were applied:
+
+| Bug # | Fix | File(s) | Description |
+|-------|-----|---------|-------------|
+| #3 | Fix A | `useQuoteStore.ts`, `useRealtimeQuote.ts`, `useAutoSave.ts` | Added `_lastSavedAt` timestamp to store; replaced broken epoch-vs-version heuristic with reliable `updatedAt > _lastSavedAt` dirty check; call `markSaved()` after successful auto-save |
+| #2 | Fix D | `useQuoteStore.ts` | Deep-merge slots by `slotIndex` in `loadQuote()` — preserves `clearingCharges` and `localCosts` defaults for older quotes missing new fields |
+| #27 | Fix B | `usePriceList.ts` | Added `requestIdRef` race-condition guard to `useSeriesData`, `useSeriesModels`, `useModelOptions` — prevents stale data from rapid dropdown changes |
+| #9 | Fix C | `commissionEngine.ts` | Reverted to half-open `[min, max)` intervals with last-tier fallback — eliminates tier overlap at exact boundaries |
+| #23 | Fix J | `approvalEngine.ts`, `useApprovalActions.ts`, `ApprovalDashboard.tsx`, `PendingApprovalsWidget.tsx` | `getNextStatus` returns `null` for invalid transitions; all 3 callsites check and show error toast instead of creating phantom entries |
+| #18 | Fix E | `formatters.ts` | Added `Number.isFinite()` guard to `formatNumber` and `formatCompact` |
+| #20 | Fix F | `GlobalSearch.tsx` | Changed `stopPropagation()` to `stopImmediatePropagation()` on Escape key handler |
+| #6 | Fix G | `useAuthStore.ts` | Call `resetDbAdapter()` on logout after `resetRepositories()`, with logged error handling |
+| #4 | Fix H | `useQuoteLock.ts` | Removed `lockedBy` from main effect deps — prevents acquire/release cycle; separate takeover-detection effect handles external lock changes |
+| #22 | Fix I | `containerOptimizer.ts` | Added `containerHeight > 0` to active-unit filter — prevents zero-height units from entering packing algorithm |
+
+### Validation Results
+- `npx tsc --noEmit`: 0 type errors
+- `npx vitest run`: 122/122 tests passed

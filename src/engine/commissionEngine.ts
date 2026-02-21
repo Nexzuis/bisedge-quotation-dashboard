@@ -20,9 +20,13 @@ export interface CommissionTier {
 export async function calcCommission(totalSales: ZAR, marginPct: number): Promise<ZAR> {
   try {
     const tiers = await getDb().getCommissionTiers();
-    const tier = tiers.find(
+    // Bug #9 fix: half-open intervals [min, max) with last-tier fallback
+    const sortedTiers = [...tiers].sort((a, b) => a.minMargin - b.minMargin);
+    const tier = sortedTiers.find(
       (t) => marginPct >= t.minMargin && marginPct < t.maxMargin
-    );
+    ) ?? (sortedTiers.length > 0 && marginPct >= sortedTiers[sortedTiers.length - 1].minMargin
+      ? sortedTiers[sortedTiers.length - 1]
+      : undefined);
 
     if (!tier) return 0;
 
@@ -47,9 +51,13 @@ export function calcCommissionSync(
   marginPct: number,
   cachedTiers: Array<{ minMargin: number; maxMargin: number; commissionRate: number }>
 ): ZAR {
-  const tier = cachedTiers.find(
+  // Bug #9 fix: half-open intervals [min, max) with last-tier fallback
+  const sortedTiers = [...cachedTiers].sort((a, b) => a.minMargin - b.minMargin);
+  const tier = sortedTiers.find(
     (t) => marginPct >= t.minMargin && marginPct < t.maxMargin
-  );
+  ) ?? (sortedTiers.length > 0 && marginPct >= sortedTiers[sortedTiers.length - 1].minMargin
+    ? sortedTiers[sortedTiers.length - 1]
+    : undefined);
 
   if (!tier) return 0;
 
@@ -65,9 +73,13 @@ export function calcCommissionSync(
 export async function getCommissionTier(marginPct: number): Promise<CommissionTier | null> {
   try {
     const tiers = await getDb().getCommissionTiers();
-    const tier = tiers.find(
+    // Bug #9 fix: half-open intervals [min, max) with last-tier fallback
+    const sortedTiers = [...tiers].sort((a, b) => a.minMargin - b.minMargin);
+    const tier = sortedTiers.find(
       (t) => marginPct >= t.minMargin && marginPct < t.maxMargin
-    );
+    ) ?? (sortedTiers.length > 0 && marginPct >= sortedTiers[sortedTiers.length - 1].minMargin
+      ? sortedTiers[sortedTiers.length - 1]
+      : undefined);
 
     if (!tier) return null;
 

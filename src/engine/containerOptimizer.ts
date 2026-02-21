@@ -18,7 +18,7 @@ export function optimizeContainers(
   // FIXED: Expand slots by quantity (each physical unit gets one entry)
   const activeUnits: UnitSlot[] = [];
   units.forEach(slot => {
-    if (!slot.isEmpty && slot.modelCode !== '0') {
+    if (!slot.isEmpty && slot.modelCode !== '0' && slot.containerLength > 0 && slot.containerWidth > 0 && slot.containerHeight > 0) {
       for (let i = 0; i < slot.quantity; i++) {
         activeUnits.push({ ...slot, quantity: 1 });
       }

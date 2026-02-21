@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { toast } from 'sonner';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { getDb } from '../db/DatabaseAdapter';
@@ -60,6 +61,15 @@ export function useApprovalActions() {
     setIsProcessing(true);
     try {
       const newStatus = getNextStatus(action, useQuoteStore.getState().status);
+
+      // Bug #23 fix: if transition is invalid, show error and bail out
+      if (newStatus === null) {
+        toast.error('Invalid action', {
+          description: `Cannot "${action}" a quote in "${useQuoteStore.getState().status}" status.`,
+        });
+        return;
+      }
+
       const entry = createChainEntry(chainAction, fromUser, toUser, notes);
 
       useQuoteStore.setState((state: QuoteState) => {

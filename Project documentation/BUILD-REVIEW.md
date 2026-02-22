@@ -1,39 +1,41 @@
-# BUILD-REVIEW.md - Round 5 Verification
+APPROVED
+
+# BUILD-REVIEW.md - Round 6 Verification
 
 Date: 2026-02-22  
-Latest commit reviewed: `51c5efb`  
-Additional scope reviewed: current Round 5 working-tree changes (not yet committed) in `src/lib/database.types.ts`, `supabase/migrations/001_rls_policies.sql`, `Project documentation/TECH-DEBT.md`, and `CLAUDE.md`.
+Latest commit reviewed: `b27ecab`  
+Scope: Confirm all prior CRITICAL/IMPORTANT findings are resolved and check for regressions/new issues.
 
 ## Verdict
-NOT APPROVED.
+APPROVED.
 
-## Prior CRITICAL/IMPORTANT Blockers
+## Resolution Check (Prior Blockers)
 
 ### 1. CRITICAL - `users_update` self-escalation path
 Status: **Resolved**
 
 Evidence:
-- Policy requires privileged authority (`system_admin` or `can_manage_users`), not generic self-update.
+- Policy still enforces privileged authority (`system_admin` or `can_manage_users`), not broad self-update.
 - `supabase/migrations/001_rls_policies.sql:62`
 - `supabase/migrations/001_rls_policies.sql:68`
 
-### 2. IMPORTANT - RLS authority broader than app permission model
+### 2. IMPORTANT - RLS authority mismatch vs app permission model
 Status: **Resolved**
 
 Evidence:
-- `users_update/users_delete` now align to app authority gate:
+- `users_update/users_delete` remain aligned to app authority gate:
   - `supabase/migrations/001_rls_policies.sql:68`
   - `supabase/migrations/001_rls_policies.sql:78`
-- App permission mapping:
+- App permission mapping unchanged and consistent:
   - `src/auth/permissions.ts:90`
   - `src/auth/permissions.ts:172`
 
-### 3. IMPORTANT - Approval notifications depended on unmanaged replica identity
+### 3. IMPORTANT - Approval notifications dependency on replica identity
 Status: **Resolved**
 
 Evidence:
 - Migration enforces replica identity:
-  - `supabase/migrations/001_rls_policies.sql:98`
+  - `supabase/migrations/001_rls_policies.sql:100`
 - Notification guard remains in place:
   - `src/hooks/useApprovalNotifications.tsx:62`
   - `src/hooks/useApprovalNotifications.tsx:64`
@@ -43,40 +45,33 @@ Evidence:
 Status: **Resolved**
 
 Evidence:
-- File is now Supabase-generated format (includes `__InternalSupabase`, relationship metadata, helper generics).
-- `src/lib/database.types.ts:8`
-- `src/lib/database.types.ts:1453`
-- Prior TODO removed.
-- `TECH-DEBT` items marked resolved:
+- `src/lib/database.types.ts` is now generated-format with helper generics/metadata.
+- Manual TODO removed.
+- `Project documentation/TECH-DEBT.md` marks TD-6.1 and TD-6.3 as resolved:
   - `Project documentation/TECH-DEBT.md:305`
   - `Project documentation/TECH-DEBT.md:311`
 
-## Remaining / New Concerns
+### 5. IMPORTANT - Runtime `users.username` schema mismatch
+Status: **Resolved**
 
-### IMPORTANT - User management still writes/filters by `username`, but generated live schema types for `public.users` do not include a `username` column
 Evidence:
-- Generated `users` table shape has no `username` field:
-  - `src/lib/database.types.ts:1245`
-  - `src/lib/database.types.ts:1258`
-- User management still depends on `username` in DB queries/updates:
-  - `src/components/admin/users/UserManagement.tsx:166`
-  - `src/components/admin/users/UserManagement.tsx:192`
+- `UserManagement.tsx` no longer queries/writes `username` in user-table operations.
+  - `src/components/admin/users/UserManagement.tsx:156`
+  - `src/components/admin/users/UserManagement.tsx:169`
+- Edge function payload and DB writes no longer include `username`.
+  - `supabase/functions/admin-create-user/index.ts:77`
+  - `supabase/functions/admin-create-user/index.ts:145`
+- Repository-wide scan found no remaining DB query/update/insert references to `users.username`.
 
-Risk:
-- If live schema truly has no `public.users.username`, user save flows can fail at runtime with PostgREST column errors.
+## New Issues Introduced
+- No new CRITICAL or IMPORTANT issues found in this review.
+- No new MINOR issues introduced by `b27ecab` were identified.
 
-### MINOR - No new commit for Round 5 yet
-Evidence:
-- `HEAD` is still `51c5efb`; Round 5 changes are present in working tree only.
-
-Risk:
-- Review cannot pin results to an immutable commit hash until changes are committed.
-
-## Validation Run In This Review
+## Verification Executed In This Review
 - `npx tsc --noEmit`: pass.
-- `npx vitest run src/auth/__tests__/permissions.test.ts`: pass.
+- `npx vitest run`: pass (178/178).
+- `npx vite build`: pass.
 
 ## Final Assessment
-- All previously listed CRITICAL/IMPORTANT blockers are now resolved.
-- One additional IMPORTANT runtime-schema concern remains (`username` usage vs generated schema shape).
-- Approval status: **NOT APPROVED**.
+- All previously documented CRITICAL and IMPORTANT findings are resolved.
+- Current implementation is approved for this review round.

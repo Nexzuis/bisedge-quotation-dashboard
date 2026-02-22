@@ -25,3 +25,10 @@ dist-ssr
 nul
 
 .vercel
+supabase/.temp/
+
+# Diagnostic/debug test files
+_diag*
+_vitest_diag*
+_min*.test.*
+_minimal*

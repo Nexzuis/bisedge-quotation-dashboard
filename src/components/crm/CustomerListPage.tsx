@@ -18,6 +18,7 @@ import { toast } from '../ui/Toast';
 import { staggerContainer, fadeInUp } from './shared/motionVariants';
 import { getDb } from '../../db/DatabaseAdapter';
 import type { StoredCompany } from '../../db/interfaces';
+import { logger } from '../../utils/logger';
 
 export default function CustomerListPage() {
   const [companies, setCompanies] = useState<StoredCompany[]>([]);
@@ -47,7 +48,7 @@ export default function CustomerListPage() {
         map[u.id] = u.fullName || u.username;
       }
       setUserNameMap(map);
-    }).catch(() => { console.warn('Failed to load user names'); });
+    }).catch(() => { logger.warn('Failed to load user names'); });
     return () => { cancelled = true; };
   }, []);
 
@@ -81,7 +82,7 @@ export default function CustomerListPage() {
         : await listCompanies();
       setCompanies(data);
     } catch (err) {
-      console.error('Failed to load companies:', err);
+      logger.error('Failed to load companies:', err);
       setError('Failed to load companies. Please try again.');
     } finally {
       setLoading(false);
@@ -109,7 +110,7 @@ export default function CustomerListPage() {
       XLSX.writeFile(wb, `companies-export-${new Date().toISOString().slice(0, 10)}.xlsx`);
       toast.success('Companies exported successfully');
     } catch (err) {
-      console.error('Export failed:', err);
+      logger.error('Export failed:', err);
       toast.error('Failed to export companies');
     }
   };

@@ -27,6 +27,7 @@ import { getAuditRepository } from '../../db/repositories';
 import { ROLE_DISPLAY_NAMES, type Role } from '../../auth/permissions';
 import { getActionLabel, createChainEntry, type ApprovalAction } from '../../engine/approvalEngine';
 import type { ApprovalChainEntry, QuoteState } from '../../types/quote';
+import { logger } from '../../utils/logger';
 
 const ACTION_ICONS: Record<ApprovalAction, typeof Send> = {
   submit: Send,
@@ -124,7 +125,7 @@ export function ApprovalWorkflowPanel() {
           changes: { status: 'in-review' },
         });
       } catch (error) {
-        console.error('Failed to save edit action:', error);
+        logger.error('Failed to save edit action:', error);
       }
 
       toast.success('Quote is now in review mode');
@@ -170,7 +171,7 @@ export function ApprovalWorkflowPanel() {
       }
       setModalAction(null);
     } catch (error) {
-      console.error('Action failed:', error);
+      logger.error('Action failed:', error);
       toast.error('Action failed', {
         description: error instanceof Error ? error.message : 'Unknown error',
       });

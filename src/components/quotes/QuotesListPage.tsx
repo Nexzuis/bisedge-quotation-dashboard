@@ -11,6 +11,7 @@ import { useRealtimeQuoteList } from '../../hooks/useRealtimeQuote';
 import { staggerContainer, fadeInUp } from '../crm/shared/motionVariants';
 import type { StoredQuote } from '../../db/interfaces';
 import type { QuoteStatus } from '../../types/quote';
+import { logger } from '../../utils/logger';
 
 const ALL_STATUSES: { value: QuoteStatus | ''; label: string }[] = [
   { value: '', label: 'All Statuses' },
@@ -88,7 +89,7 @@ export default function QuotesListPage() {
 
       setQuotes(items);
     } catch (err) {
-      console.error('Error loading quotes:', err);
+      logger.error('Error loading quotes:', err);
     } finally {
       setLoading(false);
     }
@@ -129,7 +130,7 @@ export default function QuotesListPage() {
 
       setQuotes(results);
     } catch (err) {
-      console.error('Error searching quotes:', err);
+      logger.error('Error searching quotes:', err);
     } finally {
       setLoading(false);
     }

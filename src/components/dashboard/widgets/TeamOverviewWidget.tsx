@@ -5,6 +5,7 @@ import { useAuthStore } from '../../../store/useAuthStore';
 import { getDb } from '../../../db/DatabaseAdapter';
 import { Badge } from '../../ui/Badge';
 import { fadeInUp } from '../../crm/shared/motionVariants';
+import { logger } from '../../../utils/logger';
 
 interface TeamMember {
   id: string;
@@ -76,7 +77,7 @@ export function TeamOverviewWidget() {
 
       setTeam(sorted);
     } catch (err) {
-      console.error('Error loading team overview:', err);
+      logger.error('Error loading team overview:', err);
     } finally {
       setLoading(false);
     }

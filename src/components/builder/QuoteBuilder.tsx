@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 import { BuilderProvider, useBuilder } from './BuilderContext';
 import { BuilderLayout } from './BuilderLayout';
 import { AnimatedStep } from './AnimatedStep';
@@ -72,6 +72,8 @@ function NavigationGuard() {
   const navigate = useNavigate();
   const { lastSavedAt, saveNow } = useAutoSaveContext();
   const [showModal, setShowModal] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const pendingHashRef = useRef<string | null>(null);
 
   const getHasUnsavedChanges = useCallback(() => {
@@ -112,11 +114,13 @@ function NavigationGuard() {
   }, [navigate]);
 
   const handleSaveAndLeave = async () => {
+    setIsSaving(true);
+    setSaveError(false);
     const success = await saveNow();
+    setIsSaving(false);
     if (!success) {
-      toast.error('Failed to save quote');
-      setShowModal(false);
-      pendingHashRef.current = null;
+      // Keep the modal open and show the inline error — do NOT close or navigate
+      setSaveError(true);
       return;
     }
     toast.success('Quote saved');
@@ -124,10 +128,12 @@ function NavigationGuard() {
   };
 
   const handleDiscard = () => {
+    setSaveError(false);
     proceedToTarget();
   };
 
   const handleCancel = () => {
+    setSaveError(false);
     pendingHashRef.current = null;
     setShowModal(false);
   };
@@ -149,36 +155,62 @@ function NavigationGuard() {
       />
       <div className="relative bg-slate-900 border border-surface-600/50 rounded-2xl shadow-2xl w-full max-w-md p-6 mx-4">
         <div className="flex items-start gap-4">
-          <div className="p-3 rounded-lg bg-yellow-500/20 border border-yellow-500/50">
-            <AlertTriangle className="w-6 h-6 text-yellow-400" />
+          <div
+            className={`p-3 rounded-lg ${
+              saveError
+                ? 'bg-danger-500/20 border border-danger-500/50'
+                : 'bg-yellow-500/20 border border-yellow-500/50'
+            }`}
+          >
+            <AlertTriangle
+              className={`w-6 h-6 ${saveError ? 'text-danger-400' : 'text-yellow-400'}`}
+            />
           </div>
           <div className="flex-1">
             <h3 id="nav-guard-dialog-title" className="text-xl font-bold text-surface-100 mb-2">
-              Unsaved Changes
+              {saveError ? 'Save Failed' : 'Unsaved Changes'}
             </h3>
             <p className="text-surface-100/60">
-              You have unsaved changes. What would you like to do?
+              {saveError
+                ? 'Save failed. Try again or discard your changes.'
+                : 'You have unsaved changes. What would you like to do?'}
             </p>
           </div>
         </div>
+
+        {/* Inline error detail shown after a failed save attempt */}
+        {saveError && (
+          <div
+            role="alert"
+            className="mt-4 flex items-center gap-2 rounded-lg border border-danger-500/40 bg-danger-500/10 px-3 py-2.5 text-sm text-danger-400"
+          >
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>Could not reach the server. Check your connection and retry.</span>
+          </div>
+        )}
+
         <div className="flex items-center justify-end gap-3 mt-6">
           <button
             onClick={handleCancel}
-            className="px-4 py-2 bg-surface-800/40 hover:bg-surface-700/50 border border-surface-700/50 rounded-lg text-surface-100 transition-colors"
+            disabled={isSaving}
+            className="px-4 py-2 bg-surface-800/40 hover:bg-surface-700/50 border border-surface-700/50 rounded-lg text-surface-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancel
           </button>
           <button
             onClick={handleDiscard}
-            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-surface-100 rounded-lg transition-colors"
+            disabled={isSaving}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-surface-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Discard
           </button>
           <button
             onClick={handleSaveAndLeave}
-            className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-surface-100 rounded-lg transition-colors"
+            disabled={isSaving}
+            className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-surface-100 rounded-lg transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
           >
-            Save &amp; Leave
+            {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+            {saveError ? 'Retry' : 'Save & Leave'}
           </button>
         </div>
       </div>

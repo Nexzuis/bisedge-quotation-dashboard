@@ -1,17 +1,24 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { useQuoteStore } from '../store/useQuoteStore';
+import { setAutoSaveInProgress } from '../store/useAuthStore';
 import { getQuoteRepository } from '../db/repositories';
 import type { SaveResult } from '../db/interfaces';
+import { withQuoteSaveRetry } from '../utils/resilientFetch';
 import { logger } from '../utils/logger';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+
+/** Number of consecutive failures before `persistentError` is raised. */
+const PERSISTENT_ERROR_THRESHOLD = 3;
 
 export interface UseAutoSaveResult {
   status: SaveStatus;
   lastSavedAt: Date | null;
   saveNow: () => Promise<boolean>;
   error: string | null;
+  /** True after 3+ consecutive save failures without a successful save in between. */
+  persistentError: boolean;
 }
 
 /**
@@ -24,6 +31,10 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
   const [status, setStatus] = useState<SaveStatus>('idle');
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [persistentError, setPersistentError] = useState(false);
+
+  // Tracks consecutive save failures; reset to 0 on any successful save
+  const consecutiveFailuresRef = useRef(0);
 
   // Subscribe only to the fields that indicate a change, not the entire store
   const updatedAt = useQuoteStore((state) => state.updatedAt);
@@ -78,18 +89,27 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
     }
 
     isSavingRef.current = true;
+    setAutoSaveInProgress(true);
     setStatus('saving');
     setError(null);
 
     try {
       // Read full state only at save time
       const quote = useQuoteStore.getState();
-      const result: SaveResult = await repository.save(quote);
+      const result: SaveResult = await withQuoteSaveRetry(
+        () => repository.save(quote),
+        quote.id,
+        quote.version
+      );
 
       if (result.success) {
         setStatus('saved');
         setLastSavedAt(new Date());
         lastUpdatedAtRef.current = quote.updatedAt;
+
+        // Reset consecutive failure tracking on a clean save
+        consecutiveFailuresRef.current = 0;
+        setPersistentError(false);
 
         // Update version in store to prevent version conflicts
         useQuoteStore.getState().setVersion(result.version);
@@ -104,8 +124,15 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
 
         return true;
       } else {
+        const errorMessage = result.error || 'Unknown error';
         setStatus('error');
-        setError(result.error || 'Unknown error');
+        setError(errorMessage);
+
+        // Increment failure counter and check threshold
+        consecutiveFailuresRef.current += 1;
+        if (consecutiveFailuresRef.current >= PERSISTENT_ERROR_THRESHOLD) {
+          setPersistentError(true);
+        }
 
         // Lock enforcement: quote locked by another user
         if (result.error?.includes('locked by another user')) {
@@ -113,10 +140,8 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
             description: 'Another user is currently editing this quote.',
             duration: 5000,
           });
-        }
-
         // Bug #11 fix: version conflict with recovery action
-        if (result.error?.includes('Version conflict')) {
+        } else if (result.error?.includes('Version conflict')) {
           const quoteId = useQuoteStore.getState().id;
           toast.warning('Quote modified in another tab', {
             description: 'Your version is out of date.',
@@ -136,17 +161,37 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
             },
             duration: 10000,
           });
+        } else {
+          // Generic network / server failure — always notify the user
+          toast.error('Auto-save failed', {
+            description: 'Your changes could not be saved. Check your connection.',
+            duration: 5000,
+          });
         }
 
         return false;
       }
     } catch (err) {
       logger.error('Error saving quote:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Save failed';
       setStatus('error');
-      setError(err instanceof Error ? err.message : 'Save failed');
+      setError(errorMessage);
+
+      // Increment failure counter and check threshold
+      consecutiveFailuresRef.current += 1;
+      if (consecutiveFailuresRef.current >= PERSISTENT_ERROR_THRESHOLD) {
+        setPersistentError(true);
+      }
+
+      toast.error('Auto-save failed', {
+        description: 'An unexpected error occurred. Your changes may not be saved.',
+        duration: 5000,
+      });
+
       return false;
     } finally {
       isSavingRef.current = false;
+      setAutoSaveInProgress(false);
     }
   }, [repository]);
 
@@ -221,5 +266,6 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
     lastSavedAt,
     saveNow,
     error,
+    persistentError,
   };
 }

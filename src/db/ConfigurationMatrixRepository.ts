@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/database.types';
+import { logger } from '../utils/logger';
 import type {
   StoredConfigurationMatrix,
   StoredConfigurationVariant,
@@ -44,13 +45,13 @@ export class ConfigurationMatrixRepository implements IConfigurationMatrixReposi
         .maybeSingle();
 
       if (error) {
-        console.error(`Error fetching matrix for family ${family}:`, error);
+        logger.error(`Error fetching matrix for family ${family}:`, error);
         return null;
       }
 
       return data ? dbToMatrix(data) : null;
     } catch (error) {
-      console.error(`Error fetching matrix for family ${family}:`, error);
+      logger.error(`Error fetching matrix for family ${family}:`, error);
       return null;
     }
   }
@@ -76,7 +77,7 @@ export class ConfigurationMatrixRepository implements IConfigurationMatrixReposi
 
       return null;
     } catch (error) {
-      console.error(`Error fetching variant ${variantCode}:`, error);
+      logger.error(`Error fetching variant ${variantCode}:`, error);
       return null;
     }
   }
@@ -110,7 +111,7 @@ export class ConfigurationMatrixRepository implements IConfigurationMatrixReposi
       if (error) throw new Error(error.message);
       return toSave.id;
     } catch (error) {
-      console.error('Error saving configuration matrix:', error);
+      logger.error('Error saving configuration matrix:', error);
       throw new Error('Failed to save configuration matrix');
     }
   }
@@ -166,7 +167,7 @@ export class ConfigurationMatrixRepository implements IConfigurationMatrixReposi
 
       if (saveError) throw new Error(saveError.message);
     } catch (error) {
-      console.error('Error updating option:', error);
+      logger.error('Error updating option:', error);
       throw error;
     }
   }
@@ -181,13 +182,13 @@ export class ConfigurationMatrixRepository implements IConfigurationMatrixReposi
         .select('*');
 
       if (error) {
-        console.error('Error listing configuration matrices:', error);
+        logger.error('Error listing configuration matrices:', error);
         return [];
       }
 
       return (data || []).map(dbToMatrix);
     } catch (error) {
-      console.error('Error listing configuration matrices:', error);
+      logger.error('Error listing configuration matrices:', error);
       return [];
     }
   }
@@ -204,7 +205,7 @@ export class ConfigurationMatrixRepository implements IConfigurationMatrixReposi
 
       if (error) throw new Error(error.message);
     } catch (error) {
-      console.error(`Error deleting matrix ${id}:`, error);
+      logger.error(`Error deleting matrix ${id}:`, error);
       throw new Error('Failed to delete configuration matrix');
     }
   }

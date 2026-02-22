@@ -375,13 +375,19 @@ export function validateEmail(email: string): string | null {
 }
 
 /**
- * Validate phone number
+ * Validate phone number.
+ * Allows digits, spaces, +, -, (, ).
+ * Rejects if the number of digit characters is less than 7.
  */
 export function validatePhone(phone: string): string | null {
   if (!phone?.trim()) return null;
+  const allowed = /^[\d\s+\-()]+$/;
+  if (!allowed.test(phone.trim())) {
+    return 'Phone may only contain digits, spaces, +, -, (, )';
+  }
   const digits = phone.replace(/\D/g, '');
-  if (digits.length < 10 || digits.length > 12) {
-    return 'Phone must be 10-12 digits';
+  if (digits.length < 7) {
+    return 'Phone number must have at least 7 digits';
   }
   return null;
 }

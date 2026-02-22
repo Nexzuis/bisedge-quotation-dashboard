@@ -8,6 +8,7 @@ import { getDb } from '../../../db/DatabaseAdapter';
 import { fadeInUp } from '../../crm/shared/motionVariants';
 import type { StoredQuote } from '../../../db/interfaces';
 import type { QuoteStatus } from '../../../types/quote';
+import { logger } from '../../../utils/logger';
 
 function formatDate(dateStr: string): string {
   try {
@@ -47,7 +48,7 @@ export function MyQuotesWidget() {
       );
       setQuotes(myQuotes.slice(0, 10));
     } catch (err) {
-      console.error('Error loading my quotes:', err);
+      logger.error('Error loading my quotes:', err);
     } finally {
       setLoading(false);
     }

@@ -13,6 +13,7 @@ import { useQuoteDB } from '../../hooks/useQuoteDB';
 import { LoadQuoteModal } from '../shared/LoadQuoteModal';
 import { useAuth } from '../auth/AuthContext';
 import { useIsReadOnly } from '../../hooks/ReadOnlyContext';
+import { logger } from '../../utils/logger';
 
 export function TopBar() {
   const [isExporting, setIsExporting] = useState(false);
@@ -87,7 +88,7 @@ export function TopBar() {
         });
       }
     } catch (error) {
-      console.error('Export error:', error);
+      logger.error('Export error:', error);
       toast.error('Failed to export PDF', {
         description: error instanceof Error ? error.message : 'Check console for details'
       });

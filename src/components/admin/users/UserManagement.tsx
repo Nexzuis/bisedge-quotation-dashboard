@@ -6,6 +6,7 @@ import EditModal from '../shared/EditModal';
 import ConfirmDialog from '../shared/ConfirmDialog';
 import type { StoredUser } from '../../../db/interfaces';
 import { getAuditRepository } from '../../../db/repositories';
+import { getDb } from '../../../db/DatabaseAdapter';
 import { useAuth } from '../../auth/AuthContext';
 import { Badge } from '../../ui/Badge';
 import { supabase } from '../../../lib/supabase';
@@ -75,9 +76,8 @@ const UserManagement = () => {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase.from('users').select('*').order('full_name');
-      if (error) throw error;
-      setUsers((data ?? []).map(dbRowToStoredUser));
+      const data = await getDb().listAllUsers();
+      setUsers(data.map(dbRowToStoredUser));
     } catch (error) {
       logger.error('Failed to load users:', { error });
       toast.error('Failed to load users');
@@ -152,12 +152,11 @@ const UserManagement = () => {
     try {
       // Check email uniqueness
       if (!selectedUser || selectedUser.email !== formData.email) {
-        const { data: existingEmail } = await supabase
-          .from('users')
-          .select('id')
-          .eq('email', formData.email)
-          .maybeSingle();
-        if (existingEmail) {
+        const emailExists = await getDb().checkEmailExists(
+          formData.email,
+          selectedUser?.id
+        );
+        if (emailExists) {
           setValidationErrors({ email: 'Email already exists' });
           setSaving(false);
           return;
@@ -165,19 +164,14 @@ const UserManagement = () => {
       }
 
       if (selectedUser) {
-        // Update existing user
-        const { error: updateError } = await supabase.from('users').update({
+        // Update existing user via adapter
+        await getDb().updateUser(selectedUser.id!, {
           full_name: formData.fullName,
           email: formData.email,
           role: formData.role,
           is_active: formData.isActive,
           permission_overrides: JSON.stringify(formData.permissionOverrides),
-        }).eq('id', selectedUser.id!);
-
-        if (updateError) {
-          logger.error('users update failed:', { error: updateError.message });
-          throw updateError;
-        }
+        });
 
         // Audit log
         await auditRepo.log({
@@ -259,15 +253,7 @@ const UserManagement = () => {
 
     try {
       // Soft-delete: mark user as inactive (cannot delete auth user without service role key)
-      const { error: softDeleteError } = await supabase
-        .from('users')
-        .update({ is_active: false })
-        .eq('id', selectedUser.id!);
-
-      if (softDeleteError) {
-        logger.error('users soft-delete failed:', { error: softDeleteError.message });
-        throw softDeleteError;
-      }
+      await getDb().softDeleteUser(selectedUser.id!);
 
       // Audit log
       await auditRepo.log({

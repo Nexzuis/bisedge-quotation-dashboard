@@ -11,6 +11,7 @@ import { toast } from '../../ui/Toast';
 import { staggerContainer } from '../shared/motionVariants';
 import type { StoredCompany } from '../../../db/interfaces';
 import type { PipelineStage } from '../../../types/crm';
+import { logger } from '../../../utils/logger';
 
 interface KanbanBoardProps {
   companies: StoredCompany[];
@@ -49,7 +50,7 @@ export function KanbanBoard({ companies, onRefresh }: KanbanBoardProps) {
       toast.success(`Moved ${company.name} to ${targetStage.replace('-', ' ')}`);
       onRefresh();
     } catch (err) {
-      console.error('Failed to update stage:', err);
+      logger.error('Failed to update stage:', err);
       toast.error('Failed to update pipeline stage');
     }
   };

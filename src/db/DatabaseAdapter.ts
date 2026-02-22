@@ -115,6 +115,36 @@ export interface IDatabaseAdapter {
   // ===== Aggregate Operations =====
   getTableCounts(): Promise<Record<string, number>>;
   getAttachmentsByIds(ids: string[]): Promise<{ id: string; eurCost: number }[]>;
+
+  // ===== Price List Operations =====
+  listPriceListSeries(): Promise<import('./interfaces').StoredPriceListSeries[]>;
+  getPriceListSeries(seriesCode: string): Promise<import('./interfaces').StoredPriceListSeries | null>;
+  listTelematicsPackages(): Promise<import('./interfaces').StoredTelematicsPackage[]>;
+  listContainerMappings(): Promise<import('./interfaces').StoredContainerMapping[]>;
+
+  // ===== Quote Lock Operations =====
+  acquireQuoteLock(quoteId: string, userId: string): Promise<boolean>;
+  releaseQuoteLock(quoteId: string, userId: string): Promise<void>;
+  getQuoteLockOwner(quoteId: string, lockedById: string): Promise<string | null>;
+
+  // ===== Presence Operations =====
+  upsertPresence(quoteId: string, userId: string): Promise<void>;
+  deletePresence(quoteId: string, userId: string): Promise<void>;
+  cleanupStalePresence(): Promise<void>;
+
+  // ===== Company Merge Operations =====
+  getMergeRelatedCounts(secondaryCompanyId: string): Promise<{ contacts: number; activities: number; quotes: number }>;
+  mergeCompanies(primaryId: string, secondaryId: string, mergedData: Record<string, unknown>): Promise<void>;
+
+  // ===== User Admin Operations =====
+  listAllUsers(): Promise<any[]>;
+  updateUser(id: string, updates: Record<string, unknown>): Promise<void>;
+  softDeleteUser(id: string): Promise<void>;
+  checkEmailExists(email: string, excludeId?: string): Promise<boolean>;
+
+  // ===== Pending Approval Queries =====
+  listPendingApprovals(options: { page: number; pageSize: number; assigneeId?: string }): Promise<{ data: import('./interfaces').StoredQuote[]; count: number }>;
+  countPendingApprovals(assigneeId?: string): Promise<number>;
 }
 
 import { SupabaseDatabaseAdapter } from './SupabaseAdapter';

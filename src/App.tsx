@@ -33,6 +33,7 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useApprovalNotifications } from './hooks/useApprovalNotifications';
 import { supabaseConfigError } from './lib/supabase';
 import { Loader2 } from 'lucide-react';
+import { logger } from './utils/logger';
 
 // Protected route wrapper
 const RequireAuth = ({ children }: { children: React.ReactNode }) => {
@@ -95,7 +96,7 @@ function AppContent() {
       try {
         await useConfigStore.getState().loadConfig();
       } catch (error) {
-        console.error('Failed to initialize app:', error);
+        logger.error('Failed to initialize app:', error);
         setInitError(error instanceof Error ? error.message : 'Unknown error');
       } finally {
         setIsInitializing(false);
@@ -126,7 +127,7 @@ function AppContent() {
         }
       } catch (error) {
         if (!cancelled) {
-          console.error('Failed to load recent quote:', error);
+          logger.error('Failed to load recent quote:', error);
         }
       }
     };

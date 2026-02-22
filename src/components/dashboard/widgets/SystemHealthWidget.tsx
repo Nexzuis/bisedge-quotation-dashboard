@@ -3,6 +3,7 @@ import { Database, Users, FileText, Building2, Activity, Bell, Loader2 } from 'l
 import { motion } from 'framer-motion';
 import { getDb } from '../../../db/DatabaseAdapter';
 import { fadeInUp, staggerContainer } from '../../crm/shared/motionVariants';
+import { logger } from '../../../utils/logger';
 
 interface DbStats {
   quotes: number;
@@ -34,7 +35,7 @@ export function SystemHealthWidget() {
         notifications: counts.notifications ?? 0,
       });
     } catch (err) {
-      console.error('Error loading DB stats:', err);
+      logger.error('Error loading DB stats:', err);
     } finally {
       setLoading(false);
     }

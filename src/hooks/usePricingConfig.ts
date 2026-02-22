@@ -28,6 +28,7 @@ export const useDefaultValues = () => {
 };
 
 export const saveCommissionTiers = async (tiers: StoredCommissionTier[], userId: string) => {
+  const oldTiers = await getDb().getCommissionTiers().catch(() => null);
   await getDb().saveCommissionTiers(tiers);
   await getDb().logAudit({
     userId,
@@ -35,12 +36,13 @@ export const saveCommissionTiers = async (tiers: StoredCommissionTier[], userId:
     entityType: 'commissionTiers',
     entityId: 'all',
     changes: { tiers },
-    oldValues: null,
+    oldValues: oldTiers,
     newValues: tiers,
   });
 };
 
 export const saveResidualCurves = async (curves: StoredResidualCurve[], userId: string) => {
+  const oldCurves = await getDb().getResidualCurves().catch(() => null);
   await getDb().saveResidualCurves(curves);
   await getDb().logAudit({
     userId,
@@ -48,12 +50,13 @@ export const saveResidualCurves = async (curves: StoredResidualCurve[], userId: 
     entityType: 'residualCurves',
     entityId: 'all',
     changes: { curves },
-    oldValues: null,
+    oldValues: oldCurves,
     newValues: curves,
   });
 };
 
 export const saveDefaultValues = async (values: Record<string, string>, userId: string) => {
+  const oldValues = await getDb().getSettings().catch(() => null);
   await getDb().saveSettings(Object.entries(values).map(([key, value]) => ({ key, value })));
   await getDb().logAudit({
     userId,
@@ -61,7 +64,7 @@ export const saveDefaultValues = async (values: Record<string, string>, userId: 
     entityType: 'settings',
     entityId: 'defaults',
     changes: { values },
-    oldValues: null,
+    oldValues,
     newValues: values,
   });
 };

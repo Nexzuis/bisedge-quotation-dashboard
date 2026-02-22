@@ -12,7 +12,6 @@ import {
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { getDb } from '../../../db/DatabaseAdapter';
-import { supabase } from '../../../lib/supabase';
 import { ApprovalActionModal } from '../../shared/ApprovalActionModal';
 import { fadeInUp } from '../../crm/shared/motionVariants';
 import { ROLE_DISPLAY_NAMES, type Role, type PermissionOverrides } from '../../../auth/permissions';
@@ -28,6 +27,7 @@ import {
 import { getAuditRepository } from '../../../db/repositories';
 import { toast } from '../../ui/Toast';
 import type { ApprovalChainEntry } from '../../../types/quote';
+import { logger } from '../../../utils/logger';
 
 interface PendingQuote {
   id: string;
@@ -60,21 +60,10 @@ export function PendingApprovalsWidget() {
     setLoading(true);
     try {
       const db = getDb();
+      const assigneeId = user.role !== 'system_admin' ? user.id : undefined;
 
       // Single unified query — only 5 items needed for widget display
-      let query = supabase
-        .from('quotes')
-        .select('*')
-        .in('status', ['pending-approval', 'in-review'])
-        .order('created_at', { ascending: true })
-        .limit(5);
-
-      if (user.role !== 'system_admin') {
-        query = query.eq('current_assignee_id', user.id);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
+      const { data } = await db.listPendingApprovals({ page: 1, pageSize: 5, assigneeId });
 
       // Parse rows (no client-side filter needed)
       const parsed: PendingQuote[] = await Promise.all(
@@ -113,24 +102,15 @@ export function PendingApprovalsWidget() {
       setQuotes(parsed);
 
       // Server-side count for accurate badge (not truncated by limit)
-      let serverTotal = parsed.length;
       try {
-        let pendingCountQ = supabase.from('quotes').select('id', { count: 'exact' }).limit(0)
-          .eq('status', 'pending-approval');
-        let reviewCountQ = supabase.from('quotes').select('id', { count: 'exact' }).limit(0)
-          .eq('status', 'in-review');
-        if (user.role !== 'system_admin') {
-          pendingCountQ = pendingCountQ.eq('current_assignee_id', user.id);
-          reviewCountQ = reviewCountQ.eq('current_assignee_id', user.id);
-        }
-        const [pc, rc] = await Promise.all([pendingCountQ, reviewCountQ]);
-        serverTotal = (pc.count ?? 0) + (rc.count ?? 0);
+        const serverTotal = await db.countPendingApprovals(assigneeId);
+        setTotalCount(serverTotal);
       } catch {
         // Fall back to parsed.length
+        setTotalCount(parsed.length);
       }
-      setTotalCount(serverTotal);
     } catch (err) {
-      console.error('Error loading pending approvals:', err);
+      logger.error('Error loading pending approvals:', { err });
     } finally {
       setLoading(false);
     }
@@ -234,7 +214,7 @@ function ApprovalQuickCard({
       : getValidTargets(user!.role as Role);
     for (const role of roles) {
       const users = await db.getUsersByRole(role);
-      allUsers.push(...users.map((u: any) => ({ id: u.id, fullName: u.fullName, role: u.role })));
+      allUsers.push(...users.map((u: any) => ({ id: u.id, fullName: u.fullName || u.full_name, role: u.role })));
     }
     setTargetUsers(allUsers);
   };
@@ -300,7 +280,7 @@ function ApprovalQuickCard({
       setModalAction(null);
       onRefresh();
     } catch (error) {
-      console.error('Action failed:', error);
+      logger.error('Action failed:', error);
       toast.error('Action failed');
     } finally {
       setIsProcessing(false);

@@ -13,6 +13,7 @@ import { useAuth } from '../auth/AuthContext';
 import { staggerContainer, fadeInUp } from './shared/motionVariants';
 import type { PipelineMetrics } from '../../types/crm';
 import type { StoredActivity, StoredCompany } from '../../db/interfaces';
+import { logger } from '../../utils/logger';
 
 export default function CrmDashboardPage() {
   const [metrics, setMetrics] = useState<PipelineMetrics | null>(null);
@@ -42,7 +43,7 @@ export default function CrmDashboardPage() {
       setActivities(a);
       setCompanies(c);
     } catch (err) {
-      console.error('Failed to load CRM dashboard data:', err);
+      logger.error('Failed to load CRM dashboard data:', err);
       setError('Failed to load dashboard data. Please try again.');
     } finally {
       setLoading(false);

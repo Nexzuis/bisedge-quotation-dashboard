@@ -10,6 +10,7 @@ import { useConfirmDialog } from '../../hooks/useConfirmDialog';
 import type { StoredQuote, QuoteFilter } from '../../db/interfaces';
 import type { QuoteStatus } from '../../types/quote';
 import { formatDate } from '../../engine/formatters';
+import { logger } from '../../utils/logger';
 
 interface LoadQuoteModalProps {
   isOpen: boolean;
@@ -72,7 +73,7 @@ export function LoadQuoteModal({ isOpen, onClose, onQuoteLoaded }: LoadQuoteModa
         setTotalPages(result.totalPages);
       }
     } catch (error) {
-      console.error('Error loading quotes:', error);
+      logger.error('Error loading quotes:', error);
     } finally {
       setLoading(false);
     }

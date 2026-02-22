@@ -10,6 +10,7 @@ import { useIsReadOnly } from '../../hooks/ReadOnlyContext';
 import { generateQuotePDF, type PdfGenerationOptions } from '../../pdf/generatePDF';
 import { validateQuoteSync } from '../../engine/validators';
 import { formatDateFilename } from '../../engine/formatters';
+import { logger } from '../../utils/logger';
 
 export function QuoteGeneratorPanel() {
   const { isReadOnly } = useIsReadOnly();
@@ -88,7 +89,7 @@ export function QuoteGeneratorPanel() {
         });
       }
     } catch (error) {
-      console.error('Export error:', error);
+      logger.error('Export error:', error);
       toast.error('Failed to export PDF', {
         description: 'Check console for details'
       });

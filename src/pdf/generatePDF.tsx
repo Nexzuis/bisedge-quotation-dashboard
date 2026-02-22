@@ -7,6 +7,7 @@ import { formatDate, formatDateFilename } from '../engine/formatters';
 import type { QuoteState } from '../types/quote';
 import type { PdfQuoteData } from './types';
 import { getDb } from '../db/DatabaseAdapter';
+import { logger } from '../utils/logger';
 
 /**
  * PDF Generation Options
@@ -169,7 +170,7 @@ export async function generateQuotePDF(
 
     return { success: true, filename };
   } catch (error) {
-    console.error('PDF generation error:', error);
+    logger.error('PDF generation error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',

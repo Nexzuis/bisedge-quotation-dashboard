@@ -4,6 +4,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { Button } from '../../ui/Button';
 import { toast } from '../../ui/Toast';
 import type { PipelineStage } from '../../../types/crm';
+import { logger } from '../../../utils/logger';
 
 interface CompanyFormProps {
   onSaved: () => void;
@@ -103,7 +104,7 @@ export function CompanyForm({ onSaved, onCancel }: CompanyFormProps) {
       toast.success(`Company "${formData.name}" created successfully`);
       onSaved();
     } catch (err) {
-      console.error('Failed to create company:', err);
+      logger.error('Failed to create company:', err);
       toast.error('Failed to create company');
     } finally {
       setLoading(false);

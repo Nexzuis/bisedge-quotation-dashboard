@@ -8,6 +8,7 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import type { QuoteState, LeaseTermMonths } from '../types/quote';
 import type { Database } from '../lib/database.types';
+import { logger } from '../utils/logger';
 import type {
   SaveResult,
   QuoteFilter,
@@ -170,7 +171,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
 
       if (rpcError) {
         // Do NOT fall back to a direct .upsert() — that would bypass optimistic locking.
-        console.error('saveQuote RPC failed (no fallback to upsert):', rpcError);
+        logger.error('saveQuote RPC failed (no fallback to upsert):', rpcError);
         return {
           success: false,
           id: quote.id,
@@ -183,7 +184,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       const result = typeof rpcResult === 'string' ? JSON.parse(rpcResult) : rpcResult;
 
       if (!result.success) {
-        console.error('saveQuote version conflict or RPC rejection:', result.error);
+        logger.error('saveQuote version conflict or RPC rejection:', result.error);
         return {
           success: false,
           id: quote.id,
@@ -208,7 +209,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       };
     } catch (error) {
       // Do NOT fall back to a direct .upsert() — that would bypass optimistic locking.
-      console.error('saveQuote unexpected error (no fallback to upsert):', error);
+      logger.error('saveQuote unexpected error (no fallback to upsert):', error);
       const message = error instanceof Error ? error.message : 'Unknown error';
       return {
         success: false,
@@ -228,7 +229,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         .single();
 
       if (error) {
-        console.error('Error loading quote:', error);
+        logger.error('Error loading quote:', error);
         return null;
       }
 
@@ -237,7 +238,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       // Convert from database format to QuoteState
       return this.dbQuoteToQuoteState(data);
     } catch (error) {
-      console.error('Error loading quote from Supabase:', error);
+      logger.error('Error loading quote from Supabase:', error);
       return null;
     }
   }
@@ -282,7 +283,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       const { data, count, error } = await query;
 
       if (error) {
-        console.error('Error listing quotes:', error);
+        logger.error('Error listing quotes:', error);
         return {
           items: [],
           total: 0,
@@ -300,7 +301,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         totalPages: Math.ceil((count || 0) / options.pageSize),
       };
     } catch (error) {
-      console.error('Error listing quotes from Supabase:', error);
+      logger.error('Error listing quotes from Supabase:', error);
       return {
         items: [],
         total: 0,
@@ -320,13 +321,13 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         .limit(20);
 
       if (error) {
-        console.error('Error searching quotes:', error);
+        logger.error('Error searching quotes:', error);
         return [];
       }
 
       return (data || []).map(dbRowToStoredQuote);
     } catch (error) {
-      console.error('Error searching quotes from Supabase:', error);
+      logger.error('Error searching quotes from Supabase:', error);
       return [];
     }
   }
@@ -362,7 +363,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
 
       return await this.saveQuote(newQuote);
     } catch (error) {
-      console.error('Error duplicating quote:', error);
+      logger.error('Error duplicating quote:', error);
       return {
         success: false,
         id,
@@ -407,7 +408,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
 
       return await this.saveQuote(newQuote);
     } catch (error) {
-      console.error('Error creating revision:', error);
+      logger.error('Error creating revision:', error);
       return {
         success: false,
         id,
@@ -422,11 +423,11 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       const { error } = await supabase.from('quotes').delete().eq('id', id);
 
       if (error) {
-        console.error('Error deleting quote:', error);
+        logger.error('Error deleting quote:', error);
         throw new Error(error.message);
       }
     } catch (error) {
-      console.error('Error deleting quote from Supabase:', error);
+      logger.error('Error deleting quote from Supabase:', error);
       throw error;
     }
   }
@@ -434,7 +435,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
   async getNextQuoteRef(): Promise<string> {
     const { data, error } = await supabase.rpc('generate_next_quote_ref');
     if (error) {
-      console.error('getNextQuoteRef RPC error:', error);
+      logger.error('getNextQuoteRef RPC error:', error);
       throw new Error('Failed to generate quote reference. Please try again.');
     }
     return data as string;
@@ -453,7 +454,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
 
       return this.dbQuoteToQuoteState(data);
     } catch (error) {
-      console.error('Error getting most recent quote:', error);
+      logger.error('Error getting most recent quote:', error);
       return null;
     }
   }
@@ -480,13 +481,13 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       });
 
       if (error) {
-        console.error('Error saving customer:', error);
+        logger.error('Error saving customer:', error);
         throw new Error(error.message);
       }
 
       return id;
     } catch (error) {
-      console.error('Error saving customer to Supabase:', error);
+      logger.error('Error saving customer to Supabase:', error);
       throw error;
     }
   }
@@ -500,13 +501,13 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         .limit(20);
 
       if (error) {
-        console.error('Error searching customers:', error);
+        logger.error('Error searching customers:', error);
         return [];
       }
 
       return (data || []).map(this.dbCustomerToStored);
     } catch (error) {
-      console.error('Error searching customers from Supabase:', error);
+      logger.error('Error searching customers from Supabase:', error);
       return [];
     }
   }
@@ -523,7 +524,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
 
       return this.dbCustomerToStored(data);
     } catch (error) {
-      console.error('Error getting customer:', error);
+      logger.error('Error getting customer:', error);
       return null;
     }
   }
@@ -536,13 +537,13 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         .order('name', { ascending: true });
 
       if (error) {
-        console.error('Error listing customers:', error);
+        logger.error('Error listing customers:', error);
         return [];
       }
 
       return (data || []).map(this.dbCustomerToStored);
     } catch (error) {
-      console.error('Error listing customers from Supabase:', error);
+      logger.error('Error listing customers from Supabase:', error);
       return [];
     }
   }
@@ -560,7 +561,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
 
       return data;
     } catch (error) {
-      console.error('Error getting user:', error);
+      logger.error('Error getting user:', error);
       return null;
     }
   }
@@ -574,13 +575,13 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         .order('full_name', { ascending: true });
 
       if (error) {
-        console.error('Error listing users:', error);
+        logger.error('Error listing users:', error);
         return [];
       }
 
       return data || [];
     } catch (error) {
-      console.error('Error listing users from Supabase:', error);
+      logger.error('Error listing users from Supabase:', error);
       return [];
     }
   }
@@ -595,13 +596,13 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         .eq('is_active', true);
 
       if (error) {
-        console.error('Error getting users by role:', error);
+        logger.error('Error getting users by role:', error);
         return [];
       }
 
       return data || [];
     } catch (error) {
-      console.error('Error getting users by role from Supabase:', error);
+      logger.error('Error getting users by role from Supabase:', error);
       return [];
     }
   }
@@ -615,13 +616,13 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         .order('min_margin', { ascending: true });
 
       if (error) {
-        console.error('Error getting commission tiers:', error);
+        logger.error('Error getting commission tiers:', error);
         return [];
       }
 
       return (data || []).map(this.mapCommissionTier);
     } catch (error) {
-      console.error('Error getting commission tiers from Supabase:', error);
+      logger.error('Error getting commission tiers from Supabase:', error);
       return [];
     }
   }
@@ -633,13 +634,13 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         .select('*');
 
       if (error) {
-        console.error('Error getting residual curves:', error);
+        logger.error('Error getting residual curves:', error);
         return [];
       }
 
       return (data || []).map(this.mapResidualCurve);
     } catch (error) {
-      console.error('Error getting residual curves from Supabase:', error);
+      logger.error('Error getting residual curves from Supabase:', error);
       return [];
     }
   }
@@ -657,10 +658,10 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         new_values: entry.newValues ? JSON.stringify(entry.newValues) : null,
       });
       if (error) {
-        console.error('Audit log insert failed:', error.message);
+        logger.error('Audit log insert failed:', error.message);
       }
     } catch (error) {
-      console.error('Error logging audit entry:', error);
+      logger.error('Error logging audit entry:', error);
     }
   }
 
@@ -674,13 +675,13 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         .order('timestamp', { ascending: false });
 
       if (error) {
-        console.error('Error getting audit log:', error);
+        logger.error('Error getting audit log:', error);
         return [];
       }
 
       return (data || []).map((row: any) => mapAuditLogEntry(row));
     } catch (error) {
-      console.error('Error getting audit log from Supabase:', error);
+      logger.error('Error getting audit log from Supabase:', error);
       return [];
     }
   }
@@ -704,7 +705,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       if (error) throw new Error(error.message);
       return id;
     } catch (error) {
-      console.error('Error saving template:', error);
+      logger.error('Error saving template:', error);
       throw error;
     }
   }
@@ -718,13 +719,13 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         .order('name', { ascending: true });
 
       if (error) {
-        console.error('Error getting templates:', error);
+        logger.error('Error getting templates:', error);
         return [];
       }
 
       return (data || []).map(this.dbTemplateToStored);
     } catch (error) {
-      console.error('Error getting templates from Supabase:', error);
+      logger.error('Error getting templates from Supabase:', error);
       return [];
     }
   }
@@ -742,7 +743,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       if (error || !data) return null;
       return this.dbTemplateToStored(data);
     } catch (error) {
-      console.error('Error getting default template:', error);
+      logger.error('Error getting default template:', error);
       return null;
     }
   }
@@ -752,7 +753,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       const { error } = await supabase.from('templates').delete().eq('id', id);
       if (error) throw new Error(error.message);
     } catch (error) {
-      console.error('Error deleting template:', error);
+      logger.error('Error deleting template:', error);
       throw error;
     }
   }
@@ -792,7 +793,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       if (error) throw new Error(error.message);
       return id;
     } catch (error) {
-      console.error('Error saving company:', error);
+      logger.error('Error saving company:', error);
       throw error;
     }
   }
@@ -824,7 +825,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       const { error } = await supabase.from('companies').update(dbUpdates).eq('id', id);
       if (error) throw new Error(error.message);
     } catch (error) {
-      console.error('Error updating company:', error);
+      logger.error('Error updating company:', error);
       throw error;
     }
   }
@@ -840,7 +841,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       if (error || !data) return null;
       return this.dbCompanyToStored(data);
     } catch (error) {
-      console.error('Error getting company:', error);
+      logger.error('Error getting company:', error);
       return null;
     }
   }
@@ -853,13 +854,13 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         .order('name', { ascending: true });
 
       if (error) {
-        console.error('Error listing companies:', error);
+        logger.error('Error listing companies:', error);
         return [];
       }
 
       return (data || []).map(this.dbCompanyToStored);
     } catch (error) {
-      console.error('Error listing companies from Supabase:', error);
+      logger.error('Error listing companies from Supabase:', error);
       return [];
     }
   }
@@ -873,13 +874,13 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         .limit(20);
 
       if (error) {
-        console.error('Error searching companies:', error);
+        logger.error('Error searching companies:', error);
         return [];
       }
 
       return (data || []).map(this.dbCompanyToStored);
     } catch (error) {
-      console.error('Error searching companies from Supabase:', error);
+      logger.error('Error searching companies from Supabase:', error);
       return [];
     }
   }
@@ -889,7 +890,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       const { error } = await supabase.from('companies').delete().eq('id', id);
       if (error) throw new Error(error.message);
     } catch (error) {
-      console.error('Error deleting company:', error);
+      logger.error('Error deleting company:', error);
       throw error;
     }
   }
@@ -916,7 +917,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       if (error) throw new Error(error.message);
       return id;
     } catch (error) {
-      console.error('Error saving contact:', error);
+      logger.error('Error saving contact:', error);
       throw error;
     }
   }
@@ -934,7 +935,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       const { error } = await supabase.from('contacts').update(dbUpdates).eq('id', id);
       if (error) throw new Error(error.message);
     } catch (error) {
-      console.error('Error updating contact:', error);
+      logger.error('Error updating contact:', error);
       throw error;
     }
   }
@@ -948,13 +949,13 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         .order('is_primary', { ascending: false });
 
       if (error) {
-        console.error('Error getting contacts:', error);
+        logger.error('Error getting contacts:', error);
         return [];
       }
 
       return (data || []).map(this.dbContactToStored);
     } catch (error) {
-      console.error('Error getting contacts from Supabase:', error);
+      logger.error('Error getting contacts from Supabase:', error);
       return [];
     }
   }
@@ -964,7 +965,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       const { error } = await supabase.from('contacts').delete().eq('id', id);
       if (error) throw new Error(error.message);
     } catch (error) {
-      console.error('Error deleting contact:', error);
+      logger.error('Error deleting contact:', error);
       throw error;
     }
   }
@@ -991,7 +992,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       if (error) throw new Error(error.message);
       return id;
     } catch (error) {
-      console.error('Error saving activity:', error);
+      logger.error('Error saving activity:', error);
       throw error;
     }
   }
@@ -1006,13 +1007,13 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         .limit(limit);
 
       if (error) {
-        console.error('Error getting activities:', error);
+        logger.error('Error getting activities:', error);
         return [];
       }
 
       return (data || []).map(this.dbActivityToStored);
     } catch (error) {
-      console.error('Error getting activities from Supabase:', error);
+      logger.error('Error getting activities from Supabase:', error);
       return [];
     }
   }
@@ -1026,13 +1027,13 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         .limit(limit);
 
       if (error) {
-        console.error('Error getting recent activities:', error);
+        logger.error('Error getting recent activities:', error);
         return [];
       }
 
       return (data || []).map(this.dbActivityToStored);
     } catch (error) {
-      console.error('Error getting recent activities from Supabase:', error);
+      logger.error('Error getting recent activities from Supabase:', error);
       return [];
     }
   }
@@ -1042,7 +1043,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       const { error } = await supabase.from('activities').delete().eq('id', id);
       if (error) throw new Error(error.message);
     } catch (error) {
-      console.error('Error deleting activity:', error);
+      logger.error('Error deleting activity:', error);
       throw error;
     }
   }
@@ -1068,7 +1069,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       if (error) throw new Error(error.message);
       return id;
     } catch (error) {
-      console.error('Error saving notification:', error);
+      logger.error('Error saving notification:', error);
       throw error;
     }
   }
@@ -1083,13 +1084,13 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         .limit(limit);
 
       if (error) {
-        console.error('Error getting notifications:', error);
+        logger.error('Error getting notifications:', error);
         return [];
       }
 
       return (data || []).map(this.dbNotificationToStored);
     } catch (error) {
-      console.error('Error getting notifications from Supabase:', error);
+      logger.error('Error getting notifications from Supabase:', error);
       return [];
     }
   }
@@ -1103,7 +1104,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
 
       if (error) throw new Error(error.message);
     } catch (error) {
-      console.error('Error marking notification read:', error);
+      logger.error('Error marking notification read:', error);
       throw error;
     }
   }
@@ -1118,7 +1119,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
 
       if (error) throw new Error(error.message);
     } catch (error) {
-      console.error('Error marking all notifications read:', error);
+      logger.error('Error marking all notifications read:', error);
       throw error;
     }
   }
@@ -1136,7 +1137,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       if (error || !data) return null;
       return this.dbContactToStored(data);
     } catch (error) {
-      console.error('Error getting contact:', error);
+      logger.error('Error getting contact:', error);
       return null;
     }
   }
@@ -1150,13 +1151,13 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error getting activities by quote:', error);
+        logger.error('Error getting activities by quote:', error);
         return [];
       }
 
       return (data || []).map(this.dbActivityToStored);
     } catch (error) {
-      console.error('Error getting activities by quote from Supabase:', error);
+      logger.error('Error getting activities by quote from Supabase:', error);
       return [];
     }
   }
@@ -1170,13 +1171,13 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error getting quotes by company:', error);
+        logger.error('Error getting quotes by company:', error);
         return [];
       }
 
       return (data || []).map(dbRowToStoredQuote);
     } catch (error) {
-      console.error('Error getting quotes by company from Supabase:', error);
+      logger.error('Error getting quotes by company from Supabase:', error);
       return [];
     }
   }
@@ -1190,13 +1191,13 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         .order('quote_ref', { ascending: false });
 
       if (error) {
-        console.error('Error getting quote revisions:', error);
+        logger.error('Error getting quote revisions:', error);
         return [];
       }
 
       return (data || []).map(dbRowToStoredQuote);
     } catch (error) {
-      console.error('Error getting quote revisions from Supabase:', error);
+      logger.error('Error getting quote revisions from Supabase:', error);
       return [];
     }
   }
@@ -1212,7 +1213,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       if (error || !data) return null;
       return this.dbTemplateToStored(data);
     } catch (error) {
-      console.error('Error getting template:', error);
+      logger.error('Error getting template:', error);
       return null;
     }
   }
@@ -1225,13 +1226,13 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error listing all activities:', error);
+        logger.error('Error listing all activities:', error);
         return [];
       }
 
       return (data || []).map(this.dbActivityToStored);
     } catch (error) {
-      console.error('Error listing all activities from Supabase:', error);
+      logger.error('Error listing all activities from Supabase:', error);
       return [];
     }
   }
@@ -1254,7 +1255,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         return acc;
       }, {} as Record<string, number>);
     } catch (error) {
-      console.error('Error getting table counts:', error);
+      logger.error('Error getting table counts:', error);
       return {};
     }
   }
@@ -1277,13 +1278,13 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       const { data, error } = await query;
 
       if (error) {
-        console.error('Error listing audit log:', error);
+        logger.error('Error listing audit log:', error);
         return [];
       }
 
       return (data || []).map((row: any) => mapAuditLogEntry(row));
     } catch (error) {
-      console.error('Error listing audit log from Supabase:', error);
+      logger.error('Error listing audit log from Supabase:', error);
       return [];
     }
   }
@@ -1295,7 +1296,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         .select('*');
 
       if (error) {
-        console.error('Error getting settings:', error);
+        logger.error('Error getting settings:', error);
         return {};
       }
 
@@ -1304,7 +1305,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         return acc;
       }, {});
     } catch (error) {
-      console.error('Error getting settings from Supabase:', error);
+      logger.error('Error getting settings from Supabase:', error);
       return {};
     }
   }
@@ -1317,56 +1318,50 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
 
       if (error) throw new Error(error.message);
     } catch (error) {
-      console.error('Error saving settings:', error);
+      logger.error('Error saving settings:', error);
       throw error;
     }
   }
 
   async saveCommissionTiers(tiers: any[]): Promise<void> {
     try {
-      // Clear existing tiers
-      const { error: deleteError } = await supabase.from('commission_tiers').delete().neq('id', '');
-      if (deleteError) throw new Error(deleteError.message);
+      // Atomic delete+insert via RPC (single transaction — no data loss window)
+      const dbTiers = tiers.map((t) => ({
+        id: t.id || crypto.randomUUID(),
+        min_margin: t.minMargin,
+        max_margin: t.maxMargin,
+        commission_pct: t.commissionRate,
+      }));
 
-      if (tiers.length > 0) {
-        const dbTiers: Database['public']['Tables']['commission_tiers']['Insert'][] = tiers.map((t) => ({
-          id: t.id || crypto.randomUUID(),
-          min_margin: t.minMargin,
-          max_margin: t.maxMargin,
-          commission_pct: t.commissionRate,
-        }));
-
-        const { error } = await supabase.from('commission_tiers').insert(dbTiers);
-        if (error) throw new Error(error.message);
-      }
+      const { error } = await supabase.rpc('save_commission_tiers_atomic', {
+        p_tiers: dbTiers,
+      });
+      if (error) throw new Error(error.message);
     } catch (error) {
-      console.error('Error saving commission tiers:', error);
+      logger.error('Error saving commission tiers:', error);
       throw error;
     }
   }
 
   async saveResidualCurves(curves: any[]): Promise<void> {
     try {
-      // Clear existing curves
-      const { error: deleteError } = await supabase.from('residual_curves').delete().neq('id', '');
-      if (deleteError) throw new Error(deleteError.message);
+      // Atomic delete+insert via RPC (single transaction — no data loss window)
+      const dbCurves = curves.map((c) => ({
+        id: c.id || crypto.randomUUID(),
+        chemistry: c.chemistry,
+        term_36: c.term36 ?? null,
+        term_48: c.term48 ?? null,
+        term_60: c.term60 ?? null,
+        term_72: c.term72 ?? null,
+        term_84: c.term84 ?? null,
+      }));
 
-      if (curves.length > 0) {
-        const dbCurves: Database['public']['Tables']['residual_curves']['Insert'][] = curves.map((c) => ({
-          id: c.id || crypto.randomUUID(),
-          chemistry: c.chemistry,
-          term_36: c.term36 ?? null,
-          term_48: c.term48 ?? null,
-          term_60: c.term60 ?? null,
-          term_72: c.term72 ?? null,
-          term_84: c.term84 ?? null,
-        }));
-
-        const { error } = await supabase.from('residual_curves').insert(dbCurves);
-        if (error) throw new Error(error.message);
-      }
+      const { error } = await supabase.rpc('save_residual_curves_atomic', {
+        p_curves: dbCurves,
+      });
+      if (error) throw new Error(error.message);
     } catch (error) {
-      console.error('Error saving residual curves:', error);
+      logger.error('Error saving residual curves:', error);
       throw error;
     }
   }
@@ -1381,7 +1376,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         .in('id', ids);
 
       if (error) {
-        console.error('Error getting attachments by IDs:', error);
+        logger.error('Error getting attachments by IDs:', error);
         return [];
       }
 
@@ -1390,7 +1385,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         eurCost: Number(row.eur_cost) || 0,
       }));
     } catch (error) {
-      console.error('Error getting attachments from Supabase:', error);
+      logger.error('Error getting attachments from Supabase:', error);
       return [];
     }
   }
@@ -1404,13 +1399,13 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         .gte('created_at', date);
 
       if (error) {
-        console.error('Error counting quotes since date:', error);
+        logger.error('Error counting quotes since date:', error);
         return 0;
       }
 
       return count || 0;
     } catch (error) {
-      console.error('Error counting quotes from Supabase:', error);
+      logger.error('Error counting quotes from Supabase:', error);
       return 0;
     }
   }
@@ -1463,7 +1458,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       if (error) throw new Error(error.message);
       return id;
     } catch (error) {
-      console.error('Error saving lead:', error);
+      logger.error('Error saving lead:', error);
       throw error;
     }
   }
@@ -1507,7 +1502,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       const { error } = await supabase.from('leads').update(dbUpdates).eq('id', id);
       if (error) throw new Error(error.message);
     } catch (error) {
-      console.error('Error updating lead:', error);
+      logger.error('Error updating lead:', error);
       throw error;
     }
   }
@@ -1523,7 +1518,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       if (error || !data) return null;
       return this.dbLeadToStored(data);
     } catch (error) {
-      console.error('Error getting lead:', error);
+      logger.error('Error getting lead:', error);
       return null;
     }
   }
@@ -1579,7 +1574,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       const { data, count, error } = await query;
 
       if (error) {
-        console.error('Error listing leads:', error);
+        logger.error('Error listing leads:', error);
         return { items: [], total: 0, page: options.page, pageSize: options.pageSize, totalPages: 0 };
       }
 
@@ -1591,7 +1586,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         totalPages: Math.ceil((count || 0) / options.pageSize),
       };
     } catch (error) {
-      console.error('Error listing leads from Supabase:', error);
+      logger.error('Error listing leads from Supabase:', error);
       return { items: [], total: 0, page: options.page, pageSize: options.pageSize, totalPages: 0 };
     }
   }
@@ -1606,13 +1601,13 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         .limit(50);
 
       if (error) {
-        console.error('Error searching leads:', error);
+        logger.error('Error searching leads:', error);
         return [];
       }
 
       return (data || []).map(this.dbLeadToStored);
     } catch (error) {
-      console.error('Error searching leads from Supabase:', error);
+      logger.error('Error searching leads from Supabase:', error);
       return [];
     }
   }
@@ -1622,7 +1617,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       const { error } = await supabase.from('leads').delete().eq('id', id);
       if (error) throw new Error(error.message);
     } catch (error) {
-      console.error('Error deleting lead:', error);
+      logger.error('Error deleting lead:', error);
       throw error;
     }
   }
@@ -1634,7 +1629,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         .select('qualification_status, buy_probability, ai_confidence, source_name, industry, province');
 
       if (error || !data) {
-        console.error('Error getting lead stats:', error);
+        logger.error('Error getting lead stats:', error);
         return this.emptyLeadStats();
       }
 
@@ -1687,7 +1682,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
         scoreDistribution,
       };
     } catch (error) {
-      console.error('Error getting lead stats from Supabase:', error);
+      logger.error('Error getting lead stats from Supabase:', error);
       return this.emptyLeadStats();
     }
   }
@@ -1701,7 +1696,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
 
       if (error) throw new Error(error.message);
     } catch (error) {
-      console.error('Error bulk updating lead status:', error);
+      logger.error('Error bulk updating lead status:', error);
       throw error;
     }
   }
@@ -1967,5 +1962,341 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
     const scoreDistribution: Record<number, number> = {};
     for (let i = 1; i <= 10; i++) scoreDistribution[i] = 0;
     return { total: 0, byStatus, averageScore: 0, averageConfidence: 0, bySource: {}, byIndustry: {}, byProvince: {}, hotLeads: 0, scoreDistribution };
+  }
+
+
+  // ===== Price List Operations =====
+
+  async listPriceListSeries(): Promise<import('./interfaces').StoredPriceListSeries[]> {
+    try {
+      const { data, error } = await supabase
+        .from('price_list_series')
+        .select('*')
+        .order('series_name')
+        .limit(500);
+
+      if (error) {
+        logger.error('Error listing price list series:', error);
+        return [];
+      }
+
+      return (data || []).map((row: any) => ({
+        seriesCode: row.series_code,
+        seriesName: row.series_name,
+        models: typeof row.models === 'string' ? row.models : JSON.stringify(row.models || []),
+        options: typeof row.options === 'string' ? row.options : JSON.stringify(row.options || []),
+      }));
+    } catch (error) {
+      logger.error('Error listing price list series from Supabase:', error);
+      return [];
+    }
+  }
+
+  async getPriceListSeries(seriesCode: string): Promise<import('./interfaces').StoredPriceListSeries | null> {
+    try {
+      const { data, error } = await supabase
+        .from('price_list_series')
+        .select('*')
+        .eq('series_code', seriesCode)
+        .maybeSingle();
+
+      if (error) {
+        logger.error('Error getting price list series:', error);
+        return null;
+      }
+
+      if (!data) return null;
+
+      return {
+        seriesCode: data.series_code,
+        seriesName: data.series_name,
+        models: typeof data.models === 'string' ? data.models : JSON.stringify(data.models || []),
+        options: typeof data.options === 'string' ? data.options : JSON.stringify(data.options || []),
+      };
+    } catch (error) {
+      logger.error('Error getting price list series from Supabase:', error);
+      return null;
+    }
+  }
+
+  async listTelematicsPackages(): Promise<import('./interfaces').StoredTelematicsPackage[]> {
+    try {
+      const { data, error } = await supabase
+        .from('telematics_packages')
+        .select('*')
+        .order('id', { ascending: true })
+        .limit(200);
+
+      if (error) {
+        logger.error('Error listing telematics packages:', error);
+        return [];
+      }
+
+      return (data || []).map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        description: row.description || '',
+        tags: row.tags || '',
+        costZAR: Number(row.cost_zar) || 0,
+      }));
+    } catch (error) {
+      logger.error('Error listing telematics packages from Supabase:', error);
+      return [];
+    }
+  }
+
+  async listContainerMappings(): Promise<import('./interfaces').StoredContainerMapping[]> {
+    try {
+      const { data, error } = await supabase
+        .from('container_mappings')
+        .select('*')
+        .order('id', { ascending: true })
+        .limit(500);
+
+      if (error) {
+        logger.error('Error listing container mappings:', error);
+        return [];
+      }
+
+      return (data || []).map((row: any) => ({
+        id: row.id,
+        seriesCode: row.series_code,
+        category: row.category,
+        model: row.model,
+        qtyPerContainer: row.qty_per_container,
+        containerType: row.container_type,
+        containerCostEUR: row.container_cost_eur,
+        notes: row.notes ?? '',
+      }));
+    } catch (error) {
+      logger.error('Error listing container mappings from Supabase:', error);
+      return [];
+    }
+  }
+
+  // ===== Quote Lock Operations =====
+
+  async acquireQuoteLock(quoteId: string, userId: string): Promise<boolean> {
+    try {
+      const { data } = await supabase
+        .from('quotes')
+        .update({
+          locked_by: userId,
+          locked_at: new Date().toISOString(),
+        })
+        .eq('id', quoteId)
+        .or(`locked_by.is.null,locked_by.eq.${userId}`)
+        .select('locked_by')
+        .maybeSingle();
+
+      return !!data;
+    } catch (error) {
+      logger.error('Error acquiring quote lock:', error);
+      return false;
+    }
+  }
+
+  async releaseQuoteLock(quoteId: string, userId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('quotes')
+        .update({ locked_by: null, locked_at: null })
+        .eq('id', quoteId)
+        .eq('locked_by', userId);
+
+      if (error) {
+        logger.error('Error releasing quote lock:', error);
+      }
+    } catch (error) {
+      logger.error('Error releasing quote lock from Supabase:', error);
+    }
+  }
+
+  async getQuoteLockOwner(_quoteId: string, lockedById: string): Promise<string | null> {
+    try {
+      const { data } = await supabase
+        .from('users')
+        .select('full_name')
+        .eq('id', lockedById)
+        .single();
+
+      return data ? (data.full_name as string) : null;
+    } catch (error) {
+      logger.error('Error getting quote lock owner:', error);
+      return null;
+    }
+  }
+
+  // ===== Presence Operations =====
+
+  async upsertPresence(quoteId: string, userId: string): Promise<void> {
+    try {
+      await supabase.from('quote_presence').upsert({
+        quote_id: quoteId,
+        user_id: userId,
+        last_seen_at: new Date().toISOString(),
+      });
+    } catch (error) {
+      logger.error('Error upserting presence:', error);
+    }
+  }
+
+  async deletePresence(quoteId: string, userId: string): Promise<void> {
+    try {
+      await supabase
+        .from('quote_presence')
+        .delete()
+        .eq('quote_id', quoteId)
+        .eq('user_id', userId);
+    } catch (error) {
+      logger.error('Error deleting presence:', error);
+    }
+  }
+
+  async cleanupStalePresence(): Promise<void> {
+    const { error } = await supabase.rpc('cleanup_stale_presence');
+    if (error) throw error;
+  }
+
+  // ===== Company Merge Operations =====
+
+  async getMergeRelatedCounts(secondaryCompanyId: string): Promise<{ contacts: number; activities: number; quotes: number }> {
+    try {
+      const [contactsRes, activitiesRes, quotesRes] = await Promise.all([
+        supabase.from('contacts').select('id', { count: 'exact' }).limit(0).eq('company_id', secondaryCompanyId),
+        supabase.from('activities').select('id', { count: 'exact' }).limit(0).eq('company_id', secondaryCompanyId),
+        supabase.from('quotes').select('id', { count: 'exact' }).limit(0).eq('company_id', secondaryCompanyId),
+      ]);
+
+      return {
+        contacts: contactsRes.count ?? 0,
+        activities: activitiesRes.count ?? 0,
+        quotes: quotesRes.count ?? 0,
+      };
+    } catch (error) {
+      logger.error('Error getting merge related counts:', error);
+      return { contacts: 0, activities: 0, quotes: 0 };
+    }
+  }
+
+  async mergeCompanies(primaryId: string, secondaryId: string, mergedData: Record<string, unknown>): Promise<void> {
+    const { error } = await supabase.rpc('merge_companies', {
+      p_primary_id: primaryId,
+      p_secondary_id: secondaryId,
+      p_merged_data: mergedData,
+    });
+
+    if (error) throw error;
+  }
+
+  // ===== User Admin Operations =====
+
+  async listAllUsers(): Promise<any[]> {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .order('full_name', { ascending: true });
+
+      if (error) {
+        logger.error('Error listing all users:', error);
+        return [];
+      }
+
+      return data || [];
+    } catch (error) {
+      logger.error('Error listing all users from Supabase:', error);
+      return [];
+    }
+  }
+
+  async updateUser(id: string, updates: Record<string, unknown>): Promise<void> {
+    const { error } = await supabase.from('users').update(updates).eq('id', id);
+    if (error) throw new Error(error.message);
+  }
+
+  async softDeleteUser(id: string): Promise<void> {
+    const { error } = await supabase.from('users').update({ is_active: false }).eq('id', id);
+    if (error) throw new Error(error.message);
+  }
+
+  async checkEmailExists(email: string, excludeId?: string): Promise<boolean> {
+    try {
+      const { data } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (!data) return false;
+      if (excludeId && (data as any).id === excludeId) return false;
+      return true;
+    } catch (error) {
+      logger.error('Error checking email exists:', error);
+      return false;
+    }
+  }
+
+  // ===== Pending Approval Queries =====
+
+  async listPendingApprovals(options: { page: number; pageSize: number; assigneeId?: string }): Promise<{ data: StoredQuote[]; count: number }> {
+    try {
+      let query = supabase
+        .from('quotes')
+        .select('*', { count: 'exact' })
+        .in('status', ['pending-approval', 'in-review'])
+        .order('created_at', { ascending: true });
+
+      if (options.assigneeId) {
+        query = query.eq('current_assignee_id', options.assigneeId);
+      }
+
+      const offset = (options.page - 1) * options.pageSize;
+      query = query.range(offset, offset + options.pageSize - 1);
+
+      const { data, count, error } = await query;
+
+      if (error) {
+        logger.error('Error listing pending approvals:', error);
+        return { data: [], count: 0 };
+      }
+
+      return {
+        data: (data || []).map(dbRowToStoredQuote),
+        count: count ?? 0,
+      };
+    } catch (error) {
+      logger.error('Error listing pending approvals from Supabase:', error);
+      return { data: [], count: 0 };
+    }
+  }
+
+  async countPendingApprovals(assigneeId?: string): Promise<number> {
+    try {
+      const statuses = ['pending-approval', 'in-review'] as const;
+
+      const counts = await Promise.all(
+        statuses.map(async (status) => {
+          let q = supabase
+            .from('quotes')
+            .select('id', { count: 'exact' })
+            .limit(0)
+            .eq('status', status);
+
+          if (assigneeId) {
+            q = q.eq('current_assignee_id', assigneeId);
+          }
+
+          const { count, error } = await q;
+          if (error) return 0;
+          return count ?? 0;
+        })
+      );
+
+      return counts.reduce((a, b) => a + b, 0);
+    } catch (error) {
+      logger.error('Error counting pending approvals:', error);
+      return 0;
+    }
   }
 }

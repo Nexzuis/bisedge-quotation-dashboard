@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
+import { getDb } from '../db/DatabaseAdapter';
 import { supabase, FEATURES, CONFIG } from '../lib/supabase';
 import { logger } from '../utils/logger';
 
@@ -39,6 +40,7 @@ export function usePresence(quoteId: string, enabled: boolean = true) {
     let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
     let channel: any = null;
     let handleVisibility: (() => void) | null = null;
+    let handleBeforeUnload: (() => void) | null = null;
 
     const startPresence = async () => {
       // Guard: if cleanup already ran before this async function executes, bail
@@ -49,11 +51,7 @@ export function usePresence(quoteId: string, enabled: boolean = true) {
       // Update presence in database
       const updatePresence = async () => {
         try {
-          await supabase.from('quote_presence').upsert({
-            quote_id: quoteId,
-            user_id: user.id,
-            last_seen_at: new Date().toISOString(),
-          });
+          await getDb().upsertPresence(quoteId, user.id);
         } catch (error) {
           logger.error('Failed to update presence:', error);
         }
@@ -84,6 +82,18 @@ export function usePresence(quoteId: string, enabled: boolean = true) {
         }
       };
       document.addEventListener('visibilitychange', handleVisibility);
+
+      // Best-effort cleanup on tab/window close
+      handleBeforeUnload = () => {
+        // navigator.sendBeacon is fire-and-forget and survives page unload
+        // Fall back to a synchronous delete via the adapter
+        try {
+          getDb().deletePresence(quoteId, user.id).catch(() => {});
+        } catch {
+          // Best-effort — swallow errors during unload
+        }
+      };
+      window.addEventListener('beforeunload', handleBeforeUnload);
 
       // Subscribe to presence changes via real-time channel
       channel = supabase.channel(`quote-presence:${quoteId}`)
@@ -136,6 +146,11 @@ export function usePresence(quoteId: string, enabled: boolean = true) {
         document.removeEventListener('visibilitychange', handleVisibility);
       }
 
+      // Remove beforeunload listener
+      if (handleBeforeUnload) {
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+      }
+
       // Clear heartbeat
       if (heartbeatInterval) {
         clearInterval(heartbeatInterval);
@@ -147,13 +162,7 @@ export function usePresence(quoteId: string, enabled: boolean = true) {
       }
 
       // Remove presence from database
-      Promise.resolve(
-        supabase
-          .from('quote_presence')
-          .delete()
-          .eq('quote_id', quoteId)
-          .eq('user_id', user.id)
-      )
+      getDb().deletePresence(quoteId, user.id)
         .then(() => logger.debug('Presence removed'))
         .catch((err: Error) => logger.error('Failed to remove presence:', err));
     };

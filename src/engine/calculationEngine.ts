@@ -143,30 +143,6 @@ export function calcResidualValue(
 }
 
 /**
- * Async version using database data
- */
-export async function calcResidualValueFromDB(
-  salesPrice: ZAR,
-  batteryChemistry: BatteryChemistry,
-  leaseTermMonths: LeaseTermMonths
-): Promise<ZAR> {
-  try {
-    const { getDb } = await import('../db/DatabaseAdapter');
-    const curves = await getDb().getResidualCurves();
-    const curve = curves.find((c: any) => c.chemistry === batteryChemistry);
-
-    if (!curve) return 0;
-
-    const field = `term${leaseTermMonths}` as keyof typeof curve;
-    const residualPct = (curve[field] as number) || 0;
-    return salesPrice * (residualPct / 100);
-  } catch (error) {
-    logger.error('Error calculating residual value from DB:', { error });
-    return 0;
-  }
-}
-
-/**
  * Residual Value using per-slot percentage (new flow)
  *
  * @param sellingPrice - Selling price in ZAR

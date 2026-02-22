@@ -4,6 +4,7 @@ import { RecentActivityFeed } from '../../crm/dashboard/RecentActivityFeed';
 import { useActivities } from '../../../hooks/useActivities';
 import { fadeInUp } from '../../crm/shared/motionVariants';
 import type { StoredActivity } from '../../../db/interfaces';
+import { logger } from '../../../utils/logger';
 
 export function RecentActivityWidget() {
   const [activities, setActivities] = useState<StoredActivity[]>([]);
@@ -20,7 +21,7 @@ export function RecentActivityWidget() {
       const recent = await getRecent(10);
       setActivities(recent);
     } catch (err) {
-      console.error('Error loading activities:', err);
+      logger.error('Error loading activities:', err);
     } finally {
       setLoading(false);
     }

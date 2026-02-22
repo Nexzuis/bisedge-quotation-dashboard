@@ -13,6 +13,7 @@
 
 import { getDb } from '../db/DatabaseAdapter';
 import type { StoredNotification, NotificationType } from '../types/notifications';
+import { logger } from './logger';
 
 // ─── Internal helper ────────────────────────────────────────────────────────
 
@@ -29,7 +30,7 @@ async function writeNotification(
 
     await getDb().saveNotification(record);
   } catch (err) {
-    console.error('[notificationHelpers] writeNotification error:', err);
+    logger.error('[notificationHelpers] writeNotification error:', err);
   }
 }
 

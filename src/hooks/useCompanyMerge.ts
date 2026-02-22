@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { supabase } from '../lib/supabase';
+import { getDb } from '../db/DatabaseAdapter';
 import type { StoredCompany } from '../db/interfaces';
 import { logger } from '../utils/logger';
 
@@ -121,13 +121,11 @@ export function useCompanyMerge() {
       secondaryId: string
     ): Promise<MergePreview | null> => {
       try {
-        const [primaryRes, secondaryRes] = await Promise.all([
-          supabase.from('companies').select('*').eq('id', primaryId).single(),
-          supabase.from('companies').select('*').eq('id', secondaryId).single(),
+        const db = getDb();
+        const [primary, secondary] = await Promise.all([
+          db.getCompany(primaryId),
+          db.getCompany(secondaryId),
         ]);
-
-        const primary = primaryRes.data as StoredCompany | null;
-        const secondary = secondaryRes.data as StoredCompany | null;
 
         if (!primary || !secondary) {
           logger.error(
@@ -137,20 +135,12 @@ export function useCompanyMerge() {
           return null;
         }
 
-        const [contactsRes, activitiesRes, quotesRes] = await Promise.all([
-          supabase.from('contacts').select('id', { count: 'exact' }).limit(0).eq('company_id', secondaryId),
-          supabase.from('activities').select('id', { count: 'exact' }).limit(0).eq('company_id', secondaryId),
-          supabase.from('quotes').select('id', { count: 'exact' }).limit(0).eq('company_id', secondaryId),
-        ]);
+        const relatedCounts = await db.getMergeRelatedCounts(secondaryId);
 
         return {
           primary,
           secondary,
-          relatedCounts: {
-            contacts: contactsRes.count ?? 0,
-            activities: activitiesRes.count ?? 0,
-            quotes: quotesRes.count ?? 0,
-          },
+          relatedCounts,
         };
       } catch (error) {
         logger.error('fetchMergePreview failed:', { error });
@@ -166,7 +156,7 @@ export function useCompanyMerge() {
    * Steps (all-or-nothing inside the database function):
    *  1. Re-fetch both companies to build the merged payload.
    *  2. Compute the merged company record from field selections.
-   *  3. Call `supabase.rpc('merge_companies')` which atomically:
+   *  3. Call `mergeCompanies` which atomically:
    *     - Writes the merged record to the primary company's row.
    *     - Reassigns contacts, activities, and quotes from secondary → primary.
    *     - Deletes the secondary company record.
@@ -180,14 +170,13 @@ export function useCompanyMerge() {
       selections: MergeFieldSelections
     ): Promise<boolean> => {
       try {
-        // Re-fetch both companies to build the merged payload
-        const [primaryRes, secondaryRes] = await Promise.all([
-          supabase.from('companies').select('*').eq('id', primaryId).single(),
-          supabase.from('companies').select('*').eq('id', secondaryId).single(),
-        ]);
+        const db = getDb();
 
-        const primary = primaryRes.data as StoredCompany | null;
-        const secondary = secondaryRes.data as StoredCompany | null;
+        // Re-fetch both companies to build the merged payload
+        const [primary, secondary] = await Promise.all([
+          db.getCompany(primaryId),
+          db.getCompany(secondaryId),
+        ]);
 
         if (!primary || !secondary) {
           throw new Error(
@@ -198,7 +187,7 @@ export function useCompanyMerge() {
         const mergedCompany = applySelections(primary, secondary, selections);
 
         // Build snake_case payload for the RPC
-        const mergedData = {
+        const mergedData: Record<string, unknown> = {
           name: mergedCompany.name,
           trading_name: mergedCompany.tradingName,
           registration_number: mergedCompany.registrationNumber,
@@ -221,13 +210,7 @@ export function useCompanyMerge() {
           notes: mergedCompany.notes,
         };
 
-        const { error } = await supabase.rpc('merge_companies', {
-          p_primary_id: primaryId,
-          p_secondary_id: secondaryId,
-          p_merged_data: mergedData,
-        });
-
-        if (error) throw error;
+        await db.mergeCompanies(primaryId, secondaryId, mergedData);
 
         return true;
       } catch (error) {

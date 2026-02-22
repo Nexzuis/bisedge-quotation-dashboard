@@ -10,7 +10,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useQuoteStore } from '../store/useQuoteStore';
 import { useAuthStore } from '../store/useAuthStore';
-import { supabase } from '../lib/supabase';
+import { getDb } from '../db/DatabaseAdapter';
 import { toast } from 'sonner';
 import { logger } from '../utils/logger';
 
@@ -62,6 +62,15 @@ export function useQuoteLock(
     const capturedUserId = user.id;
 
     const acquireQuoteLock = async () => {
+      // Best-effort stale presence cleanup (fallback when pg_cron is unavailable).
+      // Runs as the service_role via RPC — if it fails (e.g. RPC not deployed yet)
+      // we swallow the error and proceed; the lock flow is unaffected.
+      try {
+        await getDb().cleanupStalePresence();
+      } catch {
+        // Expected on free-tier where the RPC may not exist yet
+      }
+
       // Check if already locked
       if (isLockedByOther(capturedUserId)) {
         // Someone else has the lock
@@ -70,16 +79,12 @@ export function useQuoteLock(
         // Fetch the user's name who has the lock
         if (lockedBy) {
           try {
-            const { data: lockOwner } = await supabase
-              .from('users')
-              .select('full_name')
-              .eq('id', lockedBy)
-              .single();
+            const ownerName = await getDb().getQuoteLockOwner(quoteId, lockedBy);
 
-            if (lockOwner) {
-              setLockedByName(lockOwner.full_name);
+            if (ownerName) {
+              setLockedByName(ownerName);
               toast.warning('Quote is being edited', {
-                description: `${lockOwner.full_name} is currently editing this quote`,
+                description: `${ownerName} is currently editing this quote`,
                 duration: 5000,
               });
             }
@@ -106,18 +111,9 @@ export function useQuoteLock(
 
         // Sync lock to cloud — atomic guard: only succeed if unlocked or already ours
         try {
-          const { data } = await supabase
-            .from('quotes')
-            .update({
-              locked_by: capturedUserId,
-              locked_at: new Date().toISOString(),
-            })
-            .eq('id', quoteId)
-            .or(`locked_by.is.null,locked_by.eq.${capturedUserId}`)
-            .select('locked_by')
-            .maybeSingle();
+          const synced = await getDb().acquireQuoteLock(quoteId, capturedUserId);
 
-          if (!data) {
+          if (!synced) {
             // 0 rows updated → lock held by someone else — roll back local state
             releaseLock(capturedUserId);
             toast.warning('Quote is locked', {
@@ -151,21 +147,11 @@ export function useQuoteLock(
         releaseLock(capturedUserId);
 
         // Sync lock release to cloud
-        supabase
-          .from('quotes')
-          .update({
-            locked_by: null,
-            locked_at: null,
-          })
-          .eq('id', quoteId)
-          .eq('locked_by', capturedUserId)
-          .then(({ error }) => {
-            if (error) {
-              logger.error('Failed to release lock from cloud:', error);
-            } else {
-              logger.debug('Lock released from cloud');
-            }
-          });
+        getDb().releaseQuoteLock(quoteId, capturedUserId).then(() => {
+          logger.debug('Lock released from cloud');
+        }).catch((error) => {
+          logger.error('Failed to release lock from cloud:', error);
+        });
       }
     };
     // Bug #4 fix: lockedBy removed from deps to prevent acquire/release cycles.
@@ -211,18 +197,9 @@ export function useManualQuoteLock(quoteId: string) {
 
     if (acquired) {
       try {
-        const { data } = await supabase
-          .from('quotes')
-          .update({
-            locked_by: user.id,
-            locked_at: new Date().toISOString(),
-          })
-          .eq('id', quoteId)
-          .or(`locked_by.is.null,locked_by.eq.${user.id}`)
-          .select('locked_by')
-          .maybeSingle();
+        const synced = await getDb().acquireQuoteLock(quoteId, user.id);
 
-        if (!data) {
+        if (!synced) {
           // Lock held by someone else — roll back
           releaseLock(user.id);
           return false;
@@ -244,18 +221,7 @@ export function useManualQuoteLock(quoteId: string) {
     releaseLock(user.id);
 
     try {
-      const { error } = await supabase
-        .from('quotes')
-        .update({
-          locked_by: null,
-          locked_at: null,
-        })
-        .eq('id', quoteId)
-        .eq('locked_by', user.id);
-
-      if (error) {
-        logger.error('Failed to release lock from cloud:', error);
-      }
+      await getDb().releaseQuoteLock(quoteId, user.id);
     } catch (error) {
       logger.error('Failed to release lock:', error);
     }

@@ -6,6 +6,7 @@ import { useAuthStore } from '../../../store/useAuthStore';
 import { getDb } from '../../../db/DatabaseAdapter';
 import { staggerContainer, fadeInUp } from '../../crm/shared/motionVariants';
 import type { QuoteStatus } from '../../../types/quote';
+import { logger } from '../../../utils/logger';
 
 interface QuoteStatsWidgetProps {
   userOnly?: boolean;
@@ -65,7 +66,7 @@ export function QuoteStatsWidget({ userOnly = false }: QuoteStatsWidgetProps) {
       }
       setCounts(countMap);
     } catch (err) {
-      console.error('Error loading quote stats:', err);
+      logger.error('Error loading quote stats:', err);
     } finally {
       setLoading(false);
     }

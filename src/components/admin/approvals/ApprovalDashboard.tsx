@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { getDb } from '../../../db/DatabaseAdapter';
-import { supabase } from '../../../lib/supabase';
 import { toast } from '../../ui/Toast';
 import { ApprovalChainBreadcrumb } from '../../shared/ApprovalChainBreadcrumb';
 import { ApprovalActionModal } from '../../shared/ApprovalActionModal';
@@ -70,39 +69,28 @@ export function ApprovalDashboard() {
     try {
       const db = getDb();
 
-      // Single query: both statuses + server-side assignee filter + pagination
-      let query = supabase
-        .from('quotes')
-        .select('*', { count: 'exact' })
-        .in('status', ['pending-approval', 'in-review'])
-        .order('created_at', { ascending: true });
+      // Single query via adapter — both statuses + server-side assignee filter + pagination
+      const assigneeId = user.role !== 'system_admin' ? user.id : undefined;
+      const { data, count } = await db.listPendingApprovals({
+        page,
+        pageSize: PAGE_SIZE,
+        assigneeId,
+      });
 
-      // Server-side assignee filter for non-admins
-      if (user.role !== 'system_admin') {
-        query = query.eq('current_assignee_id', user.id);
-      }
-
-      // Apply pagination
-      const offset = (page - 1) * PAGE_SIZE;
-      query = query.range(offset, offset + PAGE_SIZE - 1);
-
-      const { data, count, error } = await query;
-      if (error) throw error;
-
-      const total = count ?? 0;
+      const total = count;
       setTotalPages(Math.max(1, Math.ceil(total / PAGE_SIZE)));
 
       // Parse rows into PendingQuote shape
       const parsed: PendingQuote[] = await Promise.all(
-        (data || []).map(async (q: any) => {
+        data.map(async (q) => {
           let chain: ApprovalChainEntry[] = [];
           try {
-            const rawChain = q.approval_chain || q.approvalChain;
+            const rawChain = q.approvalChain;
             chain = typeof rawChain === 'string' ? JSON.parse(rawChain) : rawChain || [];
           } catch (e) { logger.error('Failed to parse approval chain for quote:', { quoteId: q.id, error: e }); chain = []; }
 
           let submitterName = 'Unknown';
-          const submittedBy = q.submitted_by || q.submittedBy;
+          const submittedBy = q.submittedBy;
           if (submittedBy) {
             try {
               const submitter = await db.getUser(submittedBy);
@@ -112,17 +100,17 @@ export function ApprovalDashboard() {
 
           return {
             id: q.id,
-            quoteRef: q.quote_ref || q.quoteRef || '',
-            clientName: q.client_name || q.clientName || '',
-            contactName: q.contact_name || q.contactName || '',
+            quoteRef: q.quoteRef || '',
+            clientName: q.clientName || '',
+            contactName: q.contactName || '',
             status: q.status,
-            currentAssigneeId: q.current_assignee_id || q.currentAssigneeId || null,
-            currentAssigneeRole: q.current_assignee_role || q.currentAssigneeRole || null,
+            currentAssigneeId: q.currentAssigneeId || null,
+            currentAssigneeRole: q.currentAssigneeRole || null,
             approvalChain: chain,
             submittedBy: submittedBy || null,
-            submittedAt: q.submitted_at || q.submittedAt || null,
-            createdBy: q.created_by || q.createdBy || null,
-            createdAt: q.created_at || q.createdAt || '',
+            submittedAt: q.submittedAt || null,
+            createdBy: q.createdBy || null,
+            createdAt: q.createdAt || '',
             submitterName,
           };
         })
@@ -284,7 +272,7 @@ function ApprovalCard({ quote, onRefresh }: { quote: PendingQuote; onRefresh: ()
       : getValidTargets(user!.role as Role);
     for (const role of roles) {
       const users = await db.getUsersByRole(role);
-      allUsers.push(...users.map((u: any) => ({ id: u.id, fullName: u.fullName, role: u.role })));
+      allUsers.push(...users.map((u: any) => ({ id: u.id, fullName: u.fullName || u.full_name, role: u.role })));
     }
     setTargetUsers(allUsers);
   };
@@ -511,12 +499,8 @@ export function ApprovalStats() {
 
   const loadStats = async () => {
     try {
-      // Server-side count for both pending statuses
-      const [pendingCount, reviewCount] = await Promise.all([
-        supabase.from('quotes').select('id', { count: 'exact' }).limit(0).eq('status', 'pending-approval'),
-        supabase.from('quotes').select('id', { count: 'exact' }).limit(0).eq('status', 'in-review'),
-      ]);
-      const totalPending = (pendingCount.count ?? 0) + (reviewCount.count ?? 0);
+      const db = getDb();
+      const totalPending = await db.countPendingApprovals();
 
       const auditRepo = getAuditRepository();
       const recentAudit = await auditRepo.getRecent(200);

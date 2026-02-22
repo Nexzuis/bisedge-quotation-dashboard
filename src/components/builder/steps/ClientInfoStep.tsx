@@ -11,7 +11,15 @@ import { CompanyAutocomplete } from '../../ui/CompanyAutocomplete';
 import { ContactPicker } from '../shared/ContactPicker';
 import { useCompanies } from '../../../hooks/useCompanies';
 import { isSimilarCompanyName } from '../../../utils/fuzzyMatch';
+import { validateEmail, validatePhone } from '../../../engine/validators';
 import type { StoredCompany, StoredContact } from '../../../db/interfaces';
+
+/** Field-level validation error state for the client info form. */
+interface FieldErrors {
+  clientName: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+}
 
 export function ClientInfoStep() {
   const clientName = useQuoteStore((s) => s.clientName);
@@ -29,6 +37,11 @@ export function ClientInfoStep() {
   const [duplicateMatch, setDuplicateMatch] = useState<StoredCompany | null>(null);
   const [duplicateDismissed, setDuplicateDismissed] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({
+    clientName: null,
+    contactEmail: null,
+    contactPhone: null,
+  });
   const { setCanProceed } = useBuilder();
   const { searchCompanies } = useCompanies();
   const dupeSearchIdRef = useRef(0);
@@ -48,6 +61,8 @@ export function ClientInfoStep() {
     setShowPicker(false);
     setDuplicateMatch(null);
     setDuplicateDismissed(false);
+    // Clear company name error when a company is linked
+    setFieldErrors((prev) => ({ ...prev, clientName: null }));
   };
 
   // Handle inline autocomplete selection
@@ -59,6 +74,7 @@ export function ClientInfoStep() {
     } as any);
     setDuplicateMatch(null);
     setDuplicateDismissed(false);
+    setFieldErrors((prev) => ({ ...prev, clientName: null }));
   };
 
   // Handle unlink
@@ -74,6 +90,8 @@ export function ClientInfoStep() {
       contactEmail: contact.email || '',
       contactPhone: contact.phone || '',
     } as any);
+    // Clear email/phone errors when contact auto-filled
+    setFieldErrors((prev) => ({ ...prev, contactEmail: null, contactPhone: null }));
   };
 
   // Handle manual contact entry
@@ -93,10 +111,36 @@ export function ClientInfoStep() {
     handleAutocompleteSelect(duplicateMatch);
   };
 
-  // Validation: client name + contact name required
+  // --- Blur validation handlers ---
+
+  const handleClientNameBlur = () => {
+    const trimmed = clientName.trim();
+    if (trimmed.length === 0) {
+      setFieldErrors((prev) => ({ ...prev, clientName: 'Company name is required' }));
+    } else if (trimmed.length < 2) {
+      setFieldErrors((prev) => ({ ...prev, clientName: 'Company name must be at least 2 characters' }));
+    } else {
+      setFieldErrors((prev) => ({ ...prev, clientName: null }));
+    }
+  };
+
+  const handleEmailBlur = () => {
+    setFieldErrors((prev) => ({ ...prev, contactEmail: validateEmail(contactEmail) }));
+  };
+
+  const handlePhoneBlur = () => {
+    setFieldErrors((prev) => ({ ...prev, contactPhone: validatePhone(contactPhone) }));
+  };
+
+  // Validation: client name (>= 2 chars) + contact name required + no field errors
   useEffect(() => {
-    setCanProceed(clientName.trim().length > 0 && contactName.trim().length > 0);
-  }, [clientName, contactName, setCanProceed]);
+    const emailError = validateEmail(contactEmail);
+    const phoneError = validatePhone(contactPhone);
+    const clientNameValid = clientName.trim().length >= 2;
+    const contactNameValid = contactName.trim().length > 0;
+    const noFieldErrors = !emailError && !phoneError;
+    setCanProceed(clientNameValid && contactNameValid && noFieldErrors);
+  }, [clientName, contactName, contactEmail, contactPhone, setCanProceed]);
 
   // Duplicate detection (fuzzy) — runs when companyId is NOT set
   useEffect(() => {
@@ -152,7 +196,11 @@ export function ClientInfoStep() {
             onClear={handleUnlink}
             linkedCompanyId={companyId}
             onOpenChange={setDropdownOpen}
+            onBlur={handleClientNameBlur}
           />
+          {fieldErrors.clientName && (
+            <p className="mt-1 text-danger-400 text-sm">{fieldErrors.clientName}</p>
+          )}
 
           {/* Duplicate warning */}
           {duplicateMatch && !companyId && !dropdownOpen && (
@@ -208,20 +256,32 @@ export function ClientInfoStep() {
               value={contactTitle}
               onChange={(e) => setCustomerField('contactTitle', e.target.value)}
             />
-            <Input
-              label="Email"
-              type="email"
-              placeholder="john@company.co.za"
-              value={contactEmail}
-              onChange={(e) => setCustomerField('contactEmail', e.target.value)}
-            />
-            <Input
-              label="Phone"
-              type="tel"
-              placeholder="+27 72 839 9058"
-              value={contactPhone}
-              onChange={(e) => setCustomerField('contactPhone', e.target.value)}
-            />
+            <div>
+              <Input
+                label="Email"
+                type="email"
+                placeholder="john@company.co.za"
+                value={contactEmail}
+                onChange={(e) => setCustomerField('contactEmail', e.target.value)}
+                onBlur={handleEmailBlur}
+              />
+              {fieldErrors.contactEmail && (
+                <p className="mt-1 text-danger-400 text-sm">{fieldErrors.contactEmail}</p>
+              )}
+            </div>
+            <div>
+              <Input
+                label="Phone"
+                type="tel"
+                placeholder="+27 72 839 9058"
+                value={contactPhone}
+                onChange={(e) => setCustomerField('contactPhone', e.target.value)}
+                onBlur={handlePhoneBlur}
+              />
+              {fieldErrors.contactPhone && (
+                <p className="mt-1 text-danger-400 text-sm">{fieldErrors.contactPhone}</p>
+              )}
+            </div>
           </div>
         </div>
 

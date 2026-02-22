@@ -6,6 +6,7 @@ import { formatDate } from '../../engine/formatters';
 import { getDb } from '../../db/DatabaseAdapter';
 import type { StoredQuote } from '../../db/interfaces';
 import type { QuoteStatus } from '../../types/quote';
+import { logger } from '../../utils/logger';
 
 interface RevisionHistoryProps {
   quoteRef: string;
@@ -51,7 +52,7 @@ export function RevisionHistory({ quoteRef, onLoadRevision, currentQuoteId }: Re
 
         setRevisions(allQuotes);
       } catch (err) {
-        console.error('Failed to load revisions:', err);
+        logger.error('Failed to load revisions:', err);
         setRevisions([]);
       } finally {
         setLoading(false);

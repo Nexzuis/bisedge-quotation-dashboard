@@ -262,8 +262,15 @@ Status lifecycle: `draft → pending-approval → approved | rejected | in-revie
 - Client-side PDF generation (multi-page, QR codes, T&C)
 - All 6 admin pages (pricing, config, approvals, users, templates, audit)
 - Global search (Ctrl+K)
-- Notification inbox with polling
+- Notification inbox with realtime subscriptions (Phase 4: replaced polling)
+- Approval count via realtime subscriptions (Phase 4: replaced polling)
 - Realtime quote updates and presence (when feature-flagged on)
+- Resilient quote saves with exponential backoff + ghost-success reconciliation (Phase 4)
+- Presence cleanup: beforeunload handler + client-triggered stale row cleanup (Phase 4)
+- Session lifecycle enforcement: onAuthStateChange + periodic is_active re-validation (Phase 4)
+- Connection status monitoring (online/Supabase reachability) (Phase 4)
+- Builder top bar with exit, quote ref, and save status (Phase 4)
+- Client info validation (email/phone on blur) (Phase 4)
 - Code splitting with lazy routes and vendor chunks
 - Phase 3: UI & Mobile Responsiveness (viewport overflow fix, responsive navigation, touch targets, mobile-optimized components)
 
@@ -311,6 +318,28 @@ Status lifecycle: `draft → pending-approval → approved | rejected | in-revie
 - Typed `LoadFromDBResult` (`'found' | 'not_found' | 'error'`) with distinct error messaging
 - TECH-DEBT.md entry for `database.types.ts` auto-generation (TD-6.3)
 
+### Fixed in Phase 4: Production Readiness (CURRENT-PLAN.md)
+
+- Adapter consolidation: 7 files bypassing `IDatabaseAdapter` migrated to `getDb()` (approvals, presence, lock, merge, users, price list)
+- Atomic RPC saves for commission tiers and residual curves (`003_atomic_saves.sql`) — no data loss window
+- 97+ `console.*` calls replaced with structured `logger` across 30+ files
+- Resilient fetch utility (`withQuoteSaveRetry`) with exponential backoff + version reconciliation
+- Auto-save now retries transient failures with ghost-success detection
+- Realtime subscriptions replace polling for approval counts and notifications (channel registry, max 5 concurrent)
+- Presence: `beforeunload` cleanup + client-triggered `cleanup_stale_presence()` RPC fallback
+- Session lifecycle: `onAuthStateChange` listener + periodic `is_active` re-validation every 5 min
+- `forceLogout()` with 5-second grace period for in-flight auto-saves
+- Connection status hook (`useConnectionStatus`) for online/Supabase reachability
+- Builder top bar (`BuilderTopBar`) with exit button, quote ref, save status
+- Client info validation (email format, phone 7+ digits) on blur
+- Audit logging: `oldValues` fetched before pricing config saves
+- Price list: migrated to adapter, overflow detection warnings
+- Schema migration consolidated to `supabase/migrations/002_schema_and_rpcs.sql`
+- Presence cleanup migration (`004_presence_cleanup.sql`) with `authenticated` + `service_role` grants
+- CI schema drift detection (`.github/workflows/ci.yml` schema-check job)
+- Dead code removed: `testSupabaseConnection.ts`, `SupabaseTestPage.tsx`, `calcResidualValueFromDB`
+- Deployment docs: `docs/deployment-checklist.md`, `docs/supabase-config.md`
+
 ### Not Working / Partially Working
 
 - Quote versions table (typed but never used — keep/remove decision pending)
@@ -321,9 +350,22 @@ Status lifecycle: `draft → pending-approval → approved | rejected | in-revie
 - Auto-generated `database.types.ts` from live Supabase schema (project ID `padeaqdcutqzgxujtpey`)
 - Fixed misleading RLS comment — clarified that self-update requires admin/manage-users authority
 
+### Dead Code / Unused Tables
+
+- `quote_versions` — typed in `database.types.ts` (auto-generated) but never queried anywhere in the application. Keep/remove decision pending.
+- `quote_collaborators` — typed in `database.types.ts` (auto-generated) but never queried anywhere in the application. Keep/remove decision pending.
+- `calcResidualValueFromDB` — removed in Phase 4 (had zero call sites; sync `calcResidualValueFromPct` is used instead).
+
 ### Not Yet Implemented
 
 - Deploy Edge Function `admin-create-user` to Supabase (code committed, needs `supabase functions deploy`)
+- Deploy atomic save RPCs (`003_atomic_saves.sql`) to Supabase
+- Apply schema migration (`002_schema_and_rpcs.sql`) to Supabase
+- Apply presence cleanup migration (`004_presence_cleanup.sql`) to Supabase
+- Configure SMTP provider in Supabase Auth settings
+- Configure Supabase Auth rate limiting in dashboard
+- Configure Supabase connection pooling (see `docs/supabase-config.md`)
+- Enable `pg_cron` for automated presence cleanup (Pro plan, see `004_presence_cleanup.sql`)
 - Email integration (template types exist, no sending)
 - Real product images in PDFs (placeholders only)
 - Dashboard widget customisation

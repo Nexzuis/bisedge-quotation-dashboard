@@ -1,4 +1,5 @@
 import QRCode from 'qrcode';
+import { logger } from '../../utils/logger';
 
 /**
  * Generate a PNG placeholder when QR code generation fails
@@ -37,7 +38,7 @@ export async function generateQRCode(url: string): Promise<string> {
     });
     return qrCodeDataUri;
   } catch (error) {
-    console.error('QR Code generation error:', error);
+    logger.error('QR Code generation error:', error);
     return qrFallbackPng();
   }
 }

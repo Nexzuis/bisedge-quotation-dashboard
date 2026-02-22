@@ -1,5 +1,6 @@
 import type { QuoteState, ShippingEntry, SlotIndex, UnitSlot } from '../types/quote';
 import type { StoredQuote } from './interfaces';
+import { logger } from '../utils/logger';
 
 /**
  * Create empty slot helper (needed for JSON.parse fallback)
@@ -214,12 +215,12 @@ export function storedToQuote(stored: StoredQuote): QuoteState {
         const parsed = JSON.parse(stored.slots);
         // Validate that parsed data is an array with 6 slots
         if (!Array.isArray(parsed) || parsed.length !== 6) {
-          console.error('Invalid slots data structure, using defaults');
+          logger.error('Invalid slots data structure, using defaults');
           return Array.from({ length: 6 }, (_, i) => createEmptySlot(i as SlotIndex));
         }
         return parsed;
       } catch (error) {
-        console.error('Failed to parse slots JSON:', error);
+        logger.error('Failed to parse slots JSON:', error);
         // Return 6 empty slots as fallback
         return Array.from({ length: 6 }, (_, i) => createEmptySlot(i as SlotIndex));
       }
@@ -242,7 +243,7 @@ export function storedToQuote(stored: StoredQuote): QuoteState {
           ...(entry.suggestedAt ? { suggestedAt: entry.suggestedAt } : {}),
         })) as ShippingEntry[];
       } catch (error) {
-        console.error('Failed to parse shippingEntries JSON:', error);
+        logger.error('Failed to parse shippingEntries JSON:', error);
         return createDefaultShippingEntries();
       }
     })(),

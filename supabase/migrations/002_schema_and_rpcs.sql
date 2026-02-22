@@ -1,22 +1,19 @@
 -- ============================================================
--- DEPRECATED: This file has been migrated to
--- supabase/migrations/002_schema_and_rpcs.sql on 2026-02-22.
--- Use the canonical migration file instead.
--- This file is kept for reference until migration is confirmed applied.
--- ============================================================
--- Round 4 — Concurrency, Atomicity & Schema Alignment Migrations
--- Run ALL statements in Supabase SQL Editor BEFORE deploying code
+-- 002_schema_and_rpcs.sql
+-- Migrated from supabase-migrations-round4.sql on 2026-02-22
+-- Contains: status constraint, updated_by column, quote_ref sequence,
+--           generate_next_quote_ref RPC, save_quote_if_version RPC
 -- ============================================================
 
--- Migration 1: Add missing statuses to CHECK constraint (Issue #10)
+-- Migration 1: Add missing statuses to CHECK constraint
 ALTER TABLE quotes DROP CONSTRAINT IF EXISTS quotes_status_check;
 ALTER TABLE quotes ADD CONSTRAINT quotes_status_check
   CHECK (status IN ('draft','pending-approval','in-review','changes-requested','approved','sent-to-customer','rejected','expired'));
 
--- Migration 2: Add updated_by column (Issue #11)
+-- Migration 2: Add updated_by column
 ALTER TABLE quotes ADD COLUMN IF NOT EXISTS updated_by uuid REFERENCES public.users(id);
 
--- Migration 3: Create atomic quote ref generation RPC (Issue #9)
+-- Migration 3: Create atomic quote ref generation RPC
 DO $$
 DECLARE
   max_ref integer;
@@ -47,7 +44,7 @@ $$;
 REVOKE EXECUTE ON FUNCTION generate_next_quote_ref() FROM public;
 GRANT EXECUTE ON FUNCTION generate_next_quote_ref() TO authenticated;
 
--- Migration 4: Create atomic save function with version guard (Issue #1)
+-- Migration 4: Create atomic save function with version guard
 -- Security: auth.uid() check + p_id used for INSERT id (prevents p_data.id mismatch)
 CREATE OR REPLACE FUNCTION save_quote_if_version(
   p_id uuid,
@@ -135,7 +132,7 @@ BEGIN
     locked_by, locked_at, updated_at, updated_by,
     quote_date, validity_days, last_synced_at, sync_status
   ) VALUES (
-    p_id,  -- always use the trusted parameter, not p_data.id
+    p_id,
     p_data->>'quote_ref',
     new_ver,
     p_data->>'status',
@@ -175,7 +172,7 @@ BEGIN
     (p_data->>'locked_by')::uuid,
     (p_data->>'locked_at')::timestamptz,
     (p_data->>'updated_at')::timestamptz,
-    calling_user,  -- updated_by always set to the actual caller
+    calling_user,
     (p_data->>'quote_date')::date,
     (p_data->>'validity_days')::integer,
     (p_data->>'last_synced_at')::timestamptz,

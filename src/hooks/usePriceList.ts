@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from '../lib/supabase';
+import { getDb } from '../db/DatabaseAdapter';
 import { logger } from '../utils/logger';
 import type {
   PriceListSeries,
@@ -20,26 +20,17 @@ export function usePriceListSeries(): { seriesCode: string; seriesName: string; 
     let cancelled = false;
 
     async function fetchSeries() {
-      const { data, error } = await supabase
-        .from('price_list_series')
-        .select('*')
-        .order('series_name')
-        .limit(500);
+      const data = await getDb().listPriceListSeries();
 
-      if (error) {
-        logger.error('usePriceListSeries: error fetching price_list_series', { error });
-        return;
-      }
-
-      if (!cancelled && data) {
+      if (!cancelled) {
         const mapped = data.map((row) => {
           const models =
             typeof row.models === 'string'
               ? JSON.parse(row.models)
               : (row.models || []);
           return {
-            seriesCode: row.series_code as string,
-            seriesName: row.series_name as string,
+            seriesCode: row.seriesCode,
+            seriesName: row.seriesName,
             modelCount: (models as unknown[]).length,
           };
         });
@@ -47,7 +38,9 @@ export function usePriceListSeries(): { seriesCode: string; seriesName: string; 
       }
     }
 
-    fetchSeries();
+    fetchSeries().catch((error) => {
+      logger.error('usePriceListSeries: error fetching price_list_series', { error });
+    });
 
     return () => {
       cancelled = true;
@@ -75,16 +68,7 @@ export function useSeriesData(seriesCode: string): PriceListSeries | null {
     }
 
     async function fetchSeriesData() {
-      const { data, error } = await supabase
-        .from('price_list_series')
-        .select('*')
-        .eq('series_code', seriesCode)
-        .maybeSingle();
-
-      if (error) {
-        logger.error('useSeriesData: error fetching series data', { error });
-        return;
-      }
+      const data = await getDb().getPriceListSeries(seriesCode);
 
       // Bug #27 fix: only apply results if this is still the latest request
       if (currentRequestId === requestIdRef.current && !cancelled) {
@@ -104,15 +88,17 @@ export function useSeriesData(seriesCode: string): PriceListSeries | null {
             : (data.options || []);
 
         setSeries({
-          seriesCode: data.series_code as string,
-          seriesName: data.series_name as string,
+          seriesCode: data.seriesCode,
+          seriesName: data.seriesName,
           models,
           options,
         });
       }
     }
 
-    fetchSeriesData();
+    fetchSeriesData().catch((error) => {
+      logger.error('useSeriesData: error fetching series data', { error });
+    });
 
     return () => { cancelled = true; };
   }, [seriesCode]);
@@ -138,16 +124,7 @@ export function useSeriesModels(seriesCode: string): PriceListModel[] {
     }
 
     async function fetchModels() {
-      const { data, error } = await supabase
-        .from('price_list_series')
-        .select('*')
-        .eq('series_code', seriesCode)
-        .maybeSingle();
-
-      if (error) {
-        logger.error('useSeriesModels: error fetching series models', { error });
-        return;
-      }
+      const data = await getDb().getPriceListSeries(seriesCode);
 
       // Bug #27 fix: only apply results if this is still the latest request
       if (currentRequestId === requestIdRef.current && !cancelled) {
@@ -165,7 +142,9 @@ export function useSeriesModels(seriesCode: string): PriceListModel[] {
       }
     }
 
-    fetchModels();
+    fetchModels().catch((error) => {
+      logger.error('useSeriesModels: error fetching series models', { error });
+    });
 
     return () => { cancelled = true; };
   }, [seriesCode]);
@@ -195,16 +174,7 @@ export function useModelOptions(
     }
 
     async function fetchOptions() {
-      const { data, error } = await supabase
-        .from('price_list_series')
-        .select('*')
-        .eq('series_code', seriesCode)
-        .maybeSingle();
-
-      if (error) {
-        logger.error('useModelOptions: error fetching series options', { error });
-        return;
-      }
+      const data = await getDb().getPriceListSeries(seriesCode);
 
       // Bug #27 fix: only apply results if this is still the latest request
       if (currentRequestId === requestIdRef.current && !cancelled) {
@@ -240,7 +210,9 @@ export function useModelOptions(
       }
     }
 
-    fetchOptions();
+    fetchOptions().catch((error) => {
+      logger.error('useModelOptions: error fetching series options', { error });
+    });
 
     return () => { cancelled = true; };
   }, [seriesCode, indxColumn]);
@@ -258,27 +230,20 @@ export function useTelematicsPackages(): TelematicsPackage[] {
     let cancelled = false;
 
     async function fetchPackages() {
-      const { data, error } = await supabase
-        .from('telematics_packages')
-        .select('*')
-        .order('id', { ascending: true })
-        .limit(200);
+      const data = await getDb().listTelematicsPackages();
 
-      if (error) {
-        logger.error('useTelematicsPackages: error fetching telematics_packages', { error });
-        return;
-      }
-
-      if (!cancelled && data) {
+      if (!cancelled) {
         const mapped = data.map((row) => ({
           ...row,
-          costZAR: row.cost_zar,
+          costZAR: row.costZAR,
         })) as TelematicsPackage[];
         setPackages(mapped);
       }
     }
 
-    fetchPackages();
+    fetchPackages().catch((error) => {
+      logger.error('useTelematicsPackages: error fetching telematics_packages', { error });
+    });
 
     return () => {
       cancelled = true;
@@ -307,15 +272,39 @@ export function matchSeriesCode(
   );
 }
 
-/** Map a raw Supabase container_mappings row to camelCase ContainerMapping */
-function rowToContainerMapping(row: any): ContainerMapping {
+/** Match against adapter-returned ContainerMapping rows using camelCase fields */
+function matchSeriesCodeCamel(
+  seriesCode: string,
+  mappings: { seriesCode: string; [key: string]: any }[]
+): typeof mappings[number] | null {
+  if (!seriesCode || mappings.length === 0) return null;
+  return (
+    mappings.find(
+      (m) =>
+        m.seriesCode === seriesCode ||
+        seriesCode.startsWith(m.seriesCode) ||
+        m.seriesCode === seriesCode.replace(/0+\d?$/, '')
+    ) ?? null
+  );
+}
+
+/** Map a StoredContainerMapping to camelCase ContainerMapping */
+function storedToContainerMapping(row: {
+  seriesCode: string;
+  category: string;
+  model: string;
+  qtyPerContainer: number;
+  containerType: string;
+  containerCostEUR: number;
+  notes: string;
+}): ContainerMapping {
   return {
-    seriesCode: row.series_code,
+    seriesCode: row.seriesCode,
     category: row.category,
     model: row.model,
-    qtyPerContainer: row.qty_per_container,
-    containerType: row.container_type,
-    containerCostEUR: row.container_cost_eur,
+    qtyPerContainer: row.qtyPerContainer,
+    containerType: row.containerType,
+    containerCostEUR: row.containerCostEUR,
     notes: row.notes ?? '',
   };
 }
@@ -335,34 +324,27 @@ export function useContainerMapping(seriesCode: string): ContainerMapping | null
     }
 
     async function fetchMapping() {
-      const { data, error } = await supabase
-        .from('container_mappings')
-        .select('*')
-        .order('id', { ascending: true })
-        .limit(500);
-
-      if (error) {
-        logger.error('useContainerMapping: error fetching container_mappings', { error });
-        return;
-      }
+      const data = await getDb().listContainerMappings();
 
       if (!cancelled) {
-        if (!data) {
+        if (!data || data.length === 0) {
           setMapping(null);
           return;
         }
 
-        const match = matchSeriesCode(seriesCode, data);
+        const match = matchSeriesCodeCamel(seriesCode, data);
         if (!match) {
           setMapping(null);
           return;
         }
 
-        setMapping(rowToContainerMapping(match));
+        setMapping(storedToContainerMapping(match));
       }
     }
 
-    fetchMapping();
+    fetchMapping().catch((error) => {
+      logger.error('useContainerMapping: error fetching container_mappings', { error });
+    });
 
     return () => {
       cancelled = true;
@@ -393,28 +375,21 @@ export function useContainerMappings(seriesCodes: string[]): (ContainerMapping |
     }
 
     async function fetchMappings() {
-      const { data, error } = await supabase
-        .from('container_mappings')
-        .select('*')
-        .order('id', { ascending: true })
-        .limit(500);
-
-      if (error) {
-        logger.error('useContainerMappings: error fetching container_mappings', { error });
-        return;
-      }
+      const data = await getDb().listContainerMappings();
 
       // Bug #27 fix: only apply results if this is still the latest request
       if (currentRequestId === requestIdRef.current && data) {
         const result = seriesCodes.map((code) => {
-          const match = matchSeriesCode(code, data);
-          return match ? rowToContainerMapping(match) : null;
+          const match = matchSeriesCodeCamel(code, data);
+          return match ? storedToContainerMapping(match) : null;
         });
         setMappings(result);
       }
     }
 
-    fetchMappings();
+    fetchMappings().catch((error) => {
+      logger.error('useContainerMappings: error fetching container_mappings', { error });
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 

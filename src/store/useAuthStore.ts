@@ -18,12 +18,31 @@ interface User {
   permissionOverrides: PermissionOverrides;
 }
 
+interface RefreshResult {
+  kicked: boolean;
+  reason?: string;
+}
+
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   login: (emailOrUsername: string, password: string) => Promise<boolean>;
   logout: () => void;
   checkAuth: () => Promise<boolean>;
+  /**
+   * Immediately signs out from Supabase and clears local auth state.
+   * Does NOT navigate — the caller is responsible for redirecting.
+   * Respects any in-progress auto-save with a 5-second grace period to
+   * prevent data loss from interrupted saves.
+   */
+  forceLogout: () => Promise<void>;
+  /**
+   * Re-fetches the current user's row from public.users and checks:
+   * - If is_active === false, calls forceLogout and returns { kicked: true }.
+   * - If role has changed, updates the local store role.
+   * Returns { kicked: false } when everything is healthy.
+   */
+  refreshUserFromDB: () => Promise<RefreshResult>;
 }
 
 // ---------------------------------------------------------------------------
@@ -75,9 +94,22 @@ async function logAuthSecurityEvent(
 // Store
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Module-level flag: set to true while an auto-save is actively running.
+// useAutoSave sets this via the exported setter below so forceLogout can
+// honour the grace period without importing React hooks into the store.
+// ---------------------------------------------------------------------------
+
+let _autoSaveInProgress = false;
+
+/** Called by useAutoSave to signal that a DB write is in flight. */
+export function setAutoSaveInProgress(inProgress: boolean): void {
+  _autoSaveInProgress = inProgress;
+}
+
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       isAuthenticated: false,
 
@@ -263,6 +295,100 @@ export const useAuthStore = create<AuthState>()(
         });
 
         return true;
+      },
+
+      forceLogout: async () => {
+        // Grace period: if an auto-save is actively writing, wait up to 5 s
+        // before signing out so we don't truncate the in-flight DB write.
+        if (_autoSaveInProgress) {
+          logger.info('forceLogout: auto-save in progress — waiting up to 5 s before logout');
+          await new Promise<void>((resolve) => {
+            const deadline = Date.now() + 5000;
+            const poll = setInterval(() => {
+              if (!_autoSaveInProgress || Date.now() >= deadline) {
+                clearInterval(poll);
+                resolve();
+              }
+            }, 100);
+          });
+        }
+
+        try {
+          await supabase.auth.signOut();
+        } catch {
+          // Non-critical
+        }
+
+        // Reset quote store to prevent stale data leaking to the next session.
+        try {
+          const { useQuoteStore } = await import('./useQuoteStore');
+          useQuoteStore.getState().resetAll();
+        } catch {
+          // Non-critical
+        }
+
+        // Reset repository singletons so the next user gets fresh adapters.
+        try {
+          const { resetRepositories } = await import('../db/repositories');
+          resetRepositories();
+        } catch (err) {
+          logger.warn('forceLogout: failed to reset repositories:', err);
+        }
+
+        // Reset the database adapter singleton.
+        try {
+          const { resetDbAdapter } = await import('../db/DatabaseAdapter');
+          resetDbAdapter();
+        } catch (err) {
+          logger.warn('forceLogout: failed to reset DB adapter:', err);
+        }
+
+        set({ user: null, isAuthenticated: false });
+      },
+
+      refreshUserFromDB: async (): Promise<RefreshResult> => {
+        const currentUser = get().user;
+
+        if (!currentUser) {
+          return { kicked: false };
+        }
+
+        try {
+          const { data: dbUser, error: dbError } = await supabase
+            .from('users')
+            .select('id, role, is_active')
+            .eq('id', currentUser.id)
+            .single();
+
+          if (dbError || !dbUser) {
+            // Cannot reach DB — do not kick; treat as a transient network issue.
+            logger.warn('refreshUserFromDB: failed to fetch user row:', dbError);
+            return { kicked: false };
+          }
+
+          if (!dbUser.is_active) {
+            await get().forceLogout();
+            return { kicked: true, reason: 'Account deactivated' };
+          }
+
+          // If the role has changed server-side, update the local store so
+          // the UI reflects the new permissions without a full re-login.
+          if (dbUser.role !== currentUser.role) {
+            logger.info(
+              `refreshUserFromDB: role changed from "${currentUser.role}" to "${dbUser.role}" — updating store`
+            );
+            set((state) => ({
+              user: state.user
+                ? { ...state.user, role: dbUser.role as Role }
+                : null,
+            }));
+          }
+
+          return { kicked: false };
+        } catch (err) {
+          logger.warn('refreshUserFromDB: unexpected error:', err);
+          return { kicked: false };
+        }
       },
     }),
     {

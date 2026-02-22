@@ -1724,7 +1724,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       defaultLeaseTermMonths: (Number(dbQuote.default_lease_term_months) || 60) as LeaseTermMonths,
       batteryChemistryLock: dbQuote.battery_chemistry_lock,
       quoteType: dbQuote.quote_type,
-      slots: (() => { try { const raw = dbQuote.slots; if (Array.isArray(raw)) return raw; return JSON.parse(raw || '[]'); } catch { return []; } })(),
+      slots: (() => { try { const raw = dbQuote.slots; if (Array.isArray(raw)) return raw; return JSON.parse(raw || '[]'); } catch (e) { logger.warn('dbQuoteToQuoteState: failed to parse slots — returning empty (store loadQuote will apply defaults)', e); return []; } })(),
       shippingEntries: (() => {
         const defaultEntry = [{
           id: crypto.randomUUID(),
@@ -1743,12 +1743,17 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
             const parsed = raw ? JSON.parse(raw) : [];
             entries = Array.isArray(parsed) && parsed.length > 0 ? parsed : defaultEntry;
           }
-          // Normalize: ensure every entry has source field
+          // Normalize: ensure every entry has all required fields
           return entries.map((entry: any) => ({
-            ...entry,
+            id: entry.id || crypto.randomUUID(),
+            description: entry.description || '',
+            containerType: entry.containerType || "40' standard",
+            quantity: entry.quantity ?? 1,
+            costZAR: entry.costZAR ?? 0,
             source: entry.source || 'manual',
           }));
-        } catch {
+        } catch (e) {
+          logger.warn('dbQuoteToQuoteState: failed to parse shipping_entries — returning default', e);
           return defaultEntry;
         }
       })(),
@@ -2155,6 +2160,11 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
 
   async cleanupStalePresence(): Promise<void> {
     const { error } = await supabase.rpc('cleanup_stale_presence');
+    if (error) throw error;
+  }
+
+  async cleanupStaleLocks(): Promise<void> {
+    const { error } = await supabase.rpc('cleanup_stale_locks');
     if (error) throw error;
   }
 

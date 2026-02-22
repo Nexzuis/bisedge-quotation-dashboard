@@ -356,12 +356,41 @@ Status lifecycle: `draft → pending-approval → approved | rejected | in-revie
 - `quote_collaborators` — typed in `database.types.ts` (auto-generated) but never queried anywhere in the application. Keep/remove decision pending.
 - `calcResidualValueFromDB` — removed in Phase 4 (had zero call sites; sync `calcResidualValueFromPct` is used instead).
 
+### Fixed in Phase 5: Edge Case & Small Bug Fixes
+
+- Cross-tab recursion-safe logout with `skipSignOut` path (useAuthStore.ts, AuthContext.tsx)
+- Logout auto-save grace period aligned with forceLogout() (useAuthStore.ts)
+- Async logout with try/catch in CrmTopBar and AdminTopBar
+- Defensive adapter logging for corrupt shipping_entries parsing (SupabaseAdapter.ts)
+- Stale lock cleanup RPC + null-safe lock freshness check (005_stale_lock_cleanup.sql)
+- Lock/presence hardening: beforeunload handler + pre-acquisition stale cleanup (useQuoteLock.ts)
+- Pricing guard: empty modelCode now caught alongside '0' (useQuoteStore.ts)
+- Null slot guards in UnitCard, CommercialStep, CostsStep
+- CEO/System Admin approval target graceful handling (approvalEngine.ts)
+- CostFieldGroup: zero displays correctly, NaN clamped to 0
+- Realtime conflict detection uses version comparison instead of timestamp (useRealtimeQuote.ts)
+- Double-click guard on approval confirm via useRef flag (ApprovalActionModal.tsx)
+- DataTable pagination clamped after filter changes
+- Approval chain parse failure now logged with user feedback (PendingApprovalsWidget.tsx)
+- Save vs Submit for Approval: visual distinction + confirmation dialog (ExportStep.tsx)
+- Quote ref numeric sort in QuotesListPage
+- RLS policies for price_list_series, telematics_packages, container_mappings (001_rls_policies.sql)
+- Removed unnecessary `(state as any)` casts for _lastSavedAt
+
+### Fixed in Phase 6: Pre-Launch Audit Fixes
+
+- `getMostRecentQuote()` now filters by `created_by OR assigned_to` — users only auto-load their own quotes (SupabaseAdapter.ts:444)
+- Full codebase audit: 57 items reviewed, 54 confirmed already fixed in Phases 1-5
+- App.tsx excludes /builder from loadMostRecent() to prevent stale data on new quote
+- QuickActions.tsx calls createNewQuote() before navigating to /builder
+
 ### Not Yet Implemented
 
 - Deploy Edge Function `admin-create-user` to Supabase (code committed, needs `supabase functions deploy`)
 - Deploy atomic save RPCs (`003_atomic_saves.sql`) to Supabase
 - Apply schema migration (`002_schema_and_rpcs.sql`) to Supabase
 - Apply presence cleanup migration (`004_presence_cleanup.sql`) to Supabase
+- Apply stale lock cleanup migration (`005_stale_lock_cleanup.sql`) to Supabase
 - Configure SMTP provider in Supabase Auth settings
 - Configure Supabase Auth rate limiting in dashboard
 - Configure Supabase connection pooling (see `docs/supabase-config.md`)

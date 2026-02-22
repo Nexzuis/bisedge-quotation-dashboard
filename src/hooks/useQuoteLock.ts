@@ -138,7 +138,15 @@ export function useQuoteLock(
           const synced = await getDb().acquireQuoteLock(quoteId, capturedUserId);
 
           if (!synced) {
-            // 0 rows updated → lock held by someone else — roll back local state
+            // 0 rows updated — either locked by someone else OR quote doesn't exist in DB yet.
+            // For brand-new unsaved quotes (version 1, draft), the row simply doesn't exist,
+            // so we skip the warning and keep the local lock — auto-save will create the row.
+            const storeState = useQuoteStore.getState();
+            if (storeState.version === 1 && storeState.status === 'draft') {
+              logger.debug('Lock sync skipped — quote not yet saved to DB');
+              return;
+            }
+            // Genuine lock conflict — roll back local state
             releaseLock(capturedUserId);
             toast.warning('Quote is locked', {
               description: 'Another user is currently editing this quote.',

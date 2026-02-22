@@ -333,7 +333,7 @@ export const useQuoteStore = create<QuoteStore>()(
 
         for (const field of CUSTOMER_FIELDS) {
           if (field in info && info[field] !== undefined) {
-            (state as any)[field] = info[field];
+            (state[field] as QuoteState[typeof field]) = info[field] as QuoteState[typeof field];
           }
         }
         state.updatedAt = new Date();
@@ -663,7 +663,7 @@ export const useQuoteStore = create<QuoteStore>()(
       const state = get();
       const slot = state.slots[slotId];
 
-      if (slot.isEmpty || slot.modelCode === '0') {
+      if (slot.isEmpty || !slot.modelCode || slot.modelCode === '0') {
         return null;
       }
 
@@ -965,7 +965,7 @@ export const useQuoteStore = create<QuoteStore>()(
     // Bug #3 fix: mark the quote as freshly saved so the realtime dirty-check works
     markSaved: () =>
       set((state) => {
-        (state as any)._lastSavedAt = new Date();
+        state._lastSavedAt = new Date();
       }),
 
     // Bug #2 fix: deep-merge each slot with defaults so older quotes missing

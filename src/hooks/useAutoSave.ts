@@ -224,7 +224,7 @@ export function useAutoSave(debounceMs: number = 2000): UseAutoSaveResult {
    * (e.g. after loadQuote from realtime or markSaved from approval path).
    * This prevents realtime reload from triggering an unnecessary autosave.
    */
-  const _lastSavedAt = useQuoteStore((state) => (state as any)._lastSavedAt);
+  const _lastSavedAt = useQuoteStore((state) => state._lastSavedAt);
 
   useEffect(() => {
     if (_lastSavedAt) {

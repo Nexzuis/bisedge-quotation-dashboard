@@ -1,83 +1,82 @@
-# BUILD-REVIEW.md - Round 3 Verification
+# BUILD-REVIEW.md - Round 5 Verification
 
-Date: 2026-02-21  
-Latest commit reviewed: `9032f3b`  
-Scope: Verify the 4 listed blockers and flag any remaining/new concerns.
+Date: 2026-02-22  
+Latest commit reviewed: `51c5efb`  
+Additional scope reviewed: current Round 5 working-tree changes (not yet committed) in `src/lib/database.types.ts`, `supabase/migrations/001_rls_policies.sql`, `Project documentation/TECH-DEBT.md`, and `CLAUDE.md`.
 
 ## Verdict
 NOT APPROVED.
 
-## Blocker Status
+## Prior CRITICAL/IMPORTANT Blockers
 
-### 1. CRITICAL - `users_update` allowed self-updates (role escalation risk)
+### 1. CRITICAL - `users_update` self-escalation path
 Status: **Resolved**
 
 Evidence:
-- Self-update clause was removed from users update policy.
-- `supabase/migrations/001_rls_policies.sql:61`
+- Policy requires privileged authority (`system_admin` or `can_manage_users`), not generic self-update.
 - `supabase/migrations/001_rls_policies.sql:62`
+- `supabase/migrations/001_rls_policies.sql:68`
 
-Assessment:
-- The direct self-escalation path from the previous review is closed.
-
-### 2. IMPORTANT - User-management authority in RLS broader than app permission model
-Status: **Not resolved**
-
-Evidence:
-- RLS still allows `users_update/users_delete` for `system_admin`, `ceo`, `local_leader`:
-  - `supabase/migrations/001_rls_policies.sql:62`
-  - `supabase/migrations/001_rls_policies.sql:65`
-- App permission model exposes `admin:users` in role permissions only for `system_admin`:
-  - `src/auth/permissions.ts:90`
-  - `src/components/admin/AdminLayout.tsx:157`
-- Default overrides for `ceo`/`local_leader` do not include `can_manage_users`:
-  - `src/auth/permissions.ts:58`
-  - `src/auth/permissions.ts:59`
-
-Assessment:
-- The mismatch remains. Direct API usage under RLS is broader than app-level authorization by default.
-
-### 3. IMPORTANT - Approval notifications depended on replica identity but migration did not enforce it
+### 2. IMPORTANT - RLS authority broader than app permission model
 Status: **Resolved**
 
 Evidence:
-- Migration now enforces replica identity for quotes:
-  - `supabase/migrations/001_rls_policies.sql:85`
-- Notification logic requires old status and safely skips otherwise:
-  - `src/hooks/useApprovalNotifications.tsx:64`
-  - `src/hooks/useApprovalNotifications.tsx:65`
+- `users_update/users_delete` now align to app authority gate:
+  - `supabase/migrations/001_rls_policies.sql:68`
+  - `supabase/migrations/001_rls_policies.sql:78`
+- App permission mapping:
+  - `src/auth/permissions.ts:90`
+  - `src/auth/permissions.ts:172`
 
-Assessment:
-- Infra dependency is now represented in repo migration state.
-
-### 4. IMPORTANT - `database.types.ts` still hand-maintained
-Status: **Not resolved**
+### 3. IMPORTANT - Approval notifications depended on unmanaged replica identity
+Status: **Resolved**
 
 Evidence:
-- Manual-types TODO remains:
-  - `src/lib/database.types.ts:5`
-- SPEC still documents manual type file:
-  - `Project documentation/SPEC.md:109`
+- Migration enforces replica identity:
+  - `supabase/migrations/001_rls_policies.sql:98`
+- Notification guard remains in place:
+  - `src/hooks/useApprovalNotifications.tsx:62`
+  - `src/hooks/useApprovalNotifications.tsx:64`
+  - `src/hooks/useApprovalNotifications.tsx:66`
 
-Assessment:
-- Schema drift risk remains open. This is still technical debt, not fixed implementation.
+### 4. IMPORTANT - `database.types.ts` was hand-maintained
+Status: **Resolved**
 
-## Additional Checks
+Evidence:
+- File is now Supabase-generated format (includes `__InternalSupabase`, relationship metadata, helper generics).
+- `src/lib/database.types.ts:8`
+- `src/lib/database.types.ts:1453`
+- Prior TODO removed.
+- `TECH-DEBT` items marked resolved:
+  - `Project documentation/TECH-DEBT.md:305`
+  - `Project documentation/TECH-DEBT.md:311`
 
-### SPEC alignment update
-Status: **Improved, but still not sufficient for approval**
+## Remaining / New Concerns
 
-What improved:
-- `auth.signUp` removed from auth methods list.
-- Edge Function user creation documented.
-- `Project documentation/SPEC.md:266`
-- `Project documentation/SPEC.md:267`
-- `Project documentation/SPEC.md:457`
+### IMPORTANT - User management still writes/filters by `username`, but generated live schema types for `public.users` do not include a `username` column
+Evidence:
+- Generated `users` table shape has no `username` field:
+  - `src/lib/database.types.ts:1245`
+  - `src/lib/database.types.ts:1258`
+- User management still depends on `username` in DB queries/updates:
+  - `src/components/admin/users/UserManagement.tsx:166`
+  - `src/components/admin/users/UserManagement.tsx:192`
 
-No new regressions were found in the files changed by `9032f3b` beyond the unresolved IMPORTANT items above.
+Risk:
+- If live schema truly has no `public.users.username`, user save flows can fail at runtime with PostgREST column errors.
+
+### MINOR - No new commit for Round 5 yet
+Evidence:
+- `HEAD` is still `51c5efb`; Round 5 changes are present in working tree only.
+
+Risk:
+- Review cannot pin results to an immutable commit hash until changes are committed.
+
+## Validation Run In This Review
+- `npx tsc --noEmit`: pass.
+- `npx vitest run src/auth/__tests__/permissions.test.ts`: pass.
 
 ## Final Assessment
-- CRITICAL issues: resolved in this round.
-- IMPORTANT issues: not fully resolved (`#2`, `#4` remain open).
-- Overall: do not approve yet.
-
+- All previously listed CRITICAL/IMPORTANT blockers are now resolved.
+- One additional IMPORTANT runtime-schema concern remains (`username` usage vs generated schema shape).
+- Approval status: **NOT APPROVED**.

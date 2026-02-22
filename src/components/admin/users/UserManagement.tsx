@@ -37,7 +37,6 @@ function dbRowToStoredUser(row: Record<string, unknown>): StoredUser {
 }
 
 interface UserFormData {
-  username: string;
   fullName: string;
   email: string;
   password: string;
@@ -54,7 +53,6 @@ const UserManagement = () => {
   const [showPasswordResetDialog, setShowPasswordResetDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState<StoredUser | null>(null);
   const [formData, setFormData] = useState<UserFormData>({
-    username: '',
     fullName: '',
     email: '',
     password: '',
@@ -91,10 +89,6 @@ const UserManagement = () => {
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
 
-    if (!formData.username.trim()) {
-      errors.username = 'Username is required';
-    }
-
     if (!formData.fullName.trim()) {
       errors.fullName = 'Full name is required';
     }
@@ -119,7 +113,6 @@ const UserManagement = () => {
   const handleAdd = () => {
     setSelectedUser(null);
     setFormData({
-      username: '',
       fullName: '',
       email: '',
       password: '',
@@ -139,7 +132,6 @@ const UserManagement = () => {
       overrides = user.permissionOverrides ? JSON.parse(user.permissionOverrides) : {};
     } catch { overrides = {}; }
     setFormData({
-      username: user.username,
       fullName: user.fullName,
       email: user.email,
       password: '', // Don't pre-fill password
@@ -158,20 +150,6 @@ const UserManagement = () => {
     setSaving(true);
 
     try {
-      // Check username uniqueness
-      if (!selectedUser || selectedUser.username !== formData.username) {
-        const { data: existingUser } = await supabase
-          .from('users')
-          .select('id')
-          .eq('username', formData.username)
-          .maybeSingle();
-        if (existingUser) {
-          setValidationErrors({ username: 'Username already exists' });
-          setSaving(false);
-          return;
-        }
-      }
-
       // Check email uniqueness
       if (!selectedUser || selectedUser.email !== formData.email) {
         const { data: existingEmail } = await supabase
@@ -189,7 +167,6 @@ const UserManagement = () => {
       if (selectedUser) {
         // Update existing user
         const { error: updateError } = await supabase.from('users').update({
-          username: formData.username,
           full_name: formData.fullName,
           email: formData.email,
           role: formData.role,
@@ -208,7 +185,7 @@ const UserManagement = () => {
           action: 'update',
           entityType: 'user',
           entityId: selectedUser.id!,
-          changes: { username: formData.username, email: formData.email, role: formData.role, isActive: formData.isActive },
+          changes: { email: formData.email, role: formData.role, isActive: formData.isActive },
           oldValues: selectedUser,
           newValues: { ...selectedUser, ...formData },
         });
@@ -220,7 +197,6 @@ const UserManagement = () => {
             password: formData.password,
             fullName: formData.fullName,
             role: formData.role,
-            username: formData.username,
             isActive: formData.isActive,
             permissionOverrides: formData.permissionOverrides,
           },
@@ -343,7 +319,7 @@ const UserManagement = () => {
         targetUserName: selectedUser.fullName,
       });
 
-      toast.success(`Password reset email sent for ${selectedUser.username}`);
+      toast.success(`Password reset email sent for ${selectedUser.fullName || selectedUser.email}`);
       setShowPasswordResetDialog(false);
     } catch (error) {
       logger.error('Failed to reset password:', { error });
@@ -375,11 +351,6 @@ const UserManagement = () => {
   const isAdmin = currentUser?.role === 'system_admin';
 
   const columns = [
-    {
-      key: 'username',
-      label: 'Username',
-      sortable: true,
-    },
     {
       key: 'fullName',
       label: 'Full Name',
@@ -425,7 +396,7 @@ const UserManagement = () => {
             render: (_: string, row: StoredUser) => (
               <button
                 onClick={() => handlePasswordResetClick(row)}
-                title={`Reset password for ${row.username}`}
+                title={`Reset password for ${row.fullName || row.email}`}
                 className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-500/50 text-amber-400 hover:text-amber-300 rounded-lg transition-colors"
               >
                 <KeyRound className="w-3.5 h-3.5" />
@@ -471,22 +442,6 @@ const UserManagement = () => {
         loading={saving}
       >
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-surface-100 mb-2">
-              Username <span className="text-red-400">*</span>
-            </label>
-            <input
-              type="text"
-              value={formData.username}
-              onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-              className="w-full px-4 py-2 bg-surface-800/40 border border-surface-700/50 rounded-lg text-surface-100 placeholder:text-surface-100/30 focus:outline-none focus:ring-2 focus:ring-teal-500"
-              placeholder="Enter username"
-            />
-            {validationErrors.username && (
-              <p className="text-red-400 text-sm mt-1">{validationErrors.username}</p>
-            )}
-          </div>
-
           <div>
             <label className="block text-sm font-medium text-surface-100 mb-2">
               Full Name <span className="text-red-400">*</span>
@@ -652,7 +607,7 @@ const UserManagement = () => {
         onClose={() => setShowDeleteDialog(false)}
         onConfirm={handleDeleteConfirm}
         title="Delete User"
-        message={`Are you sure you want to delete user "${selectedUser?.username}"? This action cannot be undone.`}
+        message={`Are you sure you want to delete user "${selectedUser?.fullName || selectedUser?.email}"? This action cannot be undone.`}
         confirmText="Delete"
         variant="danger"
       />

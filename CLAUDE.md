@@ -306,9 +306,13 @@ Status lifecycle: `draft → pending-approval → approved | rejected | in-revie
 - Quote versions table (typed but never used — keep/remove decision pending)
 - Quote collaborators table (typed but never used — keep/remove decision pending)
 
+### Fixed in Phase 1 Review Round 5 (BUILD-REVIEW.md)
+
+- Auto-generated `database.types.ts` from live Supabase schema (project ID `padeaqdcutqzgxujtpey`)
+- Fixed misleading RLS comment — clarified that self-update requires admin/manage-users authority
+
 ### Not Yet Implemented
 
-- Auto-generated `database.types.ts` from live Supabase schema (requires Supabase CLI + project ID)
 - Deploy Edge Function `admin-create-user` to Supabase (code committed, needs `supabase functions deploy`)
 - Email integration (template types exist, no sending)
 - Real product images in PDFs (placeholders only)
@@ -362,7 +366,7 @@ src/
   hooks/                       # Custom React hooks (~25 hooks)
   lib/
     supabase.ts                # Supabase client init
-    database.types.ts          # Hand-written DB types (should be auto-generated)
+    database.types.ts          # Auto-generated DB types (via supabase gen types)
   pdf/                         # PDF generation
     assets/ components/ styles/ templates/ types.ts
     generatePDF.tsx            # Entry point

@@ -10,7 +10,6 @@ interface CreateUserPayload {
   password: string;
   fullName: string;
   role: string;
-  username: string;
   isActive: boolean;
   permissionOverrides: Record<string, boolean>;
 }
@@ -77,28 +76,14 @@ Deno.serve(async (req: Request) => {
     // ---- 2. Parse and validate the request body ----
     const body: CreateUserPayload = await req.json();
 
-    if (!body.email || !body.password || !body.fullName || !body.role || !body.username) {
+    if (!body.email || !body.password || !body.fullName || !body.role) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields: email, password, fullName, role, username' }),
+        JSON.stringify({ error: 'Missing required fields: email, password, fullName, role' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
-    // ---- 3. Check username uniqueness ----
-    const { data: existingUsername } = await adminClient
-      .from('users')
-      .select('id')
-      .eq('username', body.username)
-      .maybeSingle();
-
-    if (existingUsername) {
-      return new Response(
-        JSON.stringify({ error: 'Username already exists' }),
-        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
-    }
-
-    // ---- 4. Create the auth user via admin API (service role) ----
+    // ---- 3. Create the auth user via admin API (service role) ----
     const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
       email: body.email,
       password: body.password,
@@ -118,7 +103,6 @@ Deno.serve(async (req: Request) => {
         const { error: reactivateError } = await adminClient
           .from('users')
           .update({
-            username: body.username,
             full_name: body.fullName,
             role: body.role,
             is_active: body.isActive ?? true,
@@ -157,10 +141,9 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // ---- 5. Insert into public.users table ----
+    // ---- 4. Insert into public.users table ----
     const { error: insertError } = await adminClient.from('users').insert({
       id: authData.user.id,
-      username: body.username,
       email: body.email,
       full_name: body.fullName,
       role: body.role,
@@ -175,7 +158,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // ---- 6. Return success ----
+    // ---- 5. Return success ----
     return new Response(
       JSON.stringify({
         userId: authData.user.id,

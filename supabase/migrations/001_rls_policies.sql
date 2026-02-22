@@ -53,9 +53,11 @@ CREATE POLICY "notifications_update" ON public.notifications FOR UPDATE TO authe
 -- Update/delete aligned with app permission model (src/auth/permissions.ts):
 --   - system_admin role has admin:users by default
 --   - Any role can gain it via can_manage_users permission override
--- Self-update is NOT allowed because the row contains privileged fields
--- (role, is_active, permission_overrides). Use a column-restricted RPC
--- if self-profile editing is needed in the future.
+-- Unprivileged self-update is NOT allowed because the row contains
+-- privileged fields (role, is_active, permission_overrides). Only users
+-- with system_admin role or can_manage_users override may update/delete.
+-- Use a column-restricted RPC if self-profile editing (name, phone, etc.)
+-- is needed for non-admin users in the future.
 CREATE POLICY "users_select" ON public.users FOR SELECT TO authenticated USING (true);
 CREATE POLICY "users_update" ON public.users FOR UPDATE TO authenticated USING (
   EXISTS (

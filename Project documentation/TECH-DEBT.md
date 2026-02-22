@@ -302,20 +302,18 @@ Items within each section are ordered by severity (highest first).
 
 ## 6. Deprecated API Usage
 
-### TD-6.1 `database.types.ts` is hand-written — should be auto-generated [IMPORTANT]
+### TD-6.1 `database.types.ts` is hand-written — should be auto-generated [RESOLVED]
 
-- **File:** `src/lib/database.types.ts` line 5 — `TODO: Replace with auto-generated types`
-- **Problem:** Schema drift is the root cause of commission_tiers, residual_curves, and users.username bugs.
-- **Fix:** Run `npx supabase gen types typescript --project-id <id>`.
+- **File:** `src/lib/database.types.ts`
+- **Resolution:** Auto-generated from live Supabase schema on 2026-02-22 (see TD-6.3).
+- **Status**: Resolved.
 
-### TD-6.3 Auto-generate database.types.ts from live Supabase schema [IMPORTANT — BLOCKED]
+### TD-6.3 Auto-generate database.types.ts from live Supabase schema [RESOLVED]
 
 - **Severity**: IMPORTANT (flagged in 4 consecutive code reviews)
 - **File**: `src/lib/database.types.ts`
-- **Problem**: Types file is hand-written. Phase 1 fixed known drift (username, commission_pct, residual_curves, audit_log), but manual maintenance cannot guarantee completeness.
-- **Required**: Run `npx supabase gen types typescript --project-id <PROJECT_ID> > src/lib/database.types.ts` and commit.
-- **Blocked by**: Supabase CLI access and project ID — cannot be resolved in code alone.
-- **Status**: Not a code fix. Requires infrastructure access. Will resolve when Supabase CLI is configured.
+- **Resolution**: Ran `npx supabase gen types typescript --project-id padeaqdcutqzgxujtpey > src/lib/database.types.ts` on 2026-02-22. Hand-written types replaced with auto-generated types from live schema. Zero TypeScript errors after replacement.
+- **Status**: Resolved.
 
 ### TD-6.2 `pg_proc` REST introspection at startup [IMPORTANT]
 

@@ -1716,7 +1716,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       contactTitle: dbQuote.contact_title || '',
       contactEmail: dbQuote.contact_email || '',
       contactPhone: dbQuote.contact_phone || '',
-      clientAddress: (() => { try { return JSON.parse(dbQuote.client_address || '[]'); } catch { return []; } })(),
+      clientAddress: (() => { try { const raw = dbQuote.client_address; if (Array.isArray(raw)) return raw; return JSON.parse(raw || '[]'); } catch { return []; } })(),
       factoryROE: Number(dbQuote.factory_roe) || 0,
       customerROE: Number(dbQuote.customer_roe) || 0,
       discountPct: Number(dbQuote.discount_pct) || 0,
@@ -1724,7 +1724,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       defaultLeaseTermMonths: (Number(dbQuote.default_lease_term_months) || 60) as LeaseTermMonths,
       batteryChemistryLock: dbQuote.battery_chemistry_lock,
       quoteType: dbQuote.quote_type,
-      slots: (() => { try { return JSON.parse(dbQuote.slots || '[]'); } catch { return []; } })(),
+      slots: (() => { try { const raw = dbQuote.slots; if (Array.isArray(raw)) return raw; return JSON.parse(raw || '[]'); } catch { return []; } })(),
       shippingEntries: (() => {
         const defaultEntry = [{
           id: crypto.randomUUID(),
@@ -1766,7 +1766,7 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
       // Chain-based approval
       currentAssigneeId: dbQuote.current_assignee_id || null,
       currentAssigneeRole: dbQuote.current_assignee_role || null,
-      approvalChain: (() => { try { return JSON.parse(dbQuote.approval_chain || '[]'); } catch { return []; } })(),
+      approvalChain: (() => { try { const raw = dbQuote.approval_chain; if (Array.isArray(raw)) return raw; return JSON.parse(raw || '[]'); } catch { return []; } })(),
 
       // Multi-User Ownership & Locking
       createdBy: dbQuote.created_by || '',

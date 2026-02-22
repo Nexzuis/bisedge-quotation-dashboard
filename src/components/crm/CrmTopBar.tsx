@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Home, Users, Wand2, Settings, User, LogOut, ChevronDown, BarChart3, ClipboardCheck, List, Zap, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -75,6 +76,7 @@ export function CrmTopBar() {
   const allNavItems = [...navItems, ...extraNavItems];
 
   return (
+    <>
     <div className="glass rounded-xl p-3 mb-4 relative z-30">
       <div className="flex items-center justify-between">
         {/* Left — Nav */}
@@ -197,8 +199,10 @@ export function CrmTopBar() {
         </div>
         </div>{/* end right-side flex wrapper */}
       </div>
+    </div>
 
-      {/* Mobile navigation drawer */}
+    {/* Mobile navigation drawer — portaled to body to escape .glass backdrop-filter containing block */}
+    {createPortal(
       <AnimatePresence>
         {mobileMenuOpen && (
           <>
@@ -283,7 +287,9 @@ export function CrmTopBar() {
             </motion.div>
           </>
         )}
-      </AnimatePresence>
-    </div>
+      </AnimatePresence>,
+      document.body
+    )}
+    </>
   );
 }

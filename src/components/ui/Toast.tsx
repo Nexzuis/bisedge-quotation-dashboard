@@ -11,7 +11,7 @@ export { toast } from 'sonner';
 export const ToastProvider: React.FC = () => {
   return (
     <Toaster
-      position="top-right"
+      position="top-center"
       toastOptions={{
         classNames: {
           toast: 'glass !border-surface-700/50 !bg-surface-800/95 !text-surface-100',

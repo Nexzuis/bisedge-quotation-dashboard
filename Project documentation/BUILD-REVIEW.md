@@ -1,77 +1,45 @@
 APPROVED
 
-# BUILD-REVIEW.md - Round 6 Verification
+# BUILD-REVIEW.md - Phase 3 UI/Mobile Build Review (Round 1)
 
-Date: 2026-02-22  
-Latest commit reviewed: `b27ecab`  
-Scope: Confirm all prior CRITICAL/IMPORTANT findings are resolved and check for regressions/new issues.
+Date: 2026-02-22
+Reviewer: Codex
+Scope reviewed:
+- `src/index.css`
+- `src/components/crm/CrmTopBar.tsx`
+- `src/components/layout/TopBar.tsx`
+- `src/components/layout/WorkflowStepper.tsx`
+- `src/components/ui/Button.tsx`
+- `src/components/ui/Tooltip.tsx`
+- `src/components/ui/Toast.tsx`
+- `src/components/ui/SearchableSelect.tsx`
+- `src/components/admin/shared/DataTable.tsx`
+- `src/components/layout/DashboardLayout.tsx`
+- `src/components/dashboard/HomeDashboard.tsx`
 
 ## Verdict
 APPROVED.
 
-## Resolution Check (Prior Blockers)
+## Findings
+- No CRITICAL issues found.
+- No IMPORTANT issues found.
+- No blocking MINOR issues found.
 
-### 1. CRITICAL - `users_update` self-escalation path
-Status: **Resolved**
+## What Was Verified
+1. Frontend-only scope respected (no backend/data-layer/auth/supabase implementation files changed).
+2. Mobile navigation redesign is implemented with preserved action pathways:
+   - CRM drawer navigation (`src/components/crm/CrmTopBar.tsx`).
+   - TopBar mobile overflow with Save always visible (`src/components/layout/TopBar.tsx`).
+3. Touch-target updates are implemented for key mobile triggers and stepper/table actions:
+   - `src/components/layout/WorkflowStepper.tsx`
+   - `src/components/admin/shared/DataTable.tsx`
+   - `src/components/ui/Button.tsx`
+4. Mobile SearchableSelect bottom-sheet behavior is implemented with close/focus-return/scroll-lock handling (`src/components/ui/SearchableSelect.tsx`).
 
-Evidence:
-- Policy still enforces privileged authority (`system_admin` or `can_manage_users`), not broad self-update.
-- `supabase/migrations/001_rls_policies.sql:62`
-- `supabase/migrations/001_rls_policies.sql:68`
+## Non-Blocking Notes
+- `DataTable` action/pagination button minimum heights are now applied broadly, not only mobile (`src/components/admin/shared/DataTable.tsx:162`, `src/components/admin/shared/DataTable.tsx:199`, `src/components/admin/shared/DataTable.tsx:206`). This is acceptable, but desktop row/button density is slightly larger.
+- `SearchableSelect` scroll-lock uses direct `document.body.style.overflow` reset (`src/components/ui/SearchableSelect.tsx:52`). This is fine in current codebase, but future global modal scroll-lock logic should coordinate with it.
 
-### 2. IMPORTANT - RLS authority mismatch vs app permission model
-Status: **Resolved**
-
-Evidence:
-- `users_update/users_delete` remain aligned to app authority gate:
-  - `supabase/migrations/001_rls_policies.sql:68`
-  - `supabase/migrations/001_rls_policies.sql:78`
-- App permission mapping unchanged and consistent:
-  - `src/auth/permissions.ts:90`
-  - `src/auth/permissions.ts:172`
-
-### 3. IMPORTANT - Approval notifications dependency on replica identity
-Status: **Resolved**
-
-Evidence:
-- Migration enforces replica identity:
-  - `supabase/migrations/001_rls_policies.sql:100`
-- Notification guard remains in place:
-  - `src/hooks/useApprovalNotifications.tsx:62`
-  - `src/hooks/useApprovalNotifications.tsx:64`
-  - `src/hooks/useApprovalNotifications.tsx:66`
-
-### 4. IMPORTANT - `database.types.ts` was hand-maintained
-Status: **Resolved**
-
-Evidence:
-- `src/lib/database.types.ts` is now generated-format with helper generics/metadata.
-- Manual TODO removed.
-- `Project documentation/TECH-DEBT.md` marks TD-6.1 and TD-6.3 as resolved:
-  - `Project documentation/TECH-DEBT.md:305`
-  - `Project documentation/TECH-DEBT.md:311`
-
-### 5. IMPORTANT - Runtime `users.username` schema mismatch
-Status: **Resolved**
-
-Evidence:
-- `UserManagement.tsx` no longer queries/writes `username` in user-table operations.
-  - `src/components/admin/users/UserManagement.tsx:156`
-  - `src/components/admin/users/UserManagement.tsx:169`
-- Edge function payload and DB writes no longer include `username`.
-  - `supabase/functions/admin-create-user/index.ts:77`
-  - `supabase/functions/admin-create-user/index.ts:145`
-- Repository-wide scan found no remaining DB query/update/insert references to `users.username`.
-
-## New Issues Introduced
-- No new CRITICAL or IMPORTANT issues found in this review.
-- No new MINOR issues introduced by `b27ecab` were identified.
-
-## Verification Executed In This Review
-- `npx tsc --noEmit`: pass.
-- `npx vitest run`: pass (178/178).
-- `npx vite build`: pass.
-
-## Final Assessment
-- All previously documented CRITICAL and IMPORTANT findings are resolved.
-- Current implementation is approved for this review round.
+## Verification Execution Note
+- Builder-reported checks: `tsc --noEmit`, `vitest` (178/178), and `vite build` passed.
+- This reviewer performed code/diff validation for this round and did not re-run full test/build commands in this pass.

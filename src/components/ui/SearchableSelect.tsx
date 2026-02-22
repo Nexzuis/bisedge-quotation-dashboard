@@ -27,6 +27,7 @@ export function SearchableSelect({
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [pos, setPos] = useState({ top: 0, left: 0, width: 0 });
+  const [isMobile, setIsMobile] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -36,6 +37,22 @@ export function SearchableSelect({
   const filtered = search
     ? options.filter((o) => o.label.toLowerCase().includes(search.toLowerCase()))
     : options;
+
+  // Check mobile viewport
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
+  // Lock body scroll on mobile when open
+  useEffect(() => {
+    if (isOpen && isMobile) {
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = ''; };
+    }
+  }, [isOpen, isMobile]);
 
   // Position the dropdown relative to the trigger
   const updatePosition = useCallback(() => {
@@ -95,6 +112,7 @@ export function SearchableSelect({
     onChange(val);
     setIsOpen(false);
     setSearch('');
+    triggerRef.current?.focus();
   };
 
   // Handle keyboard
@@ -102,6 +120,7 @@ export function SearchableSelect({
     if (e.key === 'Escape') {
       setIsOpen(false);
       setSearch('');
+      triggerRef.current?.focus();
     }
   };
 
@@ -123,67 +142,131 @@ export function SearchableSelect({
 
       {/* Dropdown - rendered via portal to escape stacking contexts */}
       {isOpen && createPortal(
-        <div
-          ref={dropdownRef}
-          onKeyDown={handleKeyDown}
-          style={{
-            position: 'fixed',
-            top: pos.top,
-            left: pos.left,
-            width: pos.width,
-            zIndex: 9999,
-          }}
-          className="bg-surface-800 border border-surface-600 rounded-lg shadow-2xl overflow-hidden"
-        >
-          {/* Search box */}
-          <div className="flex items-center gap-1.5 px-2 py-1.5 border-b border-surface-700">
-            <Search className="w-3 h-3 text-surface-400 flex-shrink-0" />
-            <input
-              ref={inputRef}
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Type to search..."
-              className="flex-1 bg-transparent text-xs text-surface-100 placeholder:text-surface-500 outline-none"
+        isMobile ? (
+          // Mobile bottom sheet
+          <div
+            ref={dropdownRef}
+            onKeyDown={handleKeyDown}
+            className="fixed inset-0 z-[9999] flex flex-col justify-end"
+          >
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-black/40"
+              onClick={() => { setIsOpen(false); setSearch(''); triggerRef.current?.focus(); }}
             />
-            {search && (
-              <button type="button" onClick={() => setSearch('')} className="text-surface-400 hover:text-surface-200" aria-label="Clear search">
-                <X className="w-3 h-3" />
-              </button>
-            )}
-          </div>
-
-          {/* Options list */}
-          <div className="max-h-52 overflow-y-auto">
-            {/* Empty / clear option */}
-            <button
-              type="button"
-              onClick={() => handleSelect('')}
-              className="w-full text-left px-2 py-1.5 text-xs text-surface-500 hover:bg-surface-700/50 transition-colors"
-            >
-              {placeholder}
-            </button>
-
-            {filtered.length === 0 ? (
-              <div className="px-2 py-3 text-xs text-surface-500 text-center">No matches</div>
-            ) : (
-              filtered.map((option) => (
+            {/* Bottom sheet */}
+            <div className="relative bg-surface-800 border-t border-surface-600 rounded-t-xl shadow-2xl max-h-[60vh] flex flex-col">
+              {/* Search box */}
+              <div className="flex items-center gap-1.5 px-3 py-2.5 border-b border-surface-700">
+                <Search className="w-4 h-4 text-surface-400 flex-shrink-0" />
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Type to search..."
+                  className="flex-1 bg-transparent text-sm text-surface-100 placeholder:text-surface-500 outline-none"
+                />
+                {search && (
+                  <button type="button" onClick={() => setSearch('')} className="text-surface-400 hover:text-surface-200" aria-label="Clear search">
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              {/* Options list */}
+              <div className="overflow-y-auto flex-1">
                 <button
-                  key={option.value}
                   type="button"
-                  onClick={() => handleSelect(option.value)}
-                  className={`w-full text-left px-2 py-1.5 text-xs transition-colors truncate ${
-                    option.value === value
-                      ? 'bg-brand-500/20 text-brand-300 font-medium'
-                      : 'text-surface-200 hover:bg-surface-700/50'
-                  }`}
+                  onClick={() => handleSelect('')}
+                  className="w-full text-left px-3 py-3 text-sm text-surface-500 hover:bg-surface-700/50 transition-colors"
                 >
-                  {option.label}
+                  {placeholder}
                 </button>
-              ))
-            )}
+                {filtered.length === 0 ? (
+                  <div className="px-3 py-4 text-sm text-surface-500 text-center">No matches</div>
+                ) : (
+                  filtered.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => handleSelect(option.value)}
+                      className={`w-full text-left px-3 py-3 text-sm transition-colors ${
+                        option.value === value
+                          ? 'bg-brand-500/20 text-brand-300 font-medium'
+                          : 'text-surface-200 hover:bg-surface-700/50'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
-        </div>,
+        ) : (
+          // Desktop dropdown
+          <div
+            ref={dropdownRef}
+            onKeyDown={handleKeyDown}
+            style={{
+              position: 'fixed',
+              top: pos.top,
+              left: pos.left,
+              width: pos.width,
+              zIndex: 9999,
+            }}
+            className="bg-surface-800 border border-surface-600 rounded-lg shadow-2xl overflow-hidden"
+          >
+            {/* Search box */}
+            <div className="flex items-center gap-1.5 px-2 py-1.5 border-b border-surface-700">
+              <Search className="w-3 h-3 text-surface-400 flex-shrink-0" />
+              <input
+                ref={inputRef}
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Type to search..."
+                className="flex-1 bg-transparent text-xs text-surface-100 placeholder:text-surface-500 outline-none"
+              />
+              {search && (
+                <button type="button" onClick={() => setSearch('')} className="text-surface-400 hover:text-surface-200" aria-label="Clear search">
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
+            {/* Options list */}
+            <div className="max-h-52 overflow-y-auto">
+              {/* Empty / clear option */}
+              <button
+                type="button"
+                onClick={() => handleSelect('')}
+                className="w-full text-left px-2 py-1.5 text-xs text-surface-500 hover:bg-surface-700/50 transition-colors"
+              >
+                {placeholder}
+              </button>
+
+              {filtered.length === 0 ? (
+                <div className="px-2 py-3 text-xs text-surface-500 text-center">No matches</div>
+              ) : (
+                filtered.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => handleSelect(option.value)}
+                    className={`w-full text-left px-2 py-1.5 text-xs transition-colors truncate ${
+                      option.value === value
+                        ? 'bg-brand-500/20 text-brand-300 font-medium'
+                        : 'text-surface-200 hover:bg-surface-700/50'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        ),
         document.body
       )}
     </div>

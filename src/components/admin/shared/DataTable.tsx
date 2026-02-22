@@ -94,8 +94,9 @@ export function DataTable<T extends Record<string, any>>({
         )}
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full">
+      <div className="relative">
+        <div className="overflow-x-auto">
+          <table className="w-full">
           <thead>
             <tr className="border-b border-surface-700/50">
               {columns.map((column) => (
@@ -158,7 +159,7 @@ export function DataTable<T extends Record<string, any>>({
                         {onEdit && (
                           <button
                             onClick={() => onEdit(row)}
-                            className="p-1 hover:bg-surface-700/50 rounded text-surface-100/60 hover:text-surface-100"
+                            className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-surface-700/50 rounded text-surface-100/60 hover:text-surface-100"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
@@ -166,7 +167,7 @@ export function DataTable<T extends Record<string, any>>({
                         {onDelete && (
                           <button
                             onClick={() => onDelete(row)}
-                            className="p-1 hover:bg-red-500/20 rounded text-surface-100/60 hover:text-red-400"
+                            className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-red-500/20 rounded text-surface-100/60 hover:text-red-400"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -179,6 +180,9 @@ export function DataTable<T extends Record<string, any>>({
             )}
           </tbody>
         </table>
+        </div>
+        {/* Scroll indicator - right edge fade */}
+        <div className="absolute top-0 right-0 bottom-0 w-4 bg-gradient-to-l from-surface-900/80 to-transparent pointer-events-none md:hidden" />
       </div>
 
       {totalPages > 1 && (
@@ -192,14 +196,14 @@ export function DataTable<T extends Record<string, any>>({
             <button
               onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1 bg-surface-800/40 hover:bg-surface-700/50 border border-surface-700/50 rounded text-surface-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1 min-h-[44px] bg-surface-800/40 hover:bg-surface-700/50 border border-surface-700/50 rounded text-surface-100 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Previous
             </button>
             <button
               onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
               disabled={currentPage === totalPages}
-              className="px-3 py-1 bg-surface-800/40 hover:bg-surface-700/50 border border-surface-700/50 rounded text-surface-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1 min-h-[44px] bg-surface-800/40 hover:bg-surface-700/50 border border-surface-700/50 rounded text-surface-100 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Next
             </button>

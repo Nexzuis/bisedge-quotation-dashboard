@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { FileText, Save, Download, FilePlus, FolderOpen, Settings, Wand2, AlertTriangle } from 'lucide-react';
+import { FileText, Save, Download, FilePlus, FolderOpen, Settings, Wand2, AlertTriangle, MoreVertical } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useQuoteStore } from '../../store/useQuoteStore';
 import { Button } from '../ui/Button';
@@ -18,6 +18,8 @@ export function TopBar() {
   const [isExporting, setIsExporting] = useState(false);
   const [showLoadModal, setShowLoadModal] = useState(false);
   const [showNewQuoteModal, setShowNewQuoteModal] = useState(false);
+  const [overflowOpen, setOverflowOpen] = useState(false);
+  const overflowRef = useRef<HTMLDivElement>(null);
 
   const quote = useQuoteStore((state) => state);
   const quoteRef = useQuoteStore((state) => state.quoteRef);
@@ -136,6 +138,17 @@ export function TopBar() {
     }
   };
 
+  // Click-outside handler for overflow menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (overflowRef.current && !overflowRef.current.contains(event.target as Node)) {
+        setOverflowOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
     <div className="glass rounded-xl p-4 mb-4">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -149,9 +162,9 @@ export function TopBar() {
             </div>
           </div>
 
-          <div className="h-10 w-px bg-surface-700" />
+          <div className="h-10 w-px bg-surface-700 hidden md:block" />
 
-          <div>
+          <div className="hidden md:block">
             <div className="text-sm text-surface-400">Date</div>
             <div className="text-sm font-medium text-surface-100">
               {formatDate(quoteDate)}
@@ -167,7 +180,8 @@ export function TopBar() {
         </div>
 
         {/* Right Side - Actions */}
-        <div className="flex items-center gap-3">
+        {/* Desktop actions - hidden on mobile */}
+        <div className="hidden md:flex items-center gap-3">
           {/* Customer ROE Badge (read-only, edit in Settings) */}
           <Badge variant="info" className="text-sm">
             ROE: {customerROE.toFixed(2)}
@@ -218,6 +232,117 @@ export function TopBar() {
           >
             {isExporting ? 'Exporting...' : 'Export PDF'}
           </Button>
+        </div>
+
+        {/* Mobile actions - visible only on mobile */}
+        <div className="md:hidden flex items-center gap-2">
+          {/* Save Status Indicator */}
+          {saveStatus !== 'idle' && (
+            <div className="text-xs text-surface-400">
+              {getSaveStatusText()}
+            </div>
+          )}
+
+          {/* Save button - always visible */}
+          <Button
+            variant="secondary"
+            icon={Save}
+            onClick={async () => {
+              const success = await saveNow();
+              if (success) {
+                toast.success('Quote saved');
+              }
+            }}
+            loading={saveStatus === 'saving'}
+            disabled={isReadOnly}
+          >
+            Save
+          </Button>
+
+          {/* Overflow menu */}
+          <div className="relative" ref={overflowRef}>
+            <button
+              className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center bg-surface-800/50 hover:bg-surface-700/50 border border-surface-600 rounded-lg transition-colors"
+              onClick={() => setOverflowOpen(!overflowOpen)}
+              aria-label="More actions"
+            >
+              <MoreVertical className="w-5 h-5 text-surface-400" />
+            </button>
+
+            {overflowOpen && (
+              <div className="absolute right-0 top-full mt-2 w-56 bg-surface-800 border border-surface-600 rounded-lg shadow-xl z-50 py-1">
+                {/* ROE Badge */}
+                <div className="px-4 py-3 border-b border-surface-600">
+                  <Badge variant="info" className="text-sm">
+                    ROE: {customerROE.toFixed(2)}
+                  </Badge>
+                </div>
+
+                {/* Builder */}
+                <button
+                  onClick={() => {
+                    navigate('/builder');
+                    setOverflowOpen(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-surface-100 hover:bg-surface-700 transition-colors"
+                >
+                  <Wand2 className="w-4 h-4" />
+                  Builder
+                </button>
+
+                {/* Admin (if admin) */}
+                {isAdmin && (
+                  <button
+                    onClick={() => {
+                      navigate('/admin');
+                      setOverflowOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-surface-100 hover:bg-surface-700 transition-colors"
+                  >
+                    <Settings className="w-4 h-4" />
+                    Admin
+                  </button>
+                )}
+
+                {/* New */}
+                <button
+                  onClick={() => {
+                    handleNewQuote();
+                    setOverflowOpen(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-surface-100 hover:bg-surface-700 transition-colors"
+                >
+                  <FilePlus className="w-4 h-4" />
+                  New
+                </button>
+
+                {/* Load */}
+                <button
+                  onClick={() => {
+                    setShowLoadModal(true);
+                    setOverflowOpen(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-surface-100 hover:bg-surface-700 transition-colors"
+                >
+                  <FolderOpen className="w-4 h-4" />
+                  Load
+                </button>
+
+                {/* Export PDF */}
+                <button
+                  onClick={() => {
+                    handleExportPDF();
+                    setOverflowOpen(false);
+                  }}
+                  disabled={isExporting}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-surface-100 hover:bg-surface-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Download className="w-4 h-4" />
+                  {isExporting ? 'Exporting...' : 'Export PDF'}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

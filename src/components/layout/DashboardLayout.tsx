@@ -12,7 +12,7 @@ import { QuoteGeneratorPanel } from '../panels/QuoteGeneratorPanel';
 
 export function DashboardLayout() {
   return (
-    <div className="min-h-screen p-4">
+    <div className="min-h-screen p-2 sm:p-4">
       <div className="mx-auto max-w-[1600px]">
         <TopBar />
         <WorkflowStepper />

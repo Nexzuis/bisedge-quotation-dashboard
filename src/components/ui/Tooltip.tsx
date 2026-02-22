@@ -11,7 +11,7 @@ interface TooltipProps {
  */
 export const Tooltip: React.FC<TooltipProps> = ({ content, children }) => {
   return (
-    <TooltipPrimitive.Provider delayDuration={300}>
+    <TooltipPrimitive.Provider delayDuration={0}>
       <TooltipPrimitive.Root>
         <TooltipPrimitive.Trigger asChild>
           {children}

@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Users, Wand2, Settings, User, LogOut, ChevronDown, BarChart3, ClipboardCheck, List, Zap } from 'lucide-react';
+import { Home, Users, Wand2, Settings, User, LogOut, ChevronDown, BarChart3, ClipboardCheck, List, Zap, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../auth/AuthContext';
 import { Badge } from '../ui/Badge';
@@ -13,6 +13,7 @@ export function CrmTopBar() {
   const location = useLocation();
   const { user, logout } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   const roleLevel = ROLE_HIERARCHY[(user?.role || 'sales_rep') as Role] || 0;
@@ -77,7 +78,17 @@ export function CrmTopBar() {
     <div className="glass rounded-xl p-3 mb-4 relative z-30">
       <div className="flex items-center justify-between">
         {/* Left — Nav */}
-        <div className="flex items-center gap-1 relative">
+        {/* Mobile hamburger button */}
+        <button
+          className="md:hidden p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-surface-400 hover:text-surface-100 hover:bg-surface-700/50 transition-colors"
+          onClick={() => setMobileMenuOpen(true)}
+          aria-label="Open navigation"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+
+        {/* Desktop nav items - hidden on mobile */}
+        <div className="hidden md:flex items-center gap-1 relative">
           {allNavItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
@@ -186,6 +197,93 @@ export function CrmTopBar() {
         </div>
         </div>{/* end right-side flex wrapper */}
       </div>
+
+      {/* Mobile navigation drawer */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileMenuOpen(false)}
+            />
+
+            {/* Drawer */}
+            <motion.div
+              className="fixed top-0 left-0 z-50 h-full w-64 bg-surface-900 border-r border-surface-700 p-4 md:hidden"
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            >
+              {/* Close button */}
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-lg font-semibold text-surface-100">Menu</h2>
+                <button
+                  className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-surface-400 hover:text-surface-100 hover:bg-surface-700/50 transition-colors"
+                  onClick={() => setMobileMenuOpen(false)}
+                  aria-label="Close navigation"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Nav items */}
+              <nav className="flex flex-col gap-1">
+                {allNavItems.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.path);
+                  return (
+                    <button
+                      key={item.path}
+                      onClick={() => {
+                        navigate(item.path);
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                        active
+                          ? 'bg-brand-600/20 text-brand-400'
+                          : 'text-surface-400 hover:text-surface-100 hover:bg-surface-700/50'
+                      }`}
+                    >
+                      <Icon className="w-5 h-5" />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+
+                {/* Approvals button with badge — Manager+ only */}
+                {isManager && (
+                  <button
+                    onClick={() => {
+                      navigate('/admin/approvals');
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                      isActive('/admin/approvals')
+                        ? 'bg-brand-600/20 text-brand-400'
+                        : 'text-surface-400 hover:text-surface-100 hover:bg-surface-700/50'
+                    }`}
+                  >
+                    <div className="relative">
+                      <ClipboardCheck className="w-5 h-5" />
+                      {pendingApprovalCount > 0 && (
+                        <span className="absolute -top-2 -right-2 bg-amber-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center animate-pulse">
+                          {pendingApprovalCount > 9 ? '9+' : pendingApprovalCount}
+                        </span>
+                      )}
+                    </div>
+                    <span>Approvals</span>
+                  </button>
+                )}
+              </nav>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

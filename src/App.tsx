@@ -115,8 +115,9 @@ function AppContent() {
     if (initialQuoteLoadRef.current) return;
     initialQuoteLoadRef.current = true;
 
-    // /quote route performs id-aware loading in Dashboard.tsx
-    if (location.pathname === '/quote') return;
+    // /quote performs id-aware loading in Dashboard.tsx.
+    // /builder must not load "most recent" or it can overwrite a fresh new quote.
+    if (location.pathname === '/quote' || location.pathname.startsWith('/builder')) return;
     let cancelled = false;
 
     const loadQuote = async () => {

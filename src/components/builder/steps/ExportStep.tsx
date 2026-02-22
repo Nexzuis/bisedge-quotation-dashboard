@@ -259,7 +259,10 @@ export function ExportStep() {
           <Button
             variant="ghost"
             icon={Home}
-            onClick={() => navigate('/quote')}
+            onClick={() => {
+              const quoteId = useQuoteStore.getState().id;
+              navigate(quoteId ? `/quote?id=${quoteId}` : '/quote');
+            }}
             className="w-full"
           >
             Back to Quote

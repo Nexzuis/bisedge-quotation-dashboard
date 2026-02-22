@@ -14,6 +14,7 @@ import {
   type ApprovalAction,
 } from '../engine/approvalEngine';
 import type { QuoteState, ApprovalChainEntry } from '../types/quote';
+import { notifyApprovalNeeded, notifyApprovalResult } from '../utils/notificationHelpers';
 
 export function useApprovalActions() {
   const user = useAuthStore((s) => s.user);
@@ -55,7 +56,8 @@ export function useApprovalActions() {
     fromUser: { id: string; name: string; role: string },
     toUser: { id: string; name: string; role: string },
     notes: string,
-    extraUpdates?: (state: QuoteState) => void
+    extraUpdates?: (state: QuoteState) => void,
+    onSuccess?: (quoteRef: string, quoteId: string) => void
   ): Promise<void> {
     if (!user) return;
     setIsProcessing(true);
@@ -101,6 +103,9 @@ export function useApprovalActions() {
         notes,
         changes: { status: newStatus },
       });
+
+      const savedState = useQuoteStore.getState() as QuoteState;
+      onSuccess?.(savedState.quoteRef, savedState.id);
     } finally {
       setIsProcessing(false);
     }
@@ -128,13 +133,17 @@ export function useApprovalActions() {
             state.submittedBy = fromUser.id;
             state.submittedAt = new Date();
           }
-        : undefined
+        : undefined,
+      (quoteRef, quoteId) => {
+        notifyApprovalNeeded(quoteRef, toUserId, quoteId);
+      }
     );
   }
 
   async function approve(notes: string): Promise<void> {
     const fromUser = buildFromUser();
     const toUser = { ...fromUser };
+    const submittedBy = useQuoteStore.getState().submittedBy;
 
     await applyAction(
       'approve',
@@ -146,15 +155,34 @@ export function useApprovalActions() {
       (state) => {
         state.approvedBy = fromUser.id;
         state.approvedAt = new Date();
-      }
+      },
+      submittedBy
+        ? (quoteRef, quoteId) => {
+            notifyApprovalResult(quoteRef, submittedBy, true, quoteId);
+          }
+        : undefined
     );
   }
 
   async function reject(reason: string): Promise<void> {
     const fromUser = buildFromUser();
     const toUser = { ...fromUser };
+    const submittedBy = useQuoteStore.getState().submittedBy;
 
-    await applyAction('reject', 'rejected', 'reject', fromUser, toUser, reason);
+    await applyAction(
+      'reject',
+      'rejected',
+      'reject',
+      fromUser,
+      toUser,
+      reason,
+      undefined,
+      submittedBy
+        ? (quoteRef, quoteId) => {
+            notifyApprovalResult(quoteRef, submittedBy, false, quoteId);
+          }
+        : undefined
+    );
   }
 
   async function escalate(
@@ -166,7 +194,18 @@ export function useApprovalActions() {
     const fromUser = buildFromUser();
     const toUser = { id: toUserId, name: toUserName, role: toRole };
 
-    await applyAction('escalate', 'escalated', 'escalate', fromUser, toUser, notes);
+    await applyAction(
+      'escalate',
+      'escalated',
+      'escalate',
+      fromUser,
+      toUser,
+      notes,
+      undefined,
+      (quoteRef, quoteId) => {
+        notifyApprovalNeeded(quoteRef, toUserId, quoteId);
+      }
+    );
   }
 
   async function returnQuote(
@@ -178,7 +217,18 @@ export function useApprovalActions() {
     const fromUser = buildFromUser();
     const toUser = { id: toUserId, name: toUserName, role: toRole };
 
-    await applyAction('return', 'returned', 'return', fromUser, toUser, notes);
+    await applyAction(
+      'return',
+      'returned',
+      'return',
+      fromUser,
+      toUser,
+      notes,
+      undefined,
+      (quoteRef, quoteId) => {
+        notifyApprovalNeeded(quoteRef, toUserId, quoteId);
+      }
+    );
   }
 
   async function addComment(notes: string): Promise<void> {

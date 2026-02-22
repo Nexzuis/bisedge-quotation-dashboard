@@ -964,6 +964,26 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
     }
   }
 
+  async searchContacts(query: string): Promise<StoredContact[]> {
+    try {
+      const { data, error } = await supabase
+        .from('contacts')
+        .select('*')
+        .or(`first_name.ilike.%${sanitizePostgrestValue(query)}%,last_name.ilike.%${sanitizePostgrestValue(query)}%,email.ilike.%${sanitizePostgrestValue(query)}%`)
+        .limit(10);
+
+      if (error) {
+        logger.error('Error searching contacts:', error);
+        return [];
+      }
+
+      return (data || []).map(this.dbContactToStored);
+    } catch (error) {
+      logger.error('Error searching contacts from Supabase:', error);
+      return [];
+    }
+  }
+
   async deleteContact(id: string): Promise<void> {
     try {
       const { error } = await supabase.from('contacts').delete().eq('id', id);
@@ -1053,9 +1073,9 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
   }
 
   // ===== Notification Operations =====
-  async saveNotification(notification: Omit<StoredNotification, 'id' | 'createdAt'>): Promise<string> {
+  async saveNotification(notification: Omit<StoredNotification, 'createdAt'>): Promise<string> {
     try {
-      const id = crypto.randomUUID();
+      const id = notification.id ?? crypto.randomUUID();
       const now = new Date().toISOString();
 
       const { error } = await supabase.from('notifications').insert({

@@ -72,6 +72,12 @@ export function useQuoteLock(
     };
 
     const acquireQuoteLock = async () => {
+      // Skip lock acquisition for unsaved quotes — they don't exist in the DB yet.
+      // '0000.0' is the default quoteRef set by resetQuote() and is only replaced
+      // after getNextQuoteRef() succeeds. Using version === 0 would NOT work because
+      // the store initializes version to 1.
+      if (useQuoteStore.getState().quoteRef === '0000.0') return;
+
       // Best-effort stale presence cleanup (fallback when pg_cron is unavailable).
       // Runs as the service_role via RPC — if it fails (e.g. RPC not deployed yet)
       // we swallow the error and proceed; the lock flow is unaffected.

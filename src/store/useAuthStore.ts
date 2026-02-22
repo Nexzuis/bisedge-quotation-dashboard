@@ -4,6 +4,7 @@
 // is defence-in-depth only.
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { toast } from 'sonner';
 import type { Role, PermissionOverrides } from '../auth/permissions';
 import { supabase } from '../lib/supabase';
 import { getDb } from '../db/DatabaseAdapter';
@@ -26,6 +27,12 @@ interface RefreshResult {
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
+  /**
+   * True while the initial checkAuth() call is in-flight after rehydration.
+   * RequireAuth renders a loading fallback instead of redirecting to /login
+   * while this is true, eliminating the login-page flash on hard refresh.
+   */
+  isAuthLoading: boolean;
   login: (emailOrUsername: string, password: string) => Promise<boolean>;
   logout: (options?: { skipSignOut?: boolean }) => Promise<void>;
   checkAuth: () => Promise<boolean>;
@@ -132,6 +139,7 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       user: null,
       isAuthenticated: false,
+      isAuthLoading: false,
 
       login: async (emailOrUsername: string, password: string) => {
         const loginKey = normalizeLoginKey(emailOrUsername);
@@ -287,6 +295,22 @@ export const useAuthStore = create<AuthState>()(
             // Non-critical
           }
 
+          // Reset in-memory CRM filter state so User B doesn't see User A's filters
+          try {
+            const { useCrmStore } = await import('./useCrmStore');
+            useCrmStore.setState({ searchQuery: '', stageFilter: 'all', stageFilters: [] });
+          } catch {
+            // Non-critical
+          }
+
+          // Reset in-memory Lead filter state
+          try {
+            const { useLeadStore } = await import('./useLeadStore');
+            useLeadStore.getState().resetFilters();
+          } catch {
+            // Non-critical
+          }
+
           // Reset repository singletons so the next user gets fresh adapters
           try {
             const { resetRepositories } = await import('../db/repositories');
@@ -410,6 +434,22 @@ export const useAuthStore = create<AuthState>()(
           // Non-critical
         }
 
+        // Reset in-memory CRM filter state so User B doesn't see User A's filters
+        try {
+          const { useCrmStore } = await import('./useCrmStore');
+          useCrmStore.setState({ searchQuery: '', stageFilter: 'all', stageFilters: [] });
+        } catch {
+          // Non-critical
+        }
+
+        // Reset in-memory Lead filter state
+        try {
+          const { useLeadStore } = await import('./useLeadStore');
+          useLeadStore.getState().resetFilters();
+        } catch {
+          // Non-critical
+        }
+
         // Reset repository singletons so the next user gets fresh adapters.
         try {
           const { resetRepositories } = await import('../db/repositories');
@@ -473,6 +513,7 @@ export const useAuthStore = create<AuthState>()(
                 ? { ...state.user, role: dbUser.role as Role }
                 : null,
             }));
+            toast.info(`Your role has been updated to ${dbUser.role}`);
           }
 
           return { kicked: false };
@@ -497,9 +538,14 @@ export const useAuthStore = create<AuthState>()(
           state.user = null;
           state.isAuthenticated = false;
           if (hadUser) {
+            // Signal that auth verification is in progress so RequireAuth
+            // renders a loading fallback instead of flashing /login.
+            state.isAuthLoading = true;
             state.checkAuth().then((valid) => {
               if (!valid) {
-                useAuthStore.setState({ user: null, isAuthenticated: false });
+                useAuthStore.setState({ user: null, isAuthenticated: false, isAuthLoading: false });
+              } else {
+                useAuthStore.setState({ isAuthLoading: false });
               }
               // On success, checkAuth() already calls set() with the
               // server-authoritative role and isAuthenticated: true.

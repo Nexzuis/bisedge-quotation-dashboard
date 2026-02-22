@@ -55,11 +55,12 @@ export function useQuoteDB(): UseQuoteDBResult {
    */
   const createNewQuote = useCallback(async () => {
     try {
-      // Reset to default state
-      resetQuote();
-
-      // Get next quote reference
+      // Get next quote reference BEFORE resetting — if the RPC fails, the current
+      // quote is preserved (not destroyed by a premature resetQuote call).
       const nextRef = await repository.getNextQuoteRef();
+
+      // RPC succeeded — now safe to reset to default state
+      resetQuote();
 
       // Update quote ref in store
       loadQuote({

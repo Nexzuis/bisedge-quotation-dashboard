@@ -1,4 +1,5 @@
 import { ArrowLeft, CheckCircle2, Loader2, AlertTriangle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useQuoteStore } from '../../../store/useQuoteStore';
 import { useAutoSaveContext } from '../../../hooks/AutoSaveContext';
 
@@ -12,10 +13,11 @@ import { useAutoSaveContext } from '../../../hooks/AutoSaveContext';
 export function BuilderTopBar() {
   const quoteRef = useQuoteStore((s) => s.quoteRef);
   const { status, persistentError } = useAutoSaveContext();
+  const navigate = useNavigate();
 
   const handleExit = () => {
-    // Navigate to root using the hash-based URL so HashRouter stays consistent
-    window.location.hash = '/';
+    // Use React Router navigate so NavigationGuard can intercept unsaved-changes prompt
+    navigate('/');
   };
 
   return (

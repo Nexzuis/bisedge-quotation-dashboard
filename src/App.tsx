@@ -37,7 +37,8 @@ import { logger } from './utils/logger';
 
 // Protected route wrapper
 const RequireAuth = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isAuthLoading } = useAuth();
+  if (isAuthLoading) return <LazyFallback label="Authenticating..." />;
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
 };
 

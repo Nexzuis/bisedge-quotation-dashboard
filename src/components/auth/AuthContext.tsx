@@ -14,6 +14,7 @@ interface AuthContextType {
     permissionOverrides: PermissionOverrides;
   } | null;
   isAuthenticated: boolean;
+  isAuthLoading: boolean;
   login: (emailOrUsername: string, password: string) => Promise<boolean>;
   logout: (options?: { skipSignOut?: boolean }) => Promise<void>;
 }
@@ -24,7 +25,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 const REVALIDATION_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const { user, isAuthenticated, login, logout, checkAuth, forceLogout, refreshUserFromDB } =
+  const { user, isAuthenticated, isAuthLoading, login, logout, checkAuth, forceLogout, refreshUserFromDB } =
     useAuthStore();
 
   // Initial auth check on mount.
@@ -91,7 +92,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [isAuthenticated, refreshUserFromDB]);
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, login, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, isAuthLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

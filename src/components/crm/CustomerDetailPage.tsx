@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -10,6 +10,7 @@ import { AddActivityForm } from './detail/AddActivityForm';
 import { LinkedQuotes } from './detail/LinkedQuotes';
 import { useCompanies } from '../../hooks/useCompanies';
 import { useConfirmDialog } from '../../hooks/useConfirmDialog';
+import { getDb } from '../../db/DatabaseAdapter';
 import { Button } from '../ui/Button';
 import { toast } from '../ui/Toast';
 import { Skeleton, SkeletonPanel } from '../ui/Skeleton';
@@ -25,22 +26,40 @@ export default function CustomerDetailPage() {
   const { getById, deleteCompany } = useCompanies();
   const { confirm, ConfirmDialogElement } = useConfirmDialog();
 
-  const loadCompany = async () => {
+  const loadCompany = useCallback(async (signal: { cancelled: boolean } = { cancelled: false }) => {
     if (!id) return;
     const data = await getById(id);
-    setCompany(data);
-    setLoading(false);
-  };
+    if (!signal.cancelled) {
+      setCompany(data);
+      setLoading(false);
+    }
+  }, [id, getById]);
 
   useEffect(() => {
-    loadCompany();
-  }, [id]);
+    const signal = { cancelled: false };
+    loadCompany(signal);
+    return () => { signal.cancelled = true; };
+  }, [loadCompany]);
 
   const handleDelete = async () => {
     if (!id) return;
+
+    // Check for linked quotes that would become orphaned
+    let orphanedCount = 0;
+    try {
+      const linkedQuotes = await getDb().getQuotesByCompany(id);
+      orphanedCount = linkedQuotes.length;
+    } catch {
+      // ignore — proceed without count
+    }
+
+    const orphanWarning = orphanedCount > 0
+      ? ` This company has ${orphanedCount} linked ${orphanedCount === 1 ? 'quote' : 'quotes'} that will become orphaned.`
+      : '';
+
     const confirmed = await confirm({
       title: 'Delete Company',
-      message: `Are you sure you want to delete "${company?.name}"? This action cannot be undone.`,
+      message: `Are you sure you want to delete "${company?.name}"? This action cannot be undone.${orphanWarning}`,
       variant: 'danger',
       confirmText: 'Delete',
     });

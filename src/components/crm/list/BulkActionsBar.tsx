@@ -32,15 +32,20 @@ export function BulkActionsBar({ selectedCount, selectedIds, onClearSelection, o
     if (!confirmed) return;
 
     let success = 0;
+    let failed = 0;
     for (const id of selectedIds) {
       try {
         await updateStage(id, stageTarget);
         success++;
       } catch {
-        // continue with others
+        failed++;
       }
     }
-    toast.success(`Updated ${success} ${success === 1 ? 'company' : 'companies'}`);
+    if (failed > 0) {
+      toast.success(`Updated ${success} of ${selectedCount} ${selectedCount === 1 ? 'company' : 'companies'} (${failed} failed)`);
+    } else {
+      toast.success(`Updated ${success} ${success === 1 ? 'company' : 'companies'}`);
+    }
     setStageTarget('');
     onClearSelection();
     onRefresh();

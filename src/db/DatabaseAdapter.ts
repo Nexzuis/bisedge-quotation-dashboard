@@ -85,6 +85,7 @@ export interface IDatabaseAdapter {
   saveContact(contact: Omit<StoredContact, 'id' | 'createdAt' | 'updatedAt'>): Promise<string>;
   updateContact(id: string, updates: Partial<StoredContact>): Promise<void>;
   getContactsByCompany(companyId: string): Promise<StoredContact[]>;
+  searchContacts(query: string): Promise<StoredContact[]>;
   getContact(id: string): Promise<StoredContact | null>;
   deleteContact(id: string): Promise<void>;
 
@@ -97,7 +98,7 @@ export interface IDatabaseAdapter {
   deleteActivity(id: string): Promise<void>;
 
   // ===== Notification Operations =====
-  saveNotification(notification: Omit<StoredNotification, 'id' | 'createdAt'>): Promise<string>;
+  saveNotification(notification: Omit<StoredNotification, 'createdAt'>): Promise<string>;
   getNotifications(userId: string, limit?: number): Promise<StoredNotification[]>;
   markNotificationRead(id: string): Promise<void>;
   markAllNotificationsRead(userId: string): Promise<void>;

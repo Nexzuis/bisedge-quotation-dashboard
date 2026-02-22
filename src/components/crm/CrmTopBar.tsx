@@ -8,7 +8,9 @@ import { Badge } from '../ui/Badge';
 import { NotificationBell } from '../notifications/NotificationBell';
 import { ROLE_HIERARCHY, type Role } from '../../auth/permissions';
 import { useApprovalCount } from '../../hooks/useApprovalCount';
+import { useQuoteDB } from '../../hooks/useQuoteDB';
 import { toast } from 'sonner';
+import { logger } from '../../utils/logger';
 
 export function CrmTopBar() {
   const navigate = useNavigate();
@@ -23,6 +25,7 @@ export function CrmTopBar() {
   const isAdmin = user?.role === 'system_admin' || user?.role === 'sales_manager' || user?.role === 'local_leader' || user?.role === 'ceo';
 
   const { count: pendingApprovalCount } = useApprovalCount();
+  const { createNewQuote } = useQuoteDB();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -45,6 +48,16 @@ export function CrmTopBar() {
         });
       }
       navigate('/login');
+    }
+  };
+
+  const handleNewQuote = async () => {
+    try {
+      await createNewQuote();
+      navigate('/builder');
+    } catch (error) {
+      logger.error('Failed to create new quote from CrmTopBar:', error);
+      toast.error('Failed to start a new quote');
     }
   };
 
@@ -105,7 +118,7 @@ export function CrmTopBar() {
             return (
               <motion.button
                 key={item.path}
-                onClick={() => navigate(item.path)}
+                onClick={() => item.path === '/builder' ? handleNewQuote() : navigate(item.path)}
                 whileHover={{ scale: 1.02 }}
                 className={`relative flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   active
@@ -252,7 +265,11 @@ export function CrmTopBar() {
                     <button
                       key={item.path}
                       onClick={() => {
-                        navigate(item.path);
+                        if (item.path === '/builder') {
+                          handleNewQuote();
+                        } else {
+                          navigate(item.path);
+                        }
                         setMobileMenuOpen(false);
                       }}
                       className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${

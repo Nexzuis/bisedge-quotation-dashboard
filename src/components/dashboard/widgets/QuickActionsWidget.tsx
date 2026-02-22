@@ -2,11 +2,14 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FilePlus, FolderOpen, ClipboardCheck, Users, Settings, Shield } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 import { Button } from '../../ui/Button';
 import { LoadQuoteModal } from '../../shared/LoadQuoteModal';
 import { staggerContainer, fadeInUp } from '../../crm/shared/motionVariants';
 import { ROLE_HIERARCHY, type Role } from '../../../auth/permissions';
 import { useQuoteDB } from '../../../hooks/useQuoteDB';
+import { useQuoteStore } from '../../../store/useQuoteStore';
+import { logger } from '../../../utils/logger';
 
 interface QuickActionsWidgetProps {
   role: Role;
@@ -20,8 +23,13 @@ export function QuickActionsWidget({ role }: QuickActionsWidgetProps) {
   const isAdmin = role === 'system_admin';
 
   const handleNewQuote = async () => {
-    await createNewQuote();
-    navigate('/builder');
+    try {
+      await createNewQuote();
+      navigate('/builder');
+    } catch (error) {
+      logger.error('Failed to create new quote from dashboard quick action:', error);
+      toast.error('Failed to start a new quote');
+    }
   };
 
   return (
@@ -73,7 +81,10 @@ export function QuickActionsWidget({ role }: QuickActionsWidgetProps) {
       <LoadQuoteModal
         isOpen={showLoadModal}
         onClose={() => setShowLoadModal(false)}
-        onQuoteLoaded={() => navigate('/quote')}
+        onQuoteLoaded={() => {
+          const quoteId = useQuoteStore.getState().id;
+          navigate(quoteId ? `/quote?id=${quoteId}` : '/quote');
+        }}
       />
     </>
   );

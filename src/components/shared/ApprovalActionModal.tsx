@@ -196,15 +196,19 @@ export function ApprovalActionModal({
     if (isConfirmDisabled) return;
     isSubmittingRef.current = true;
 
-    onConfirm({
-      ...(selectedUserId
-        ? {
-            targetUserId: selectedUserId,
-            targetUserName: selectedUser?.fullName,
-            targetRole: selectedRole || selectedUser?.role,
-          }
-        : {}),
-      notes: notes.trim(),
+    Promise.resolve(
+      onConfirm({
+        ...(selectedUserId
+          ? {
+              targetUserId: selectedUserId,
+              targetUserName: selectedUser?.fullName,
+              targetRole: selectedRole || selectedUser?.role,
+            }
+          : {}),
+        notes: notes.trim(),
+      })
+    ).finally(() => {
+      isSubmittingRef.current = false;
     });
   };
 

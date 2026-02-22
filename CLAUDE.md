@@ -384,6 +384,43 @@ Status lifecycle: `draft → pending-approval → approved | rejected | in-revie
 - App.tsx excludes /builder from loadMostRecent() to prevent stale data on new quote
 - QuickActions.tsx calls createNewQuote() before navigating to /builder
 
+### Fixed in Phase 7: Deep Workflow Audit Fixes (25 bugs, 6 waves)
+
+**Wave 1 — Quote Creation Safety:**
+- `createNewQuote()` no longer destroys current quote on RPC failure — `resetQuote()` moved after async success (useQuoteDB.ts)
+- Lock acquisition skipped for unsaved quotes via `quoteRef === '0000.0'` guard (useQuoteLock.ts)
+- QuickActionsWidget `handleNewQuote` wrapped in try/catch with toast.error (QuickActionsWidget.tsx)
+
+**Wave 2 — Navigation ID Stability:**
+- LoadQuoteModal navigates to `/quote?id=` instead of bare `/quote` (QuickActionsWidget.tsx)
+- "Back to Quote" from builder includes `?id=` (ExportStep.tsx)
+- CrmTopBar "New Quote" now calls `createNewQuote()` before navigating (CrmTopBar.tsx)
+- BuilderTopBar exit uses `navigate('/')` instead of `window.location.hash` for NavigationGuard compatibility (BuilderTopBar.tsx)
+
+**Wave 3 — Auth & Session Safety:**
+- `RequireAuth` shows loading fallback during auth rehydration instead of flashing to /login (App.tsx, useAuthStore.ts)
+- CRM/Lead in-memory filter state (searchQuery, statusFilter, assignedToFilter) cleared on logout/forceLogout (useAuthStore.ts)
+- Role-change toast added in `refreshUserFromDB` when role is updated (useAuthStore.ts)
+
+**Wave 4 — Approval Notifications & Actions:**
+- Approval notification helpers (`notifyApprovalNeeded`, `notifyApprovalResult`) now called after each approval action (useApprovalActions.ts)
+- `saveNotification` accepts caller's ID, falls back to UUID (SupabaseAdapter.ts, DatabaseAdapter.ts)
+- `ApprovalActionModal` isSubmittingRef reset in finally block — retry works after failure (ApprovalActionModal.tsx)
+- `system_admin` can now act on `in-review` quotes (approvalEngine.ts)
+
+**Wave 5 — CRM & Lead Safety:**
+- `deleteCompany` warns about orphaned quotes before deletion (CustomerDetailPage.tsx)
+- `convertLead` navigates to new company after conversion (LeadDetailPage.tsx)
+- `updateStage` throws for restricted roles instead of silent no-op (useCompanies.ts)
+- Double-qualification guard on `qualifyLead` (useLeads.ts)
+- Bulk operations show accurate success/failure count (BulkActionsBar.tsx)
+
+**Wave 6 — UX Polish:**
+- GlobalSearch now searches quotes (by ref, clientName) and contacts (by name, email) in addition to companies (GlobalSearch.tsx)
+- `softDeleteUser` warns about in-flight quotes + success toast (UserManagement.tsx)
+- Unmount cancellation on CustomerDetailPage and LeadDetailPage via useEffect signal pattern (CustomerDetailPage.tsx, LeadDetailPage.tsx)
+- Removed misleading "View Contact in CRM" button (LeadDetailPage.tsx)
+
 ### Not Yet Implemented
 
 - Deploy Edge Function `admin-create-user` to Supabase (code committed, needs `supabase functions deploy`)

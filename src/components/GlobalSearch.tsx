@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X, FileText, Building2, User } from 'lucide-react';
 import { useCompanies } from '../hooks/useCompanies';
+import { getDb } from '../db/DatabaseAdapter';
 
 interface SearchResult {
   id: string;
@@ -76,6 +77,36 @@ export function GlobalSearch() {
             url: `/customers/${c.id}`,
           });
         });
+    } catch {
+      // ignore
+    }
+
+    try {
+      const quotes = await getDb().searchQuotes(q);
+      quotes.slice(0, 5).forEach((quote) => {
+        found.push({
+          id: quote.id,
+          type: 'quote',
+          title: quote.quoteRef || quote.id,
+          subtitle: quote.clientName || 'Quote',
+          url: `/quote?id=${quote.id}`,
+        });
+      });
+    } catch {
+      // ignore
+    }
+
+    try {
+      const contacts = await getDb().searchContacts(q);
+      contacts.slice(0, 5).forEach((contact) => {
+        found.push({
+          id: contact.id,
+          type: 'contact',
+          title: `${contact.firstName} ${contact.lastName}`.trim(),
+          subtitle: contact.email || 'Contact',
+          url: `/customers/${contact.companyId}`,
+        });
+      });
     } catch {
       // ignore
     }

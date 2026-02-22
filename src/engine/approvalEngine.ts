@@ -103,6 +103,10 @@ export function getAvailableActions(
           actions.push('return');
         }
       }
+      // System admin can always act
+      if (userRole === 'system_admin' && !isAssignee) {
+        actions.push('approve', 'reject', 'escalate', 'return', 'comment', 'edit');
+      }
       break;
 
     case 'changes-requested':

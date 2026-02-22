@@ -83,6 +83,9 @@ export function useLeads() {
     async (id: string): Promise<void> => {
       const lead = await repo.getById(id);
       if (!lead) throw new Error('Lead not found');
+      if (lead.qualificationStatus === 'qualified') {
+        throw new Error('Lead is already qualified');
+      }
       if (!lead.decisionMakerEmail || !lead.decisionMakerPhone) {
         throw new Error('Lead must have both decision maker email and phone to qualify');
       }

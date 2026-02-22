@@ -65,6 +65,7 @@ const UserManagement = () => {
   const [saving, setSaving] = useState(false);
   const [resettingPassword, setResettingPassword] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [inFlightQuoteCount, setInFlightQuoteCount] = useState(0);
 
   const { user: currentUser } = useAuth();
   const auditRepo = getAuditRepository();
@@ -232,8 +233,16 @@ const UserManagement = () => {
     }
   };
 
-  const handleDeleteClick = (user: StoredUser) => {
+  const handleDeleteClick = async (user: StoredUser) => {
     setSelectedUser(user);
+    setInFlightQuoteCount(0);
+    // Check for in-flight quotes assigned to this user
+    try {
+      const { count } = await getDb().listPendingApprovals({ page: 1, pageSize: 1, assigneeId: user.id });
+      setInFlightQuoteCount(count);
+    } catch {
+      // ignore — proceed without count
+    }
     setShowDeleteDialog(true);
   };
 
@@ -266,6 +275,7 @@ const UserManagement = () => {
       });
 
       setShowDeleteDialog(false);
+      toast.success('User deactivated');
       await loadUsers();
     } catch (error) {
       logger.error('Failed to delete user:', { error });
@@ -593,7 +603,7 @@ const UserManagement = () => {
         onClose={() => setShowDeleteDialog(false)}
         onConfirm={handleDeleteConfirm}
         title="Delete User"
-        message={`Are you sure you want to delete user "${selectedUser?.fullName || selectedUser?.email}"? This action cannot be undone.`}
+        message={`Are you sure you want to deactivate user "${selectedUser?.fullName || selectedUser?.email}"? This action cannot be undone.${inFlightQuoteCount > 0 ? ` This user has ${inFlightQuoteCount} in-flight ${inFlightQuoteCount === 1 ? 'quote' : 'quotes'} pending approval that will become unreachable.` : ''}`}
         confirmText="Delete"
         variant="danger"
       />

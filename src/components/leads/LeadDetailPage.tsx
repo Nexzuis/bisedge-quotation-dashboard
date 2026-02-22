@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Trash2, Mail, Phone, Globe, MapPin, Linkedin, ExternalLink, Building2, Brain, User, Users } from 'lucide-react';
+import { ArrowLeft, Trash2, Mail, Phone, Globe, MapPin, Linkedin, ExternalLink, Building2, Brain, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { CrmTopBar } from '../crm/CrmTopBar';
 import { LeadStatusBadge } from './shared/LeadStatusBadge';
@@ -29,15 +29,21 @@ export default function LeadDetailPage() {
   const role = (user?.role || 'sales_rep') as Role;
   const canDelete = ROLE_HIERARCHY[role] >= 2; // sales_manager+
 
-  const loadLead = async () => {
+  const loadLead = useCallback(async (signal: { cancelled: boolean } = { cancelled: false }) => {
     if (!id) return;
     const data = await getById(id);
-    setLead(data);
-    if (data) setNotes(data.notes);
-    setLoading(false);
-  };
+    if (!signal.cancelled) {
+      setLead(data);
+      if (data) setNotes(data.notes);
+      setLoading(false);
+    }
+  }, [id, getById]);
 
-  useEffect(() => { loadLead(); }, [id]);
+  useEffect(() => {
+    const signal = { cancelled: false };
+    loadLead(signal);
+    return () => { signal.cancelled = true; };
+  }, [loadLead]);
 
   const handleDelete = async () => {
     if (!id) return;
@@ -59,9 +65,13 @@ export default function LeadDetailPage() {
 
   const handleQualify = async () => {
     if (!id) return;
-    await qualifyLead(id);
-    toast.success('Lead qualified');
-    loadLead();
+    try {
+      await qualifyLead(id);
+      toast.success('Lead qualified');
+      loadLead();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to qualify lead');
+    }
   };
 
   const handleReject = async (reason: string) => {
@@ -75,8 +85,8 @@ export default function LeadDetailPage() {
     if (!lead) return;
     try {
       const { companyId } = await convertLead(lead);
-      toast.success('Lead converted to CRM');
-      loadLead();
+      toast.success('Lead converted — viewing new company');
+      navigate(`/customers/${companyId}`);
     } catch (err) {
       toast.error('Failed to convert lead');
     }
@@ -301,15 +311,6 @@ export default function LeadDetailPage() {
                     <Building2 className="w-4 h-4" />View Company in CRM
                     <ExternalLink className="w-3 h-3" />
                   </button>
-                  {lead.convertedContactId && (
-                    <button
-                      onClick={() => navigate(`/customers/${lead.convertedCompanyId}`)}
-                      className="text-brand-400 hover:text-brand-300 text-sm flex items-center gap-2"
-                    >
-                      <Users className="w-4 h-4" />View Contact in CRM
-                      <ExternalLink className="w-3 h-3" />
-                    </button>
-                  )}
                 </div>
               </div>
             )}

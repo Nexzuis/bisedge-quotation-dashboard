@@ -82,7 +82,9 @@ export function useCompanies() {
     async (id: string, stage: PipelineStage): Promise<void> => {
       if (isRestrictedRole) {
         const existing = await repo.getById(id);
-        if (!existing || !canAccessCompany(existing)) return;
+        if (!existing || !canAccessCompany(existing)) {
+          throw new Error('You do not have permission to update this company\'s stage');
+        }
       }
       await repo.updateStage(id, stage);
     },

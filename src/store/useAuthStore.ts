@@ -213,6 +213,24 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: async () => {
+        // Release quote lock and presence BEFORE sign-out (session is still valid)
+        try {
+          const currentUser = get().user;
+          if (currentUser) {
+            const { useQuoteStore } = await import('./useQuoteStore');
+            const quoteId = useQuoteStore.getState().id;
+            if (quoteId) {
+              const db = getDb();
+              await Promise.allSettled([
+                db.releaseQuoteLock(quoteId, currentUser.id),
+                db.deletePresence(quoteId, currentUser.id),
+              ]);
+            }
+          }
+        } catch {
+          // Best-effort — proceed with logout regardless
+        }
+
         // Sign out of Supabase
         try {
           await supabase.auth.signOut();
@@ -311,6 +329,24 @@ export const useAuthStore = create<AuthState>()(
               }
             }, 100);
           });
+        }
+
+        // Release quote lock and presence BEFORE sign-out (session is still valid)
+        try {
+          const currentUser = get().user;
+          if (currentUser) {
+            const { useQuoteStore } = await import('./useQuoteStore');
+            const quoteId = useQuoteStore.getState().id;
+            if (quoteId) {
+              const db = getDb();
+              await Promise.allSettled([
+                db.releaseQuoteLock(quoteId, currentUser.id),
+                db.deletePresence(quoteId, currentUser.id),
+              ]);
+            }
+          }
+        } catch {
+          // Best-effort — proceed with logout regardless
         }
 
         try {

@@ -176,7 +176,7 @@ export function CrmTopBar() {
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: -4 }}
                 transition={{ duration: 0.15 }}
-                className="absolute right-0 top-full mt-2 w-56 bg-surface-800 border border-surface-600 rounded-lg shadow-xl overflow-hidden z-50"
+                className="absolute right-0 top-full mt-2 w-56 bg-[#111218] border border-surface-600 rounded-lg shadow-xl overflow-hidden z-50"
               >
                 <div className="p-3 border-b border-surface-600">
                   <div className="text-sm font-medium text-surface-100">{user?.fullName}</div>
@@ -213,7 +213,7 @@ export function CrmTopBar() {
 
             {/* Drawer */}
             <motion.div
-              className="fixed top-0 left-0 z-50 h-full w-64 bg-surface-900 border-r border-surface-700 p-4 md:hidden"
+              className="fixed top-0 left-0 z-50 h-full w-64 bg-[#0c0d12] border-r border-surface-700 p-4 md:hidden"
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}

@@ -270,7 +270,7 @@ export function TopBar() {
             </button>
 
             {overflowOpen && (
-              <div className="absolute right-0 top-full mt-2 w-56 bg-surface-800 border border-surface-600 rounded-lg shadow-xl z-50 py-1">
+              <div className="absolute right-0 top-full mt-2 w-56 bg-[#111218] border border-surface-600 rounded-lg shadow-xl z-50 py-1">
                 {/* ROE Badge */}
                 <div className="px-4 py-3 border-b border-surface-600">
                   <Badge variant="info" className="text-sm">

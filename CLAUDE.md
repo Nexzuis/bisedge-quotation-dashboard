@@ -265,6 +265,16 @@ Status lifecycle: `draft → pending-approval → approved | rejected | in-revie
 - Notification inbox with polling
 - Realtime quote updates and presence (when feature-flagged on)
 - Code splitting with lazy routes and vendor chunks
+- Phase 3: UI & Mobile Responsiveness (viewport overflow fix, responsive navigation, touch targets, mobile-optimized components)
+
+### Responsive Patterns (Phase 3)
+
+- **Responsive padding**: Mobile-first with `p-4 sm:p-5 md:p-6` pattern on `.card`, `.panel`, `.btn` classes in `src/index.css`
+- **Mobile navigation drawer**: CrmTopBar uses hamburger + Framer Motion slide-in drawer on `<md`, copy pattern from `AdminLayout.tsx`
+- **Overflow menu**: TopBar collapses actions into MoreVertical dropdown on `<md`, Save button always visible
+- **Touch targets**: `min-h-[44px] min-w-[44px]` on all mobile interactive elements; Button uses `min-h-[44px] sm:min-h-0` for mobile-only enforcement
+- **Bottom sheet**: SearchableSelect renders as bottom sheet on `<640px` with body scroll lock
+- **Breakpoint contract**: `<md` = mobile layout, `>=md` = desktop (unchanged)
 
 ### Fixed in Phase 1 (CURRENT-PLAN.md)
 

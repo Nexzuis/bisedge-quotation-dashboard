@@ -1,13 +1,21 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import { ArrowLeft, LogOut, User } from 'lucide-react';
+import { toast } from 'sonner';
 
 const AdminTopBar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch {
+      toast.error('Logout failed', {
+        description: 'Your session could not be closed cleanly. Redirecting to login.',
+        duration: 4000,
+      });
+    }
     navigate('/login');
   };
 

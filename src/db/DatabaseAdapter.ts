@@ -131,6 +131,7 @@ export interface IDatabaseAdapter {
   upsertPresence(quoteId: string, userId: string): Promise<void>;
   deletePresence(quoteId: string, userId: string): Promise<void>;
   cleanupStalePresence(): Promise<void>;
+  cleanupStaleLocks(): Promise<void>;
 
   // ===== Company Merge Operations =====
   getMergeRelatedCounts(secondaryCompanyId: string): Promise<{ contacts: number; activities: number; quotes: number }>;

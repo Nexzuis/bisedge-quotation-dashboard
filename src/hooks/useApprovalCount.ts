@@ -51,8 +51,9 @@ export function useApprovalCount() {
       const [pendingResult, reviewResult] = await Promise.all([pendingQuery, reviewQuery]);
       const total = (pendingResult.count ?? 0) + (reviewResult.count ?? 0);
       setCount(total);
-    } catch {
-      // Non-critical — badge will show stale count
+    } catch (err) {
+      // Non-critical — badge will show stale count, but log for diagnostics
+      logger.warn('[useApprovalCount] fetch error (badge will show stale count):', err);
     }
   }, [user, isManager]);
 

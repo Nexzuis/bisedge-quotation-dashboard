@@ -37,6 +37,7 @@ interface PendingQuote {
   currentAssigneeId: string | null;
   currentAssigneeRole: string | null;
   approvalChain: ApprovalChainEntry[];
+  approvalChainParseError?: boolean;
   submittedBy: string | null;
   submittedAt: string | null;
   submitterName?: string;
@@ -69,10 +70,15 @@ export function PendingApprovalsWidget() {
       const parsed: PendingQuote[] = await Promise.all(
         (data || []).map(async (q: any) => {
           let chain: ApprovalChainEntry[] = [];
+          let approvalChainParseError = false;
           try {
             const rawChain = q.approval_chain || q.approvalChain;
             chain = typeof rawChain === 'string' ? JSON.parse(rawChain) : rawChain || [];
-          } catch { chain = []; }
+          } catch (parseErr) {
+            logger.warn('[PendingApprovalsWidget] Failed to parse approval_chain for quote', { quoteId: q.id, parseErr });
+            chain = [];
+            approvalChainParseError = true;
+          }
 
           let submitterName = 'Unknown';
           const submittedBy = q.submitted_by || q.submittedBy;
@@ -91,6 +97,7 @@ export function PendingApprovalsWidget() {
             currentAssigneeId: q.current_assignee_id || q.currentAssigneeId || null,
             currentAssigneeRole: q.current_assignee_role || q.currentAssigneeRole || null,
             approvalChain: chain,
+            approvalChainParseError,
             submittedBy: submittedBy || null,
             submittedAt: q.submitted_at || q.submittedAt || null,
             submitterName,
@@ -315,6 +322,11 @@ function ApprovalQuickCard({
         <UserIcon className="w-3 h-3" />
         <span>From: {quote.submitterName}</span>
       </div>
+      {quote.approvalChainParseError && (
+        <div className="mb-2 text-xs text-amber-400/80 bg-amber-500/10 rounded px-2 py-1">
+          Approval history unavailable
+        </div>
+      )}
       <div className="flex items-center gap-1.5">
         {actions.includes('approve') && (
           <button

@@ -93,6 +93,16 @@ CREATE POLICY "commission_tiers_admin" ON public.commission_tiers FOR ALL TO aut
 CREATE POLICY "residual_curves_admin" ON public.residual_curves FOR ALL TO authenticated USING (EXISTS (SELECT 1 FROM public.users WHERE id::text = auth.uid()::text AND role IN ('system_admin', 'ceo', 'local_leader')));
 CREATE POLICY "templates_admin" ON public.templates FOR ALL TO authenticated USING (EXISTS (SELECT 1 FROM public.users WHERE id::text = auth.uid()::text AND role IN ('system_admin', 'ceo', 'local_leader')));
 
+-- READ-ONLY REFERENCE TABLES (price list series, telematics, container mappings)
+-- These are static pricing reference data — all authenticated users need SELECT, no writes from app layer.
+ALTER TABLE public.price_list_series ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.telematics_packages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.container_mappings ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "price_list_series_select" ON public.price_list_series FOR SELECT TO authenticated USING (true);
+CREATE POLICY "telematics_packages_select" ON public.telematics_packages FOR SELECT TO authenticated USING (true);
+CREATE POLICY "container_mappings_select" ON public.container_mappings FOR SELECT TO authenticated USING (true);
+
 -- REPLICA IDENTITY
 -- Required for Supabase Realtime to populate payload.old on UPDATE events.
 -- Without this, approval notifications cannot detect status transitions and

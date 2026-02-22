@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, type ReactNode } from 'react';
 import { toast } from 'sonner';
-import { useAuthStore } from '../../store/useAuthStore';
+import { useAuthStore, isLoggingOut } from '../../store/useAuthStore';
 import { supabase } from '../../lib/supabase';
 import type { Role, PermissionOverrides } from '../../auth/permissions';
 
@@ -15,7 +15,7 @@ interface AuthContextType {
   } | null;
   isAuthenticated: boolean;
   login: (emailOrUsername: string, password: string) => Promise<boolean>;
-  logout: () => void;
+  logout: (options?: { skipSignOut?: boolean }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -41,7 +41,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (event === 'SIGNED_OUT') {
           // The Supabase session ended (e.g. token expired, signed out in
           // another tab, or an admin revoked the session).
-          useAuthStore.setState({ user: null, isAuthenticated: false });
+          // If this tab initiated the sign-out, _isLoggingOut is true and
+          // cleanup is already running — skip to avoid recursion.
+          if (!isLoggingOut()) {
+            await useAuthStore.getState().logout({ skipSignOut: true });
+          }
           window.location.hash = '#/login';
         } else if (event === 'TOKEN_REFRESHED') {
           // The JWT was refreshed. Re-check is_active and role against the DB

@@ -35,10 +35,10 @@ export function CostFieldGroup({ title, fields, collapsible = false, defaultOpen
               min="0"
               max={field.max ?? 5_000_000}
               step={field.step || 100}
-              value={field.value || ''}
+              value={field.value === 0 ? '0' : (field.value || '')}
               onChange={(e) => {
                 const raw = parseFloat(e.target.value);
-                const safe = Number.isFinite(raw) ? raw : 0;
+                const safe = isNaN(raw) ? 0 : raw;
                 field.onChange(Math.min(Math.max(safe, 0), field.max ?? 5_000_000));
               }}
               placeholder="0"

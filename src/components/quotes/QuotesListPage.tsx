@@ -138,6 +138,17 @@ export default function QuotesListPage() {
 
   // Client-side sorting
   const sortedQuotes = [...quotes].sort((a, b) => {
+    // Numeric sort for quoteRef to avoid "10.0" sorting before "2.0"
+    if (sortField === 'quoteRef') {
+      const aNum = parseFloat(String(a.quoteRef));
+      const bNum = parseFloat(String(b.quoteRef));
+      if (!isNaN(aNum) && !isNaN(bNum)) {
+        return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
+      }
+      // Fallback to string comparison if not valid numbers
+      const cmp = String(a.quoteRef || '').localeCompare(String(b.quoteRef || ''));
+      return sortOrder === 'asc' ? cmp : -cmp;
+    }
     const aVal = a[sortField] || '';
     const bVal = b[sortField] || '';
     const cmp = String(aVal).localeCompare(String(bVal));

@@ -27,7 +27,7 @@ interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   login: (emailOrUsername: string, password: string) => Promise<boolean>;
-  logout: () => void;
+  logout: (options?: { skipSignOut?: boolean }) => Promise<void>;
   checkAuth: () => Promise<boolean>;
   /**
    * Immediately signs out from Supabase and clears local auth state.
@@ -73,6 +73,13 @@ async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Log a failed-login or lockout event to the audit trail.
+ * Uses the nil UUID for userId and entityId because these events occur
+ * BEFORE authentication — there is no authenticated user to reference.
+ * Verified: audit_log.user_id has no FK constraint in the live DB schema,
+ * so the nil UUID is accepted without requiring a matching users row.
+ */
 async function logAuthSecurityEvent(
   action: 'login_failed' | 'lockout',
   identifier: string
@@ -105,6 +112,19 @@ let _autoSaveInProgress = false;
 /** Called by useAutoSave to signal that a DB write is in flight. */
 export function setAutoSaveInProgress(inProgress: boolean): void {
   _autoSaveInProgress = inProgress;
+}
+
+/**
+ * Re-entry guard for logout. Set to true while logout() or forceLogout() is
+ * executing. Used by the cross-tab SIGNED_OUT handler in AuthContext to avoid
+ * recursive signOut loops: if this tab initiated the sign-out, the handler
+ * skips; if another tab signed out, the handler calls logout({ skipSignOut: true }).
+ */
+let _isLoggingOut = false;
+
+/** Exposed for AuthContext cross-tab handler. */
+export function isLoggingOut(): boolean {
+  return _isLoggingOut;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -212,58 +232,82 @@ export const useAuthStore = create<AuthState>()(
         return true;
       },
 
-      logout: async () => {
-        // Release quote lock and presence BEFORE sign-out (session is still valid)
+      logout: async (options?: { skipSignOut?: boolean }) => {
+        if (_isLoggingOut) return; // Re-entry guard
+        _isLoggingOut = true;
+
         try {
-          const currentUser = get().user;
-          if (currentUser) {
-            const { useQuoteStore } = await import('./useQuoteStore');
-            const quoteId = useQuoteStore.getState().id;
-            if (quoteId) {
-              const db = getDb();
-              await Promise.allSettled([
-                db.releaseQuoteLock(quoteId, currentUser.id),
-                db.deletePresence(quoteId, currentUser.id),
-              ]);
+          // Grace period: if an auto-save is actively writing, wait up to 5 s
+          // before signing out so we don't truncate the in-flight DB write.
+          if (_autoSaveInProgress) {
+            logger.info('logout: auto-save in progress — waiting up to 5 s before logout');
+            await new Promise<void>((resolve) => {
+              const deadline = Date.now() + 5000;
+              const poll = setInterval(() => {
+                if (!_autoSaveInProgress || Date.now() >= deadline) {
+                  clearInterval(poll);
+                  resolve();
+                }
+              }, 100);
+            });
+          }
+
+          // Release quote lock and presence BEFORE sign-out (session is still valid)
+          try {
+            const currentUser = get().user;
+            if (currentUser) {
+              const { useQuoteStore } = await import('./useQuoteStore');
+              const quoteId = useQuoteStore.getState().id;
+              if (quoteId) {
+                const db = getDb();
+                await Promise.allSettled([
+                  db.releaseQuoteLock(quoteId, currentUser.id),
+                  db.deletePresence(quoteId, currentUser.id),
+                ]);
+              }
+            }
+          } catch {
+            // Best-effort — proceed with logout regardless
+          }
+
+          // Sign out of Supabase (skip if another tab already signed out)
+          if (!options?.skipSignOut) {
+            try {
+              await supabase.auth.signOut();
+            } catch {
+              // Non-critical
             }
           }
-        } catch {
-          // Best-effort — proceed with logout regardless
-        }
 
-        // Sign out of Supabase
-        try {
-          await supabase.auth.signOut();
-        } catch {
-          // Non-critical
-        }
+          // Reset quote store to prevent stale data in memory
+          try {
+            const { useQuoteStore } = await import('./useQuoteStore');
+            useQuoteStore.getState().resetAll();
+          } catch {
+            // Non-critical
+          }
 
-        // Reset quote store to prevent stale data in memory
-        try {
-          const { useQuoteStore } = await import('./useQuoteStore');
-          useQuoteStore.getState().resetAll();
-        } catch {
-          // Non-critical
-        }
+          // Reset repository singletons so the next user gets fresh adapters
+          try {
+            const { resetRepositories } = await import('../db/repositories');
+            resetRepositories();
+          } catch (err) {
+            logger.warn('Failed to reset repositories on logout:', err);
+          }
 
-        // Reset repository singletons so the next user gets fresh adapters
-        try {
-          const { resetRepositories } = await import('../db/repositories');
-          resetRepositories();
-        } catch (err) {
-          logger.warn('Failed to reset repositories on logout:', err);
-        }
+          // Bug #6 fix: also reset the database adapter singleton
+          try {
+            const { resetDbAdapter } = await import('../db/DatabaseAdapter');
+            resetDbAdapter();
+          } catch (err) {
+            logger.warn('Failed to reset DB adapter on logout:', err);
+          }
 
-        // Bug #6 fix: also reset the database adapter singleton
-        try {
-          const { resetDbAdapter } = await import('../db/DatabaseAdapter');
-          resetDbAdapter();
-        } catch (err) {
-          logger.warn('Failed to reset DB adapter on logout:', err);
+          // Clear auth state
+          set({ user: null, isAuthenticated: false });
+        } finally {
+          _isLoggingOut = false;
         }
-
-        // Clear auth state
-        set({ user: null, isAuthenticated: false });
       },
 
       checkAuth: async () => {
@@ -316,6 +360,9 @@ export const useAuthStore = create<AuthState>()(
       },
 
       forceLogout: async () => {
+        _isLoggingOut = true;
+
+        try {
         // Grace period: if an auto-save is actively writing, wait up to 5 s
         // before signing out so we don't truncate the in-flight DB write.
         if (_autoSaveInProgress) {
@@ -380,6 +427,9 @@ export const useAuthStore = create<AuthState>()(
         }
 
         set({ user: null, isAuthenticated: false });
+        } finally {
+          _isLoggingOut = false;
+        }
       },
 
       refreshUserFromDB: async (): Promise<RefreshResult> => {
@@ -389,11 +439,16 @@ export const useAuthStore = create<AuthState>()(
           return { kicked: false };
         }
 
+        // 10-second timeout to prevent stacking queries on slow networks.
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10_000);
+
         try {
           const { data: dbUser, error: dbError } = await supabase
             .from('users')
             .select('id, role, is_active')
             .eq('id', currentUser.id)
+            .abortSignal(controller.signal)
             .single();
 
           if (dbError || !dbUser) {
@@ -424,6 +479,8 @@ export const useAuthStore = create<AuthState>()(
         } catch (err) {
           logger.warn('refreshUserFromDB: unexpected error:', err);
           return { kicked: false };
+        } finally {
+          clearTimeout(timeout);
         }
       },
     }),
@@ -432,12 +489,14 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({ user: state.user }),
       onRehydrateStorage: () => (state) => {
         if (state) {
-          // Security: do NOT trust the persisted role or mark the session
-          // as authenticated until checkAuth() re-validates against the DB.
-          // This closes the window where a tampered localStorage role could
-          // grant elevated UI access before server verification completes.
+          // Security: clear both user AND isAuthenticated immediately on
+          // rehydrate. The persisted user object may contain a tampered
+          // role from localStorage. We only restore after checkAuth()
+          // re-validates against the server.
+          const hadUser = !!state.user;
+          state.user = null;
           state.isAuthenticated = false;
-          if (state.user) {
+          if (hadUser) {
             state.checkAuth().then((valid) => {
               if (!valid) {
                 useAuthStore.setState({ user: null, isAuthenticated: false });

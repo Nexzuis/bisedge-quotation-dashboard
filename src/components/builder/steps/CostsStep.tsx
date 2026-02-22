@@ -18,6 +18,8 @@ function UnitCostsPanel({ slotIndex }: { slotIndex: SlotIndex }) {
 
   const telematicsPackages = useTelematicsPackages();
 
+  if (!slot) return null;
+
   const handleTelematicsChange = (packageId: string) => {
     if (!packageId) {
       selectTelematicsPackage(slotIndex, '', 0);

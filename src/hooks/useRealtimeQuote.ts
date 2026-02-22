@@ -166,9 +166,12 @@ export function useRealtimeQuote(quoteId: string, enabled: boolean = true) {
         const updatedQuote = await db.loadQuote(quoteId);
 
         if (updatedQuote) {
-          // Bug #3 fix: check if the user has unsaved local changes before overwriting
-          const storeState = useQuoteStore.getState();
-          const hasLocalChanges = storeState.updatedAt.getTime() > (storeState as any)._lastSavedAt.getTime();
+          // Use version comparison to detect unsaved local changes.
+          // If localVersion > remoteVersion the user has edits that haven't
+          // been saved yet; timestamp comparison is unreliable because clock
+          // skew or a just-completed save can trigger a false positive.
+          const localVersion = useQuoteStore.getState().version;
+          const hasLocalChanges = localVersion > remoteVersion;
 
           if (hasLocalChanges) {
             // Show conflict prompt instead of silently overwriting

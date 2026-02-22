@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Download, Save, Send, CheckCircle, Home, Mail, Clock } from 'lucide-react';
+import { Download, Save, Send, CheckCircle, Home, Mail, Clock, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useQuoteStore } from '../../../store/useQuoteStore';
 import { useAutoSaveContext } from '../../../hooks/AutoSaveContext';
@@ -28,6 +28,7 @@ export function ExportStep() {
   const [exported, setExported] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const markAsSentToCustomer = useQuoteStore((s) => s.markAsSentToCustomer);
   const markAsExpired = useQuoteStore((s) => s.markAsExpired);
   const [targetUsers, setTargetUsers] = useState<{ id: string; fullName: string; role: string }[]>([]);
@@ -99,6 +100,11 @@ export function ExportStep() {
   }, [showApprovalModal, targetRoles]);
 
   const handleSubmitForApproval = () => {
+    setShowSubmitConfirm(true);
+  };
+
+  const handleSubmitConfirmProceed = () => {
+    setShowSubmitConfirm(false);
     setShowApprovalModal(true);
   };
 
@@ -134,7 +140,7 @@ export function ExportStep() {
             </div>
             <div>
               <div className="text-sm font-semibold text-surface-200">Save Quote</div>
-              <div className="text-xs text-surface-400">Save to local database</div>
+              <div className="text-xs text-surface-400">Keeps the quote as a draft — not sent for approval</div>
             </div>
           </div>
           <Button
@@ -171,25 +177,25 @@ export function ExportStep() {
         </div>
 
         {/* Submit for Approval */}
-        <div className="glass rounded-xl p-5 border border-surface-700/30">
+        <div className="glass rounded-xl p-5 border border-success/30 bg-success/5">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center">
-              <Send className="w-5 h-5 text-warning" />
+            <div className="w-10 h-10 rounded-lg bg-success/20 flex items-center justify-center">
+              <Send className="w-5 h-5 text-success" />
             </div>
             <div>
-              <div className="text-sm font-semibold text-surface-200">Submit for Approval</div>
-              <div className="text-xs text-surface-400">Send to manager for review</div>
+              <div className="text-sm font-semibold text-surface-100">Submit for Approval</div>
+              <div className="text-xs text-surface-400">Sends the quote to your manager for review and sign-off</div>
             </div>
           </div>
           <Button
-            variant="secondary"
+            variant="primary"
             icon={Send}
             onClick={handleSubmitForApproval}
             disabled={quote.status !== 'draft' && quote.status !== 'changes-requested'}
             loading={isProcessing}
-            className="w-full"
+            className="w-full bg-success hover:bg-success/90 text-white border-success/50"
           >
-            {quote.status === 'pending-approval' ? 'Pending Approval' : 'Submit'}
+            {quote.status === 'pending-approval' ? 'Pending Approval' : 'Submit for Approval'}
           </Button>
         </div>
 
@@ -260,6 +266,42 @@ export function ExportStep() {
           </Button>
         </div>
       </div>
+
+      {/* Submit Confirmation Dialog */}
+      {showSubmitConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="glass rounded-xl p-6 max-w-md w-full mx-4 border border-surface-600/40 shadow-2xl">
+            <div className="flex items-start gap-4 mb-4">
+              <div className="w-10 h-10 rounded-lg bg-success/20 flex items-center justify-center flex-shrink-0">
+                <AlertCircle className="w-5 h-5 text-success" />
+              </div>
+              <div>
+                <div className="text-base font-semibold text-surface-100 mb-1">Submit for Approval?</div>
+                <div className="text-sm text-surface-400">
+                  This will send the quote to your manager for review. Once submitted, you will not be able to edit it until feedback is provided.
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3 justify-end mt-5">
+              <Button
+                variant="ghost"
+                onClick={() => setShowSubmitConfirm(false)}
+                className="px-4"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                icon={Send}
+                onClick={handleSubmitConfirmProceed}
+                className="px-4 bg-success hover:bg-success/90 border-success/50"
+              >
+                Yes, Submit
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Approval Action Modal */}
       <ApprovalActionModal

@@ -2,31 +2,38 @@
 
 Review date: 2026-02-22  
 Reviewer: Codex  
-Scope reviewed: Phase 5 (Waves 1-7)
+Scope reviewed: Phase 6 (Pre-Launch Audit Fixes)
 
 ## Findings
 
-No CRITICAL, IMPORTANT, or MINOR implementation defects found in the current Phase 5 code state.
+No CRITICAL, IMPORTANT, or MINOR defects found in the Phase 6 implementation.
 
-## Validation Performed
+## Verified Implementation
 
-1. Verified key Phase 5 targets in code:
-- Cross-tab recursion-safe logout with `skipSignOut` path (`src/store/useAuthStore.ts`, `src/components/auth/AuthContext.tsx`).
-- Defensive adapter parse logging + shipping-entry normalization (`src/db/SupabaseAdapter.ts`).
-- Stale lock cleanup RPC + null-safe lock freshness check (`supabase/migrations/005_stale_lock_cleanup.sql`).
-- Lock/presence hardening and pre-acquisition stale cleanup (`src/hooks/useQuoteLock.ts`, `src/db/DatabaseAdapter.ts`, `src/db/SupabaseAdapter.ts`).
-- Pricing, approval, realtime, pagination, and parse-failure UX guards present in target files.
+1. Ownership filter added to most-recent quote lookup:
+- `src/db/SupabaseAdapter.ts:444-455`
+- `getMostRecentQuote()` now resolves authenticated user and filters by:
+  - `created_by = user.id` OR
+  - `assigned_to = user.id`
 
-2. Re-ran project gates:
-- `npm run typecheck`: PASS
-- `npm run test`: PASS (`178/178`)
-- `npm run build`: PASS
+2. Shared fallback paths now use the corrected user-scoped query:
+- `src/Dashboard.tsx:51`
+- `src/App.tsx:125`
+
+3. Existing new-quote route guard remains in place and compatible:
+- `src/App.tsx:118-120` excludes `/builder` from auto “load most recent”.
+
+## Validation
+
+1. `npm run typecheck`: PASS
+2. `npm run test`: PASS (`178/178`)
+3. `npm run build`: PASS
 
 ## Verdict
 
-APPROVED for Phase 5.
+APPROVED for Phase 6.
 
 ## Residual Risk (Non-blocking)
 
-- Build reports existing Vite dynamic/static import chunking warnings. These are performance/packaging warnings, not correctness failures, and do not block release.
+- Build still reports existing Vite chunking warnings (dynamic + static imports of same modules). These are packaging/perf warnings, not correctness regressions.
 

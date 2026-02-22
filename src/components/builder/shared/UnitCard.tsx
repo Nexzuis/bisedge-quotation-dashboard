@@ -16,7 +16,7 @@ export function UnitCard({ slotIndex, onEdit, onRemove }: UnitCardProps) {
   const getSlotPricing = useQuoteStore((s) => s.getSlotPricing);
   const pricing = getSlotPricing(slotIndex);
 
-  if (slot.isEmpty) return null;
+  if (!slot || slot.isEmpty) return null;
 
   return (
     <motion.div

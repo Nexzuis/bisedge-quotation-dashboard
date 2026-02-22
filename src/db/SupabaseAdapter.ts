@@ -443,9 +443,13 @@ export class SupabaseDatabaseAdapter implements IDatabaseAdapter {
 
   async getMostRecentQuote(): Promise<QuoteState | null> {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+
       const { data, error } = await supabase
         .from('quotes')
         .select('*')
+        .or(`created_by.eq.${user.id},assigned_to.eq.${user.id}`)
         .order('updated_at', { ascending: false })
         .limit(1)
         .single();

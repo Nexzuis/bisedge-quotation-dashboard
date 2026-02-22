@@ -13,6 +13,8 @@ function UnitCommercialPanel({ slotIndex }: { slotIndex: SlotIndex }) {
   const setCommercialField = useQuoteStore((s) => s.setCommercialField);
   const updateSlot = useQuoteStore((s) => s.updateSlot);
 
+  if (!slot) return null;
+
   const numField = (field: Parameters<typeof setCommercialField>[1], label: string, step: number = 1, min: number = 0, max?: number) => (
     <div>
       <label className="block text-xs text-surface-400 mb-1">{label}</label>

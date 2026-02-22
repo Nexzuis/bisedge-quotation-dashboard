@@ -8,6 +8,7 @@ import { Badge } from '../ui/Badge';
 import { NotificationBell } from '../notifications/NotificationBell';
 import { ROLE_HIERARCHY, type Role } from '../../auth/permissions';
 import { useApprovalCount } from '../../hooks/useApprovalCount';
+import { toast } from 'sonner';
 
 export function CrmTopBar() {
   const navigate = useNavigate();
@@ -33,9 +34,16 @@ export function CrmTopBar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (confirm('Are you sure you want to logout?')) {
-      logout();
+      try {
+        await logout();
+      } catch {
+        toast.error('Logout failed', {
+          description: 'Your session could not be closed cleanly. Redirecting to login.',
+          duration: 4000,
+        });
+      }
       navigate('/login');
     }
   };

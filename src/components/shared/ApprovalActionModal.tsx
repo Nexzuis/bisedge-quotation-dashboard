@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   X,
   Send,
@@ -137,6 +137,10 @@ export function ApprovalActionModal({
   const [selectedRole, setSelectedRole] = useState<string>('');
   const [selectedUserId, setSelectedUserId] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
+  // Synchronous guard against double-clicks. Set to true before any async
+  // work so that a second click is blocked even before React re-renders with
+  // the updated isProcessing prop.
+  const isSubmittingRef = useRef(false);
 
   // Reset all local state whenever the modal opens or closes
   useEffect(() => {
@@ -144,6 +148,7 @@ export function ApprovalActionModal({
       setSelectedRole('');
       setSelectedUserId('');
       setNotes('');
+      isSubmittingRef.current = false;
     }
   }, [isOpen]);
 
@@ -185,7 +190,11 @@ export function ApprovalActionModal({
   const colors = resolveColorTokens(color);
 
   const handleConfirm = () => {
+    // Synchronous double-click guard — checked before any async work and
+    // before React can re-render with the updated isProcessing prop.
+    if (isSubmittingRef.current) return;
     if (isConfirmDisabled) return;
+    isSubmittingRef.current = true;
 
     onConfirm({
       ...(selectedUserId

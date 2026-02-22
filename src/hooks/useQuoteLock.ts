@@ -61,12 +61,30 @@ export function useQuoteLock(
     // always uses the ID that was active when the lock was acquired
     const capturedUserId = user.id;
 
+    // Best-effort beforeunload handler: release lock if tab/browser closes abruptly.
+    // Mirrors the pattern in usePresence.ts:87-96.
+    const handleBeforeUnload = () => {
+      try {
+        getDb().releaseQuoteLock(quoteId, capturedUserId).catch(() => {});
+      } catch {
+        // Best-effort — swallow errors during unload
+      }
+    };
+
     const acquireQuoteLock = async () => {
       // Best-effort stale presence cleanup (fallback when pg_cron is unavailable).
       // Runs as the service_role via RPC — if it fails (e.g. RPC not deployed yet)
       // we swallow the error and proceed; the lock flow is unaffected.
       try {
         await getDb().cleanupStalePresence();
+      } catch {
+        // Expected on free-tier where the RPC may not exist yet
+      }
+
+      // Best-effort stale lock cleanup before acquiring — clears ghost locks from
+      // crashed sessions (locks older than 1 hour). Mirrors cleanupStalePresence pattern.
+      try {
+        await getDb().cleanupStaleLocks();
       } catch {
         // Expected on free-tier where the RPC may not exist yet
       }
@@ -140,8 +158,15 @@ export function useQuoteLock(
 
     acquireQuoteLock();
 
+    // Register beforeunload listener after lock acquisition starts so we always
+    // attempt release even if the tab closes before acquireQuoteLock resolves.
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
     // Release lock on unmount
     return () => {
+      // Remove beforeunload listener
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+
       // Bug #5 fix: use capturedUserId instead of user.id from closure
       if (autoRelease && hasLockRef.current) {
         releaseLock(capturedUserId);

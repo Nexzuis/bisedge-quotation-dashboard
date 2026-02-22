@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronUp, ChevronDown, Edit, Trash2, Download } from 'lucide-react';
 
 interface Column<T> {
@@ -59,7 +59,16 @@ export function DataTable<T extends Record<string, any>>({
   });
 
   // Paginate data
-  const totalPages = Math.ceil(sortedData.length / itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(sortedData.length / itemsPerPage));
+
+  // Clamp currentPage when a filter change reduces the number of total pages.
+  // Without this, the table renders an empty page with no indication why.
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(Math.min(currentPage, totalPages));
+    }
+  }, [totalPages, currentPage]);
+
   const paginatedData = sortedData.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage

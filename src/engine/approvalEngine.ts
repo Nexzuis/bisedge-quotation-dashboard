@@ -1,6 +1,7 @@
 import type { QuoteState, ApprovalChainEntry } from '../types/quote';
 import type { Role, PermissionOverrides } from '../auth/permissions';
 import { ROLE_HIERARCHY, ROLE_DISPLAY_NAMES, ALL_ROLES, canApproveQuotes } from '../auth/permissions';
+import { logger } from '../utils/logger';
 
 // ─── Target resolution ──────────────────────────────────────────────────────
 
@@ -11,9 +12,14 @@ export function getValidTargets(role: Role): Role[] {
 
 export function getDefaultTarget(role: Role): Role | null {
   const level = ROLE_HIERARCHY[role];
+  // Find roles at a higher level than the current role
+  const validRoles = ALL_ROLES.filter(r => ROLE_HIERARCHY[r] > level);
+  if (validRoles.length === 0) {
+    logger.info(`getDefaultTarget: role "${role}" is the highest role — no valid escalation targets`);
+    return null;
+  }
   // Find the next level up (smallest level greater than current)
-  const nextLevel = Math.min(...ALL_ROLES.filter(r => ROLE_HIERARCHY[r] > level).map(r => ROLE_HIERARCHY[r]));
-  if (!isFinite(nextLevel)) return null;
+  const nextLevel = Math.min(...validRoles.map(r => ROLE_HIERARCHY[r]));
   const targets = ALL_ROLES.filter(r => ROLE_HIERARCHY[r] === nextLevel);
   return targets[0] || null;
 }

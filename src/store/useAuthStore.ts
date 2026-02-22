@@ -79,10 +79,10 @@ async function logAuthSecurityEvent(
 ): Promise<void> {
   try {
     await getDb().logAudit({
-      userId: 'system',
+      userId: '00000000-0000-0000-0000-000000000000',
       action,
       entityType: 'user',
-      entityId: identifier,
+      entityId: '00000000-0000-0000-0000-000000000000',
       changes: { identifier },
     });
   } catch {

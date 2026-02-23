@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Send,
@@ -218,7 +219,9 @@ export function ApprovalActionModal({
 
   if (!isOpen) return null;
 
-  return (
+  // Portal to document.body so the modal escapes any CSS transform context
+  // (e.g., Framer Motion animated parents) that would break position: fixed.
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center px-4"
       onKeyDown={handleKeyDown}
@@ -235,7 +238,8 @@ export function ApprovalActionModal({
       {/* Modal panel */}
       <div
         className="
-          relative z-10 w-full max-w-md
+          relative z-10 w-full max-w-md max-h-[90vh]
+          flex flex-col overflow-hidden
           bg-surface-800/95 backdrop-blur-xl
           border border-surface-600/50
           rounded-2xl shadow-2xl
@@ -274,7 +278,7 @@ export function ApprovalActionModal({
         </div>
 
         {/* ── Body ── */}
-        <div className="px-6 py-5 space-y-5">
+        <div className="px-6 py-5 space-y-5 overflow-y-auto">
           {/* Target picker section */}
           {showTargetPicker && (
             <div className="space-y-3">
@@ -417,7 +421,7 @@ export function ApprovalActionModal({
         </div>
 
         {/* ── Footer ── */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-surface-700/60">
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-surface-700/60 shrink-0">
           {/* Cancel */}
           <button
             onClick={onClose}
@@ -468,7 +472,8 @@ export function ApprovalActionModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
